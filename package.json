@@ -1,0 +1,12 @@
+{
+  "name": "blueprep-sat-bank",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "download": "node scripts/download-questions.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

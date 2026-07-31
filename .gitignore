@@ -1,0 +1,10 @@
+node_modules/
+data/progress.json
+data/questions.checkpoint.json
+hackathon/
+.DS_Store
+Thumbs.db
+*.log
+.opencode/
+.env
+.env.*
