@@ -82,7 +82,9 @@
     .tag.hard { background: #fae8e7; color: #a13732; }
     .preview-btn { border: 1px solid #aab4be; border-radius: 4px; background: #fff; padding: 6px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .preview-btn:hover { border-color: var(--blue); color: var(--blue); }
-    .empty-list { padding: 70px 25px; text-align: center; color: var(--muted); }
+    .empty-list { padding: 70px 25px; text-align: center; color: var(--muted); grid-column: 1 / -1; }
+    .empty-list code { background: #eef1f4; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .empty-list .primary { margin-top: 14px; }
     .selection-bar { position: sticky; bottom: 18px; margin: 0 16px 16px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 15px; background: var(--navy); color: #fff; border-radius: 5px; box-shadow: 0 8px 25px rgba(17,35,62,.25); }
     .selection-bar span { font-size: 13px; }
     .primary { border: 0; border-radius: 4px; padding: 10px 18px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; }
@@ -353,7 +355,7 @@
         search: $("#search").value.trim(),
         excludeActive: $("#excludeActive").checked,
         excludeCorrect: $("#excludeCorrect").checked,
-        newOnly: $("#newQuestions").checked,
+        newOnly: $("#newQuestions").checked && (state.meta?.newCount > 0),
         offset,
         limit
       });
@@ -377,7 +379,7 @@
       $("#practiceCount").textContent = `${(state.meta?.completedCount || 0).toLocaleString()} questions`;
       $("#selectedCount").textContent = state.selected.size;
       const rows = state.items.map(question => `<div class="q-row"><input type="checkbox" data-id="${question.id}" aria-label="Select ${escapeHtml(question.skill)}" ${state.selected.has(question.id) ? "checked" : ""}><div><h3>${escapeHtml(question.skill)}</h3><div class="tags"><span class="tag">${question.subject === "Reading and Writing" ? "R&W" : "Math"}</span><span class="tag">${escapeHtml(question.domain)}</span><span class="tag ${question.difficulty.toLowerCase()}">${question.difficulty}</span>${!$("#excludeActive").checked && question.active ? '<span class="tag hard">Official test</span>' : ""}${!$("#excludeCorrect").checked && question.correct ? '<span class="tag easy">Correct</span>' : question.completed ? '<span class="tag">Attempted</span>' : ""}</div></div><button class="preview-btn" type="button" data-preview="${question.id}">${question.completed ? "Review" : "Open"}</button></div>`).join("");
-      $("#questionList").innerHTML = rows || ($("#newQuestions").checked ? '<div class="empty-list"><strong>No new questions available.</strong><br>Run <code>npm run detect</code> to fetch newly released College Board questions, or use the main bank.</div>' : '<div class="empty-list"><strong>No questions match these filters.</strong><br>Try broadening your selection.</div>');
+      $("#questionList").innerHTML = rows || ($("#newQuestions").checked ? `<div class="empty-list"><strong>No new questions match these filters.</strong><br>Try broadening your selection, or browse the full main bank.<br><button class="primary" id="useMainBank">Browse main bank</button></div>` : '<div class="empty-list"><strong>No questions match these filters.</strong><br>Try broadening your selection.</div>');
       $("#questionList").insertAdjacentHTML("beforeend", state.items.length < state.total ? '<button class="load-more" id="loadMore">Load 50 more</button>' : "");
       $$('[data-id]').forEach(input => input.onchange = () => {
         const question = state.items.find(item => item.id === input.dataset.id);
@@ -385,6 +387,7 @@
         $("#selectedCount").textContent = state.selected.size;
       });
       if ($("#loadMore")) $("#loadMore").onclick = () => loadQuestions(true);
+      if ($("#useMainBank")) $("#useMainBank").onclick = () => { $("#newQuestions").checked = false; loadQuestions(); };
     }
 
     async function getDetail(summary) {

@@ -61,20 +61,27 @@ function normalize(summary, detail, subject, liveItems) {
 }
 
 async function main() {
-  if (!fs.existsSync(INDEX_FILE)) {
-    console.error("Cannot detect new questions: index file missing.");
-    console.error("Run `npm run download` first to establish a baseline.");
-    process.exit(1);
-  }
   fs.mkdirSync(DATA_DIR, { recursive: true });
 
   let baselineIds = new Set();
-  try {
-    const index = JSON.parse(fs.readFileSync(INDEX_FILE, "utf8"));
-    baselineIds = new Set(index);
-  } catch {
-    console.error("Could not read index file. Run `npm run download` first.");
-    process.exit(1);
+  if (fs.existsSync(INDEX_FILE)) {
+    try {
+      const index = JSON.parse(fs.readFileSync(INDEX_FILE, "utf8"));
+      baselineIds = new Set(index);
+    } catch {
+      baselineIds = new Set();
+    }
+  }
+  if (!baselineIds.size) {
+    const mainBank = path.join(DATA_DIR, "questions.json");
+    if (!fs.existsSync(mainBank)) {
+      console.error("Cannot detect new questions: no baseline and no main bank found.");
+      console.error("Run `npm run download` first.");
+      process.exit(1);
+    }
+    const existing = JSON.parse(fs.readFileSync(mainBank, "utf8"));
+    baselineIds = new Set(existing.map(item => item.id));
+    console.log(`No baseline index found — using the existing main bank (${baselineIds.size} questions) as the baseline.`);
   }
 
   console.log("Fetching College Board lookup and SAT inventories...");
