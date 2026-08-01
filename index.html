@@ -550,13 +550,18 @@
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
 
-    function revealAnswer() {
+    async function revealAnswer() {
       const question = state.session[state.index];
       state.revealed.add(question.id);
       stopQuestionTimer();
       recordQuestionTime(question);
       const answer = state.answers[question.id] || (state.sessionMode === "review" ? (state.submittedAnswers[question.id] !== undefined ? state.submittedAnswers[question.id] : state.submittedAnswer) : "");
       const correct = answer ? isCorrect(question, answer) : false;
+      if (state.sessionMode === "review") {
+        try {
+          await fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: question.id, answer, correct, time: state.questionTimes[question.id] || 0 }) });
+        } catch {}
+      }
       $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>`;
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
