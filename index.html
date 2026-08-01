@@ -189,6 +189,17 @@
     .score-ring span { color: var(--muted); font-size: 11px; }
     .review-list { margin: 22px 0; text-align: left; }
     .review-item { padding: 12px; display: flex; justify-content: space-between; border-top: 1px solid var(--line); font-size: 13px; }
+    .mistake-summary { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+    .mistake-list { max-height: 58vh; overflow-y: auto; text-align: left; }
+    .mistake-item { width: 100%; display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 12px 10px; border: 1px solid var(--line); border-bottom: 0; background: var(--paper); text-align: left; cursor: pointer; font: inherit; color: inherit; }
+    .mistake-item:first-of-type { border-radius: 10px 10px 0 0; }
+    .mistake-item:last-of-type { border-radius: 0 0 10px 10px; border-bottom: 1px solid var(--line); }
+    .mistake-item:hover { background: var(--cyan-pale); }
+    .mistake-num { width: 24px; height: 24px; border-radius: 50%; background: var(--canvas); color: var(--muted); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+    .mistake-skill { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .mistake-skill small { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mistake-answer { font-size: 12px; max-width: 160px; text-align: right; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mistake-answer.incorrect { color: var(--red); }
     .correct { color: #1e7548; font-weight: 700; }
     .incorrect { color: var(--red); font-weight: 700; }
     .confirm-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 22px; }
@@ -237,7 +248,7 @@
   <section id="library">
     <header class="site-head">
       <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
-      <div class="head-actions"><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
+      <div class="head-actions"><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
     </header>
     <main class="library-shell">
       <div class="hero">
@@ -250,6 +261,7 @@
           <div class="builder-field"><label for="testSubject">Section</label><select id="testSubject"><option value="Reading and Writing">Reading and Writing</option><option value="Math">Math</option></select></div>
           <div class="builder-field"><label for="testSize">Length</label><select id="testSize"><option value="quarter">Quarter module</option><option value="half">Half module</option><option value="module" selected>Full module</option><option value="section">Full section</option></select></div>
           <div class="builder-field"><label for="testDifficulty">Difficulty calibration</label><select id="testDifficulty"><option value="balanced">Balanced SAT-style</option><option value="higher">Higher-difficulty route</option><option value="easy">Easy-focused</option><option value="hard">All hard</option></select></div>
+          <div class="builder-field"><label for="testSource">Source pool</label><select id="testSource"><option value="bank">Main question bank</option><option value="new">New questions only</option></select></div>
           <button class="primary" id="generateTest">Generate timed practice</button>
           <p class="builder-note" id="testBlueprint">Full module: 27 questions in 32 minutes. Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.</p>
         </section>
@@ -260,7 +272,7 @@
             <div class="filter-group"><label for="domainFilter">Domain</label><select id="domainFilter"><option value="all">All domains</option></select></div>
             <div class="filter-group"><label for="skillFilter">Skill</label><select id="skillFilter"><option value="all">All skills</option></select></div>
             <div class="filter-group"><label>Difficulty</label><label class="check"><input type="checkbox" name="difficulty" value="Easy" checked> Easy</label><label class="check"><input type="checkbox" name="difficulty" value="Medium" checked> Medium</label><label class="check"><input type="checkbox" name="difficulty" value="Hard" checked> Hard</label></div>
-            <div class="filter-group"><label>Practice options</label><label class="check"><input id="shuffleQuestions" type="checkbox"> Shuffle questions</label><label class="check"><input id="excludeActive" type="checkbox" checked> Exclude questions in official tests</label><label class="check"><input id="excludeCorrect" type="checkbox" checked> Exclude correctly answered</label></div>
+            <div class="filter-group"><label>Practice options</label><label class="check"><input id="shuffleQuestions" type="checkbox"> Shuffle questions</label><label class="check"><input id="excludeActive" type="checkbox" checked> Exclude questions in official tests</label><label class="check"><input id="newQuestions" type="checkbox"> New questions only</label><label class="check"><input id="excludeCorrect" type="checkbox" checked> Exclude correctly answered</label></div>
           </div>
         </aside>
         <section class="question-panel">
@@ -295,6 +307,7 @@
   <div class="modal-bg hidden" id="referenceModal" role="dialog" aria-modal="true" aria-labelledby="referenceTitle"><div class="modal reference-modal"><div class="modal-h"><h2 id="referenceTitle">SAT Reference Sheet</h2><button class="close" data-close aria-label="Close reference sheet">&times;</button></div><div class="modal-b reference"><p class="reference-note">This is the complete official reference sheet available during the SAT Math section.</p><img class="reference-sheet-img" src="https://satquestionbank.org/images/reference_sheet.webp" alt="Official SAT reference sheet with area, circumference, volume, right triangle, angle, and circle formulas"></div></div></div>
   <div class="modal-bg hidden" id="submitModal" role="dialog" aria-modal="true" aria-labelledby="submitTitle"><div class="modal"><div class="modal-h"><h2 id="submitTitle">Submit Your Answers?</h2><button class="close" data-close aria-label="Close submission review">&times;</button></div><div class="modal-b"><p>Once you submit, you cannot return to this practice set.</p><div class="confirm-summary"><div class="confirm-stat"><strong id="unansweredCount">0</strong><span>Unanswered</span></div><div class="confirm-stat"><strong id="markedCount">0</strong><span>Marked for Review</span></div></div><div class="confirm-actions"><button class="nav-btn secondary" id="returnQuestions">Return to Questions</button><button class="nav-btn" id="confirmSubmit">Submit Answers</button></div></div></div></div>
   <div class="modal-bg hidden" id="storedReviewModal" role="dialog" aria-modal="true" aria-labelledby="storedReviewTitle"><div class="modal"><div class="modal-h"><h2 id="storedReviewTitle">Question Review</h2><button class="close" data-close aria-label="Close question review">&times;</button></div><div class="modal-b"><p class="passage-label" id="storedReviewSkill"></p><div class="passage-text" id="storedReviewStimulus"></div><div class="prompt" id="storedReviewStem"></div><div id="storedReviewAnswers"></div><div class="rationale" id="storedReviewRationale"></div></div></div></div>
+  <div class="modal-bg hidden" id="mistakeModal" role="dialog" aria-modal="true" aria-labelledby="mistakeTitle"><div class="modal mistake-modal"><div class="modal-h"><h2 id="mistakeTitle">Mistake Log</h2><button class="close" data-close aria-label="Close mistake log">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="mistakeSummary"></p><div class="mistake-list" id="mistakeList"></div></div></div></div>
   <div class="modal-bg hidden" id="resultsModal" role="dialog" aria-modal="true" aria-labelledby="resultsTitle"><div class="modal"><div class="modal-h"><h2 id="resultsTitle">Practice Complete</h2><button class="close" id="resultClose" aria-label="Close results">&times;</button></div><div class="modal-b results"><p class="eyebrow">Your result</p><div class="score-ring"><div><strong id="score">0/0</strong><span>correct</span></div></div><p id="scoreMessage"></p><div class="review-list" id="reviewList"></div><button class="primary" id="backLibrary">Return to question bank</button></div></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
@@ -340,6 +353,7 @@
         search: $("#search").value.trim(),
         excludeActive: $("#excludeActive").checked,
         excludeCorrect: $("#excludeCorrect").checked,
+        newOnly: $("#newQuestions").checked,
         offset,
         limit
       });
@@ -363,7 +377,7 @@
       $("#practiceCount").textContent = `${(state.meta?.completedCount || 0).toLocaleString()} questions`;
       $("#selectedCount").textContent = state.selected.size;
       const rows = state.items.map(question => `<div class="q-row"><input type="checkbox" data-id="${question.id}" aria-label="Select ${escapeHtml(question.skill)}" ${state.selected.has(question.id) ? "checked" : ""}><div><h3>${escapeHtml(question.skill)}</h3><div class="tags"><span class="tag">${question.subject === "Reading and Writing" ? "R&W" : "Math"}</span><span class="tag">${escapeHtml(question.domain)}</span><span class="tag ${question.difficulty.toLowerCase()}">${question.difficulty}</span>${!$("#excludeActive").checked && question.active ? '<span class="tag hard">Official test</span>' : ""}${!$("#excludeCorrect").checked && question.correct ? '<span class="tag easy">Correct</span>' : question.completed ? '<span class="tag">Attempted</span>' : ""}</div></div><button class="preview-btn" type="button" data-preview="${question.id}">${question.completed ? "Review" : "Open"}</button></div>`).join("");
-      $("#questionList").innerHTML = rows || '<div class="empty-list"><strong>No questions match these filters.</strong><br>Try broadening your selection.</div>';
+      $("#questionList").innerHTML = rows || ($("#newQuestions").checked ? '<div class="empty-list"><strong>No new questions available.</strong><br>Run <code>npm run detect</code> to fetch newly released College Board questions, or use the main bank.</div>' : '<div class="empty-list"><strong>No questions match these filters.</strong><br>Try broadening your selection.</div>');
       $("#questionList").insertAdjacentHTML("beforeend", state.items.length < state.total ? '<button class="load-more" id="loadMore">Load 50 more</button>' : "");
       $$('[data-id]').forEach(input => input.onchange = () => {
         const question = state.items.find(item => item.id === input.dataset.id);
@@ -462,7 +476,7 @@
       const option = question.options[answer.charCodeAt(0) - 65];
       return option ? `${answer}. ${clean(option.content)}` : escapeHtml(answer);
     }
-    async function openStoredReview(summary) {
+    async function openStoredReview(summary, submittedAnswer) {
       $("#storedReviewSkill").textContent = "Loading saved attempt...";
       $("#storedReviewStimulus").innerHTML = "";
       $("#storedReviewStem").innerHTML = "";
@@ -471,15 +485,33 @@
       openModal("storedReviewModal");
       try {
         const question = await getDetail(summary);
+        const answer = submittedAnswer ?? summary.submittedAnswer;
         $("#storedReviewSkill").textContent = `${question.subject} · ${question.domain} · ${question.skill}`;
         $("#storedReviewStimulus").innerHTML = clean(question.stimulus);
         $("#storedReviewStem").innerHTML = clean(question.stem);
-        $("#storedReviewAnswers").innerHTML = `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, summary.submittedAnswer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p>`;
+        $("#storedReviewAnswers").innerHTML = `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p>`;
         $("#storedReviewRationale").innerHTML = `<strong>Explanation</strong><br>${clean(question.rationale)}`;
         if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#storedReviewModal")]).catch(() => {});
       } catch (error) {
         $("#storedReviewSkill").textContent = "Review unavailable";
         $("#storedReviewAnswers").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function openMistakeLog() {
+      openModal("mistakeModal");
+      $("#mistakeSummary").textContent = "Loading mistake log...";
+      $("#mistakeList").innerHTML = '<div class="empty-list">Loading...</div>';
+      try {
+        const response = await fetch("/api/mistakes");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load mistake log.");
+        $("#mistakeSummary").textContent = data.total ? `${data.total} question${data.total === 1 ? "" : "s"} answered incorrectly on this device. Click one to review the full question.` : "No mistakes recorded yet. Any question you answer incorrectly will appear here so you can revisit it.";
+        $("#mistakeList").innerHTML = data.items.length ? data.items.map((item, index) => `<button class="mistake-item" data-mistake="${escapeHtml(item.question.id)}"><span class="mistake-num">${index + 1}</span><span class="mistake-skill"><strong>${escapeHtml(item.question.skill)}</strong><small>${escapeHtml(item.question.subject)} · ${escapeHtml(item.question.domain)} · ${item.question.difficulty}</small></span><span class="mistake-answer ${item.answer ? "incorrect" : ""}">${item.answer ? `Your answer: ${escapeHtml(item.answer)}` : "Unanswered"}</span></button>`).join("") : '<div class="empty-list"><strong>You have no mistakes yet — keep it up!</strong></div>';
+        $$('[data-mistake]').forEach(button => button.onclick = () => { const question = data.items.find(item => item.question.id === button.dataset.mistake); openStoredReview(question.question, question.answer); });
+      } catch (error) {
+        $("#mistakeSummary").textContent = "Could not load mistake log.";
+        $("#mistakeList").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
       }
     }
 
@@ -511,24 +543,33 @@
     $("#skillFilter").onchange = () => loadQuestions();
     $("#search").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadQuestions(), 250); };
     ["#excludeActive", "#excludeCorrect"].forEach(selector => $(selector).onchange = () => loadQuestions());
+    $("#newQuestions").onchange = () => loadQuestions();
     $$('input[name="difficulty"]').forEach(input => input.onchange = () => loadQuestions());
-    $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#domainFilter").value = "all"; $("#skillFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
+    $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#domainFilter").value = "all"; $("#skillFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
     $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession(state.items.slice(0, 10));
+    $("#mistakeBtn").onclick = openMistakeLog;
     const TEST_BLUEPRINTS = {
       "Reading and Writing": { quarter: [7, 8], half: [14, 16], module: [27, 32], section: [54, 64] },
       Math: { quarter: [6, 9], half: [11, 17.5], module: [22, 35], section: [44, 70] }
     };
     function updateTestBlueprint() {
-      const subject = $("#testSubject").value, size = $("#testSize").value;
+      const subject = $("#testSubject").value, size = $("#testSize").value, source = $("#testSource")?.value || "bank";
       const [count, minutes] = TEST_BLUEPRINTS[subject][size];
-      $("#testBlueprint").textContent = `${size === "module" ? "Full module" : size === "section" ? "Full section" : size === "half" ? "Half module" : "Quarter module"}: ${count} questions in ${minutes} minutes. Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.`;
+      const sourceLabel = source === "new" ? " (new questions only)" : "";
+      const note = source === "new" && !(state.meta?.newCount > 0) ? " No new questions downloaded yet. Run <code>npm run detect</code> to fetch newly released questions." : " Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.";
+      $("#testBlueprint").innerHTML = `${size === "module" ? "Full module" : size === "section" ? "Full section" : size === "half" ? "Half module" : "Quarter module"}${sourceLabel}: ${count} questions in ${minutes} minutes.${note}`;
     }
-    $("#testSubject").onchange = updateTestBlueprint; $("#testSize").onchange = updateTestBlueprint;
+    $("#testSubject").onchange = updateTestBlueprint; $("#testSize").onchange = updateTestBlueprint; $("#testSource")?.addEventListener("change", updateTestBlueprint);
     $("#generateTest").onclick = async () => {
       const button = $("#generateTest");
+      const source = $("#testSource")?.value || "bank";
+      if (source === "new" && !(state.meta?.newCount > 0)) {
+        $("#testBlueprint").innerHTML = "No new questions downloaded yet. Run <code>npm run detect</code> to fetch newly released College Board questions, or switch the source pool to the main question bank.";
+        return;
+      }
       button.disabled = true; button.textContent = "Building...";
       try {
-        const response = await fetch("/api/practice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject: $("#testSubject").value, size: $("#testSize").value, profile: $("#testDifficulty").value }) });
+        const response = await fetch("/api/practice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject: $("#testSubject").value, size: $("#testSize").value, profile: $("#testDifficulty").value, source }) });
         const generated = await response.json();
         if (!response.ok) throw new Error(generated.error || "Unable to generate practice.");
         await startSession(generated.questions, { seconds: generated.seconds });
@@ -607,6 +648,7 @@
       try {
         state.meta = await fetch("/api/meta").then(response => { if (!response.ok) throw new Error("Backend unavailable"); return response.json(); });
         updateTaxonomy(); await loadQuestions();
+        updateTestBlueprint();
       } catch (error) {
         $("#questionList").innerHTML = `<div class="empty-list"><strong>Backend unavailable.</strong><br>Run <code>npm start</code> and open <code>http://localhost:4173</code>.</div>`;
       }

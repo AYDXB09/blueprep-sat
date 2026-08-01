@@ -1,7 +1,12 @@
 node_modules/
 data/progress.json
 data/questions.checkpoint.json
+data/new_questions.json
+data/question_index.json
+data/new_questions.checkpoint.json
 hackathon/
+*.out
+*.err
 .DS_Store
 Thumbs.db
 *.log

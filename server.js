@@ -5,6 +5,7 @@ const { URL } = require("node:url");
 
 const ROOT = __dirname;
 const DATA_FILE = path.join(ROOT, "data", "questions.json");
+const NEW_FILE = path.join(ROOT, "data", "new_questions.json");
 const PROGRESS_FILE = path.join(ROOT, "data", "progress.json");
 const PORT = Number(process.env.PORT || 4173);
 
@@ -14,10 +15,17 @@ if (!fs.existsSync(DATA_FILE)) {
 }
 
 const questions = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+const newQuestions = fs.existsSync(NEW_FILE) ? JSON.parse(fs.readFileSync(NEW_FILE, "utf8")) : [];
 questions.forEach(question => {
   question.skill = question.skill.trim();
   if (question.skill.toLowerCase() === "cross-text connections") question.skill = "Cross-Text Connections";
 });
+newQuestions.forEach(question => {
+  question.skill = question.skill.trim();
+  if (question.skill.toLowerCase() === "cross-text connections") question.skill = "Cross-Text Connections";
+  question.isNew = true;
+});
+
 let progress = {};
 try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE, "utf8")); } catch { progress = {}; }
 
@@ -43,11 +51,26 @@ function shuffle(items) {
   return copy;
 }
 
-function buildPracticeSet(subject, size, profile) {
+const RW_SKILL_ORDER = [
+  "Words in Context",
+  "Text Structure and Purpose",
+  "Cross-Text Connections",
+  "Central Ideas and Details",
+  "Command of Evidence",
+  "Inferences",
+  "Boundaries",
+  "Form, Structure, and Sense",
+  "Transitions",
+  "Rhetorical Synthesis"
+];
+const DIFFICULTY_RANK = { Easy: 0, Medium: 1, Hard: 2 };
+
+function buildPracticeSet(subject, size, profile, source) {
   const setup = PRACTICE_SIZES[size]?.[subject];
   if (!setup) throw new Error("Choose Reading and Writing or Math and a valid practice length.");
-  const available = questions.filter(question => question.subject === subject && !question.active && !progress[question.id]);
-  if (available.length < setup.count) throw new Error(`Only ${available.length} unattempted, non-active questions remain for this section.`);
+  const pool = source === "new" ? newQuestions : questions;
+  const available = pool.filter(question => question.subject === subject && !question.active && !progress[question.id]);
+  if (available.length < setup.count) throw new Error(`Only ${available.length} unattempted questions remain for this section and source.`);
   const picked = [];
   const used = new Set();
   const weights = DIFFICULTY_PROFILES[profile] || DIFFICULTY_PROFILES.balanced;
@@ -63,10 +86,50 @@ function buildPracticeSet(subject, size, profile) {
       picked.push(question); used.add(question.id);
     }
   }
+  if (subject === "Math" && !picked.some(question => question.type === "spr")) {
+    const spr = shuffle(available.filter(item => item.type === "spr" && !used.has(item.id)))[0];
+    if (spr) { const replaced = picked.pop(); used.delete(replaced.id); picked.push(spr); used.add(spr.id); }
+  }
   if (picked.length < setup.count) {
     for (const question of shuffle(available.filter(item => !used.has(item.id))).slice(0, setup.count - picked.length)) picked.push(question);
   }
-  return { questions: shuffle(picked).map(questionSummary), seconds: Math.round(setup.seconds), count: setup.count, profile };
+  const ordered = orderLikeSatSection(picked, subject);
+  return { questions: ordered.map(questionSummary), seconds: Math.round(setup.seconds), count: setup.count, profile, source };
+}
+
+function orderLikeSatSection(questions, subject) {
+  if (subject === "Reading and Writing") {
+    const order = new Map(RW_SKILL_ORDER.map((skill, index) => [skill, index]));
+    return [...questions].sort((a, b) => {
+      const aOrder = order.has(a.skill) ? order.get(a.skill) : RW_SKILL_ORDER.length;
+      const bOrder = order.has(b.skill) ? order.get(b.skill) : RW_SKILL_ORDER.length;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (DIFFICULTY_RANK[a.difficulty] ?? 2) - (DIFFICULTY_RANK[b.difficulty] ?? 2);
+    });
+  }
+  const bands = { Easy: [], Medium: [], Hard: [] };
+  questions.forEach(question => (bands[question.difficulty] || bands.Hard).push(question));
+  const ordered = [];
+  for (const difficulty of ["Easy", "Medium", "Hard"]) {
+    ordered.push(...interleaveSpr(bands[difficulty]));
+  }
+  return ordered;
+}
+
+function interleaveSpr(band) {
+  if (!band.length) return [];
+  const mcq = shuffle(band.filter(item => item.type !== "spr"));
+  const spr = shuffle(band.filter(item => item.type === "spr"));
+  if (!spr.length) return mcq;
+  const result = [];
+  const stride = Math.max(1, Math.round((mcq.length + spr.length) / (spr.length + 1)));
+  let mcqIndex = 0, sprIndex = 0;
+  for (let i = 0; i < mcq.length + spr.length; i++) {
+    if ((i % stride === stride - 1 || mcqIndex >= mcq.length) && sprIndex < spr.length) result.push(spr[sprIndex++]);
+    else if (mcqIndex < mcq.length) result.push(mcq[mcqIndex++]);
+    else result.push(spr[sprIndex++]);
+  }
+  return result;
 }
 
 function json(response, status, value) {
@@ -114,6 +177,7 @@ function handleApi(request, response, url) {
     }
     return json(response, 200, {
       count: questions.length,
+      newCount: newQuestions.length,
       activeCount: questions.filter(question => question.active).length,
       completedCount: Object.keys(progress).length,
       correctCount: Object.values(progress).filter(item => item.correct).length,
@@ -127,11 +191,13 @@ function handleApi(request, response, url) {
     const skill = url.searchParams.get("skill") || "all";
     const difficulties = new Set((url.searchParams.get("difficulty") || "Easy,Medium,Hard").split(","));
     const search = (url.searchParams.get("search") || "").toLowerCase().trim();
-    const excludeActive = url.searchParams.get("excludeActive") === "true";
     const excludeCorrect = url.searchParams.get("excludeCorrect") === "true";
+    const newOnly = url.searchParams.get("newOnly") === "true";
+    const excludeActive = url.searchParams.get("excludeActive") === "true" || newOnly;
+    const sourcePool = newOnly ? newQuestions : questions;
     const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 50)));
-    const filtered = questions.filter(question =>
+    const filtered = sourcePool.filter(question =>
       (subject === "all" || question.subject === subject) &&
       (domain === "all" || question.domain === domain) &&
       (skill === "all" || question.skill === skill) &&
@@ -143,19 +209,35 @@ function handleApi(request, response, url) {
     return json(response, 200, { total: filtered.length, offset, items: filtered.slice(offset, offset + limit).map(questionSummary) });
   }
 
-  if (request.method === "POST" && url.pathname === "/api/practice") {
-    return readBody(request).then(body => json(response, 200, buildPracticeSet(body.subject, body.size, body.profile))).catch(error => json(response, 400, { error: error.message }));
+  if (url.pathname === "/api/practice") {
+    if (request.method !== "POST") return json(response, 405, { error: "Use POST to build a practice set" });
+    return readBody(request).then(body => {
+      if (body.source === "new" && !newQuestions.length) throw new Error("No new questions downloaded yet. Run `npm run detect` to fetch newly released College Board questions, or use the main question bank.");
+      return json(response, 200, buildPracticeSet(body.subject, body.size, body.profile, body.source === "new" ? "new" : "bank"));
+    }).catch(error => json(response, 400, { error: error.message }));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/mistakes") {
+    const mistakes = [];
+    for (const [id, record] of Object.entries(progress)) {
+      if (record.correct) continue;
+      const question = questions.find(item => item.id === id) || newQuestions.find(item => item.id === id);
+      if (!question) continue;
+      mistakes.push({ question, answer: record.answer || "", updatedAt: record.updatedAt || 0 });
+    }
+    mistakes.sort((a, b) => b.updatedAt - a.updatedAt);
+    return json(response, 200, { total: mistakes.length, items: mistakes });
   }
 
   const match = url.pathname.match(/^\/api\/questions\/([0-9a-f-]+)$/i);
   if (request.method === "GET" && match) {
-    const question = questions.find(item => item.id === match[1]);
+    const question = questions.find(item => item.id === match[1]) || newQuestions.find(item => item.id === match[1]);
     return question ? json(response, 200, question) : json(response, 404, { error: "Question not found" });
   }
 
   if (request.method === "POST" && url.pathname === "/api/progress") {
     return readBody(request).then(body => {
-      if (!questions.some(question => question.id === body.id)) return json(response, 404, { error: "Question not found" });
+      if (!questions.some(question => question.id === body.id) && !newQuestions.some(question => question.id === body.id)) return json(response, 404, { error: "Question not found" });
       progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), updatedAt: Date.now() };
       fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
       return json(response, 200, { ok: true });
@@ -167,6 +249,9 @@ function handleApi(request, response, url) {
 
 function serveStatic(response, pathname) {
   const requested = pathname === "/" ? "index.html" : pathname.slice(1);
+  if (requested !== "index.html") {
+    response.writeHead(404); response.end("Not found"); return;
+  }
   const file = path.resolve(ROOT, requested);
   if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     response.writeHead(404); response.end("Not found"); return;

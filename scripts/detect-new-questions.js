@@ -3,10 +3,10 @@ const path = require("node:path");
 
 const API = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank";
 const DATA_DIR = path.join(__dirname, "..", "data");
-const OUTPUT = path.join(DATA_DIR, "questions.json");
+const OUTPUT = path.join(DATA_DIR, "new_questions.json");
+const CHECKPOINT = path.join(DATA_DIR, "new_questions.checkpoint.json");
 const INDEX_FILE = path.join(DATA_DIR, "question_index.json");
-const CHECKPOINT = path.join(DATA_DIR, "questions.checkpoint.json");
-const CONCURRENCY = 12;
+const CONCURRENCY = 8;
 
 const sections = [
   { subject: "Reading and Writing", test: 1, domain: "INI,CAS,EOI,SEC" },
@@ -26,7 +26,7 @@ async function request(url, body, attempts = 5) {
       return response.json();
     } catch (error) {
       lastError = error;
-      await new Promise(resolve => setTimeout(resolve, attempt * 750));
+      await new Promise(resolve => setTimeout(resolve, attempt * 1000));
     }
   }
   throw lastError;
@@ -61,13 +61,29 @@ function normalize(summary, detail, subject, liveItems) {
 }
 
 async function main() {
+  if (!fs.existsSync(INDEX_FILE)) {
+    console.error("Cannot detect new questions: index file missing.");
+    console.error("Run `npm run download` first to establish a baseline.");
+    process.exit(1);
+  }
   fs.mkdirSync(DATA_DIR, { recursive: true });
+
+  let baselineIds = new Set();
+  try {
+    const index = JSON.parse(fs.readFileSync(INDEX_FILE, "utf8"));
+    baselineIds = new Set(index);
+  } catch {
+    console.error("Could not read index file. Run `npm run download` first.");
+    process.exit(1);
+  }
+
   console.log("Fetching College Board lookup and SAT inventories...");
   const lookup = await request(`${API}/lookup`);
   const liveBySubject = {
     "Reading and Writing": new Set(lookup.readingLiveItems || []),
     Math: new Set(lookup.mathLiveItems || [])
   };
+
   const summaries = [];
   for (const section of sections) {
     const items = await request(`${API}/digital/get-questions`, {
@@ -75,11 +91,16 @@ async function main() {
       test: section.test,
       domain: section.domain
     });
-    console.log(`${section.subject}: ${items.length} summaries`);
+    console.log(`${section.subject}: ${items.length} summaries fetched`);
     items.forEach(item => {
-      if (item.external_id) summaries.push({ ...item, _subject: section.subject });
-      else console.warn(`Skipping ${item.questionId || "unknown"}: no external_id`);
+      if (item.external_id && !baselineIds.has(item.external_id)) summaries.push({ ...item, _subject: section.subject });
     });
+  }
+
+  console.log(`Found ${summaries.length} new question IDs not in baseline.`);
+  if (summaries.length === 0) {
+    console.log("No new questions detected. Nothing to write.");
+    return;
   }
 
   let saved = {};
@@ -87,7 +108,9 @@ async function main() {
     try { saved = JSON.parse(fs.readFileSync(CHECKPOINT, "utf8")); } catch { saved = {}; }
   }
   let completed = Object.keys(saved).length;
-  console.log(`Downloading details (${completed}/${summaries.length} already cached)...`);
+  const newCount = summaries.length - completed;
+  console.log(`Downloading details (${completed} already cached, ${newCount} remaining)...`);
+
   let cursor = 0;
   const workers = Array.from({ length: CONCURRENCY }, async () => {
     while (cursor < summaries.length) {
@@ -95,24 +118,29 @@ async function main() {
       if (saved[summary.external_id]) continue;
       try {
         const detail = await request(`${API}/digital/get-question`, { external_id: summary.external_id });
-        saved[summary.external_id] = normalize(summary, detail, summary._subject, liveBySubject[summary._subject]);
+        const normalized = normalize(summary, detail, summary._subject, liveBySubject[summary._subject]);
+        if (normalized.active) {
+          console.log(`  Skipping ${normalized.questionId}: appears in official practice tests`);
+          continue;
+        }
+        saved[summary.external_id] = normalized;
         completed++;
       } catch (error) {
         console.warn(`Skipping ${summary.external_id}: ${error.message}`);
         continue;
       }
-      if (completed % 50 === 0) {
+      if (completed % 25 === 0) {
         fs.writeFileSync(CHECKPOINT, JSON.stringify(saved));
-        console.log(`${completed}/${summaries.length}`);
+        console.log(`  ${completed}/${summaries.length}`);
       }
     }
   });
   await Promise.all(workers);
+
   const ordered = summaries.map(summary => saved[summary.external_id]).filter(Boolean);
   fs.writeFileSync(OUTPUT, JSON.stringify(ordered));
-  fs.writeFileSync(INDEX_FILE, JSON.stringify(ordered.map(item => item.id)));
   if (fs.existsSync(CHECKPOINT)) fs.unlinkSync(CHECKPOINT);
-  console.log(`Saved ${ordered.length} questions to ${OUTPUT}`);
+  console.log(`Saved ${ordered.length} new questions to ${OUTPUT}`);
 }
 
 main().catch(error => {
