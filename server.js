@@ -238,10 +238,31 @@ function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/progress") {
     return readBody(request).then(body => {
       if (!questions.some(question => question.id === body.id) && !newQuestions.some(question => question.id === body.id)) return json(response, 404, { error: "Question not found" });
-      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), updatedAt: Date.now() };
+      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), time: Math.max(0, Number(body.time) || 0), updatedAt: Date.now() };
       fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
       return json(response, 200, { ok: true });
     }).catch(error => json(response, 400, { error: error.message }));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/analytics") {
+    const items = [];
+    for (const [id, record] of Object.entries(progress)) {
+      const question = questions.find(item => item.id === id) || newQuestions.find(item => item.id === id);
+      if (!question) continue;
+      items.push({
+        id,
+        subject: question.subject,
+        domain: question.domain,
+        skill: question.skill,
+        difficulty: question.difficulty,
+        correct: Boolean(record.correct),
+        answer: record.answer || "",
+        time: record.time || 0,
+        updatedAt: record.updatedAt || 0
+      });
+    }
+    items.sort((a, b) => b.updatedAt - a.updatedAt);
+    return json(response, 200, { total: items.length, items });
   }
 
   return json(response, 404, { error: "Not found" });

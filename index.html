@@ -90,7 +90,7 @@
     .primary { border: 0; border-radius: 4px; padding: 10px 18px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; }
     .selection-bar .primary { background: #fff; color: var(--navy); }
     .primary:hover { filter: brightness(.94); }
-    .test-builder { display: grid; grid-template-columns: 1.2fr .9fr .9fr auto; gap: 16px; align-items: end; margin-bottom: 18px; padding: 20px 22px; border: 1px solid #b9d4e3; background: linear-gradient(110deg, #f3fbfd, #fff); box-shadow: 0 3px 16px rgba(24,43,73,.055); }
+    .test-builder { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; margin-bottom: 18px; padding: 20px 22px; border: 1px solid #b9d4e3; background: linear-gradient(110deg, #f3fbfd, #fff); box-shadow: 0 3px 16px rgba(24,43,73,.055); }
     .test-builder h2 { margin: 0 0 5px; color: var(--navy); font-size: 19px; }
     .test-builder p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
     .builder-field label { display: block; margin-bottom: 7px; color: #394556; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -172,8 +172,8 @@
     .window-actions button { width: 30px; height: 28px; border: 0; background: transparent; color: #fff; font-size: 18px; cursor: pointer; }
     .window-actions button:hover { background: rgba(255,255,255,.14); }
     .resize-handle { position: absolute; right: 0; bottom: 0; z-index: 5; width: 28px; height: 28px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 45%, #6d7c8c 46%, #6d7c8c 52%, transparent 53%, transparent 62%, #6d7c8c 63%, #6d7c8c 69%, transparent 70%); }
-    .safe-note { margin: 0; color: #2a6548; font-size: 12px; font-weight: 600; }
-    .safe-note b { color: #17633e; }
+    .protect-note { margin: 0; color: #2a6548; font-size: 12px; font-weight: 600; }
+    .protect-note b { color: #17633e; }
     .set-copy { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
     .spr-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
     .spr-input { width: min(280px, 100%); height: 48px; border: 2px solid #697581; border-radius: 4px; padding: 0 13px; font-size: 18px; }
@@ -209,6 +209,45 @@
     .confirm-stat strong { display: block; color: var(--navy); font-size: 28px; }
     .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
     .validation { min-height: 18px; margin-top: 7px; color: var(--red); font-size: 12px; font-weight: 600; }
+    .feedback-zone { margin-top: 16px; }
+    .feedback { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfc; }
+    .feedback.correct { border-color: #9ed8b7; background: #f0faf3; }
+    .feedback.incorrect { border-color: #e5b6b2; background: #fdf3f2; }
+    .feedback .review-answer { margin: 6px 0; }
+    .feedback .rationale { margin-top: 10px; }
+    .feedback-btn { margin-top: 14px; border: 0; border-radius: 4px; padding: 10px 18px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; }
+    .feedback-btn:hover { filter: brightness(.94); }
+    .answer-wrap { position: relative; }
+    .answer.struck { opacity: .45; text-decoration: line-through; }
+    .answer.struck .choice-letter { opacity: .5; }
+    .answer:disabled { cursor: default; opacity: .8; }
+    .answer-wrap .answer { padding-right: 46px; }
+    .strike-btn { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); width: 28px; height: 28px; border: 1px solid #9aa4ad; border-radius: 50%; background: #fff; color: #6a7683; font-size: 13px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+    .strike-btn:hover, .strike-btn.active { border-color: var(--red); color: var(--red); background: #fdf3f2; }
+    .strike-btn.active { background: var(--red); border-color: var(--red); color: #fff; }
+    .strike-btn:disabled { opacity: .4; cursor: default; }
+    .submit-hint { margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .analytics-modal { width: min(780px, 96vw); }
+    .analytics-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
+    .analytics-stat { border: 1px solid var(--line); padding: 14px; text-align: center; }
+    .analytics-stat strong { display: block; color: var(--navy); font-size: 24px; }
+    .analytics-stat span { color: var(--muted); font-size: 12px; }
+    .analytics-table { width: 100%; border-collapse: collapse; margin: 8px 0 22px; font-size: 13px; }
+    .analytics-table th, .analytics-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+    .analytics-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    .analytics-table td.num, .analytics-table th.num { text-align: right; }
+    .analytics-section h3 { margin: 20px 0 6px; color: var(--navy); font-size: 15px; }
+    .analytics-empty { padding: 34px; text-align: center; color: var(--muted); }
+    .exit-btn { border: 1px solid rgba(255,255,255,.5); border-radius: 3px; padding: 6px 11px; background: transparent; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .exit-btn:hover { background: rgba(255,255,255,.13); }
+    .mistake-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .mistake-toolbar select { width: auto; height: 38px; }
+    .mistake-toolbar .primary { margin-left: auto; }
+    .mistake-domains { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .mistake-domain-chip { border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); }
+    .mistake-domain-chip:hover { border-color: var(--blue); color: var(--blue); }
+    .mistake-domain-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .mistake-domain-chip small { font-weight: 500; opacity: .8; margin-left: 3px; }
 
     @media (max-width: 780px) {
       .site-head { height: 62px; padding: 0 16px; }
@@ -250,7 +289,7 @@
   <section id="library">
     <header class="site-head">
       <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
-      <div class="head-actions"><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
+      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
     </header>
     <main class="library-shell">
       <div class="hero">
@@ -264,11 +303,13 @@
           <div class="builder-field"><label for="testSize">Length</label><select id="testSize"><option value="quarter">Quarter module</option><option value="half">Half module</option><option value="module" selected>Full module</option><option value="section">Full section</option></select></div>
           <div class="builder-field"><label for="testDifficulty">Difficulty calibration</label><select id="testDifficulty"><option value="balanced">Balanced SAT-style</option><option value="higher">Higher-difficulty route</option><option value="easy">Easy-focused</option><option value="hard">All hard</option></select></div>
           <div class="builder-field"><label for="testSource">Source pool</label><select id="testSource"><option value="bank">Main question bank</option><option value="new">New questions only</option></select></div>
+          <div class="builder-field"><label for="testFeedback">Answer feedback</label><select id="testFeedback"><option value="end">Review at the end</option><option value="instant">Instant feedback</option></select></div>
+          <div class="builder-field"><label for="testTimerMode">Timer</label><select id="testTimerMode"><option value="section">Section countdown</option><option value="question">Per-question timer</option><option value="none">No timer</option></select></div>
           <button class="primary" id="generateTest">Generate timed practice</button>
           <p class="builder-note" id="testBlueprint">Full module: 27 questions in 32 minutes. Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.</p>
         </section>
         <aside class="filters">
-          <div class="filter-top"><div><h2>Build a safe practice set</h2><p class="safe-note"><b>Protection on:</b> official-test questions and your correct answers are excluded by default.</p></div><button class="text-btn" id="clearFilters">Reset filters</button></div>
+          <div class="filter-top"><div><h2>Build a practice set</h2><p class="protect-note"><b>Protection on:</b> official-test questions and your correct answers are excluded by default.</p></div><button class="text-btn" id="clearFilters">Reset filters</button></div>
           <div class="filter-groups">
             <div class="filter-group"><label for="subjectFilter">Section</label><select id="subjectFilter"><option value="all">All sections</option><option value="Reading and Writing">Reading and Writing</option><option value="Math">Math</option></select></div>
             <div class="filter-group"><label for="domainFilter">Domain</label><select id="domainFilter"><option value="all">All domains</option></select></div>
@@ -278,7 +319,7 @@
           </div>
         </aside>
         <section class="question-panel">
-          <div class="question-head"><div class="head-line"><div><h2>Safe question pool</h2><p class="set-copy">Questions stay undisclosed here so you can choose by skill without preview spoilers.</p></div><span class="count" id="resultCount"></span></div><div class="search-wrap"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><label class="sr-only" for="search">Search</label><input class="search-input" id="search" placeholder="Filter by skill, domain, or question ID..."></div></div>
+          <div class="question-head"><div class="head-line"><div><h2>Question pool</h2><p class="set-copy">Questions stay undisclosed here so you can choose by skill without preview spoilers.</p></div><span class="count" id="resultCount"></span></div><div class="search-wrap"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><label class="sr-only" for="search">Search</label><input class="search-input" id="search" placeholder="Filter by skill, domain, or question ID..."></div></div>
           <div class="question-list" id="questionList"></div>
           <div class="selection-bar"><span><strong id="selectedCount">0</strong> selected</span><button class="primary" id="startBtn">Start practice</button></div>
         </section>
@@ -294,12 +335,13 @@
         <button class="tool-btn" id="highlightBtn"><svg class="icon" viewBox="0 0 24 24"><path d="m9 11 6 6"></path><path d="m14 6 4 4-9 9H5v-4z"></path></svg>Highlights</button>
         <button class="tool-btn" data-modal="referenceModal"><svg class="icon" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>Reference</button>
         <button class="tool-btn" id="calculatorBtn" data-modal="calcModal"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="2"></rect><path d="M7 6h10v4H7zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"></path></svg>Calculator</button>
+        <button class="exit-btn" id="exitBtn">Exit</button>
       </div>
     </header>
     <div class="timer-strip"><span class="timer" id="timer">25:00</span><button class="hide-time" id="hideTimer">Hide</button></div>
     <main class="exam-main">
       <article class="passage"><div class="passage-inner"><p class="passage-label" id="passageLabel">Read the text and answer the question.</p><div class="passage-text" id="passageText"></div></div></article>
-      <section class="question-side"><div class="question-inner"><div class="question-meta"><span class="number-badge" id="questionNumber">1</span><button class="mark-review" id="markBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Mark for Review</button></div><p class="prompt" id="prompt"></p><div class="answers" id="answers"></div></div></section>
+      <section class="question-side"><div class="question-inner"><div class="question-meta"><span class="number-badge" id="questionNumber">1</span><button class="mark-review" id="markBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Mark for Review</button></div><p class="prompt" id="prompt"></p><div class="answers" id="answers"></div><div class="feedback-zone" id="feedbackZone"></div></div></section>
     </main>
     <footer class="exam-foot"><span class="student">AK &nbsp; SAT Practice</span><button class="q-menu-btn" id="questionMenu">Question <span id="footNumber">1</span> of <span id="footTotal">1</span> ▾</button><div class="nav-btns"><button class="nav-btn secondary" id="backBtn">Back</button><button class="nav-btn" id="nextBtn">Next</button></div></footer>
   </section>
@@ -308,15 +350,15 @@
   <div class="modal-bg hidden" id="calcModal" role="dialog" aria-modal="false" aria-labelledby="calcTitle"><div class="modal desmos-modal"><div class="modal-h desmos-handle"><h2 id="calcTitle">Desmos Graphing Calculator</h2><div class="window-actions"><button id="maximizeCalculator" aria-label="Maximize calculator" aria-pressed="false">□</button><button class="close" data-close aria-label="Close calculator">&times;</button></div></div><iframe class="desmos-frame" title="Desmos SAT calculator" src="https://www.desmos.com/testing/cb-digital-sat/graphing"></iframe><div class="resize-handle" aria-hidden="true"></div></div></div>
   <div class="modal-bg hidden" id="referenceModal" role="dialog" aria-modal="true" aria-labelledby="referenceTitle"><div class="modal reference-modal"><div class="modal-h"><h2 id="referenceTitle">SAT Reference Sheet</h2><button class="close" data-close aria-label="Close reference sheet">&times;</button></div><div class="modal-b reference"><p class="reference-note">This is the complete official reference sheet available during the SAT Math section.</p><img class="reference-sheet-img" src="https://satquestionbank.org/images/reference_sheet.webp" alt="Official SAT reference sheet with area, circumference, volume, right triangle, angle, and circle formulas"></div></div></div>
   <div class="modal-bg hidden" id="submitModal" role="dialog" aria-modal="true" aria-labelledby="submitTitle"><div class="modal"><div class="modal-h"><h2 id="submitTitle">Submit Your Answers?</h2><button class="close" data-close aria-label="Close submission review">&times;</button></div><div class="modal-b"><p>Once you submit, you cannot return to this practice set.</p><div class="confirm-summary"><div class="confirm-stat"><strong id="unansweredCount">0</strong><span>Unanswered</span></div><div class="confirm-stat"><strong id="markedCount">0</strong><span>Marked for Review</span></div></div><div class="confirm-actions"><button class="nav-btn secondary" id="returnQuestions">Return to Questions</button><button class="nav-btn" id="confirmSubmit">Submit Answers</button></div></div></div></div>
-  <div class="modal-bg hidden" id="storedReviewModal" role="dialog" aria-modal="true" aria-labelledby="storedReviewTitle"><div class="modal"><div class="modal-h"><h2 id="storedReviewTitle">Question Review</h2><button class="close" data-close aria-label="Close question review">&times;</button></div><div class="modal-b"><p class="passage-label" id="storedReviewSkill"></p><div class="passage-text" id="storedReviewStimulus"></div><div class="prompt" id="storedReviewStem"></div><div id="storedReviewAnswers"></div><div class="rationale" id="storedReviewRationale"></div></div></div></div>
-  <div class="modal-bg hidden" id="mistakeModal" role="dialog" aria-modal="true" aria-labelledby="mistakeTitle"><div class="modal mistake-modal"><div class="modal-h"><h2 id="mistakeTitle">Mistake Log</h2><button class="close" data-close aria-label="Close mistake log">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="mistakeSummary"></p><div class="mistake-list" id="mistakeList"></div></div></div></div>
+  <div class="modal-bg hidden" id="mistakeModal" role="dialog" aria-modal="true" aria-labelledby="mistakeTitle"><div class="modal mistake-modal"><div class="modal-h"><h2 id="mistakeTitle">Mistake Log</h2><button class="close" data-close aria-label="Close mistake log">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="mistakeSummary"></p><div class="mistake-toolbar"><select id="mistakeDifficulty" aria-label="Filter by difficulty"><option value="all">All difficulties</option><option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option></select><select id="mistakeTimerMode" aria-label="Review timer mode"><option value="none">No timer</option><option value="question" selected>Per-question timer</option></select><button class="primary" id="runMistakes">Run mistakes</button></div><div class="mistake-domains" id="mistakeDomains"></div><div class="mistake-list" id="mistakeList"></div></div></div></div>
   <div class="modal-bg hidden" id="resultsModal" role="dialog" aria-modal="true" aria-labelledby="resultsTitle"><div class="modal"><div class="modal-h"><h2 id="resultsTitle">Practice Complete</h2><button class="close" id="resultClose" aria-label="Close results">&times;</button></div><div class="modal-b results"><p class="eyebrow">Your result</p><div class="score-ring"><div><strong id="score">0/0</strong><span>correct</span></div></div><p id="scoreMessage"></p><div class="review-list" id="reviewList"></div><button class="primary" id="backLibrary">Return to question bank</button></div></div></div>
+  <div class="modal-bg hidden" id="analyticsModal" role="dialog" aria-modal="true" aria-labelledby="analyticsTitle"><div class="modal analytics-modal"><div class="modal-h"><h2 id="analyticsTitle">Performance Analytics</h2><button class="close" data-close aria-label="Close analytics">&times;</button></div><div class="modal-b"><p class="analytics-empty" id="analyticsBody">Loading analytics...</p></div></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
   <script>
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
-    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0 };
+    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "" };
     const clean = html => window.DOMPurify ? DOMPurify.sanitize(html || "", { USE_PROFILES: { html: true, svg: true, mathMl: true }, ADD_ATTR: ["target", "xlink:href", "alttext"] }) : String(html || "");
     const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
     const spokenText = html => {
@@ -404,48 +446,125 @@
       if (!questions.length) questions = state.items.slice(0, Math.min(10, state.items.length));
       if (!questions.length) return;
       if ($("#shuffleQuestions").checked) questions = [...questions].sort(() => Math.random() - .5);
-      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false;
+      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      if (options.timerMode === "question" || options.timerMode === "none") state.seconds = 0;
+      state.timerMode = options.timerMode || "section";
       $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
       startTimer(); await renderQuestion(); window.scrollTo(0, 0);
     }
 
     function startTimer() {
-      clearInterval(state.timerId); updateTimer();
-      state.timerId = setInterval(() => { if (state.seconds > 0) { state.seconds--; updateTimer(); } else finishSession(); }, 1000);
+      clearInterval(state.timerId); state.questionStart = Date.now(); updateTimer();
+      state.timerId = setInterval(() => {
+        if (state.timerMode === "section") {
+          if (state.seconds > 0) { state.seconds--; updateTimer(); } else finishSession();
+        } else {
+          updateTimer();
+        }
+      }, 1000);
     }
-    function updateTimer() { const minutes = Math.floor(state.seconds / 60), seconds = state.seconds % 60; $("#timer").textContent = `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`; }
+    function updateTimer() {
+      if (state.timerMode === "none") { $("#timer").textContent = "Untimed"; return; }
+      if (state.timerMode === "question") {
+        const elapsed = state.frozenElapsed != null ? state.frozenElapsed : Math.floor((Date.now() - state.questionStart) / 1000);
+        const minutes = Math.floor(elapsed / 60), seconds = elapsed % 60; $("#timer").textContent = `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`; return;
+      }
+      const minutes = Math.floor(state.seconds / 60), seconds = state.seconds % 60; $("#timer").textContent = `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
+    }
 
     async function renderQuestion() {
       const summary = state.session[state.index];
       $("#answers").innerHTML = '<div class="empty-list">Loading question...</div>';
+      $("#feedbackZone").innerHTML = "";
       const question = await getDetail(summary);
       if (state.session[state.index].id !== question.id) return;
       const isMath = question.subject === "Math";
       $("#moduleName").textContent = question.subject; $("#passageLabel").textContent = isMath ? "" : "Read the text and answer the question.";
-      $("#passageText").innerHTML = clean(question.stimulus || (isMath ? question.stem : ""));
+      $("#passageText").innerHTML = state.highlights[question.id] || clean(question.stimulus || (isMath ? question.stem : ""));
       $("#prompt").innerHTML = clean(isMath && !question.stimulus ? "" : question.stem);
       $("#questionNumber").textContent = state.index + 1; $("#footNumber").textContent = state.index + 1; $("#footTotal").textContent = state.session.length;
       $("#markBtn").classList.toggle("marked", state.marked.has(question.id));
+      $("#markBtn").style.display = state.sessionMode === "review" ? "none" : "";
       $("#highlightBtn").disabled = isMath; $("#highlightBtn").classList.toggle("active", !isMath && state.highlighting);
       $("#calculatorBtn").disabled = !isMath; $$('[data-modal="referenceModal"]').forEach(button => button.disabled = !isMath);
       if (question.type === "spr") {
-        $("#answers").innerHTML = `<label class="spr-label" for="sprAnswer">Enter your answer</label><input class="spr-input" id="sprAnswer" inputmode="decimal" autocomplete="off" maxlength="6" pattern="-?[0-9]*(\\.[0-9]*)?|[0-9]+/[0-9]+" aria-describedby="sprHelp sprValidation" value="${escapeHtml(state.answers[question.id] || "")}"><p class="spr-help" id="sprHelp">Enter a fraction or decimal using no more than 5 characters, excluding a leading minus sign.</p><p class="validation" id="sprValidation" role="alert"></p>`;
+        const locked = state.revealed.has(question.id);
+        $("#answers").innerHTML = `<label class="spr-label" for="sprAnswer">Enter your answer</label><input class="spr-input" id="sprAnswer" inputmode="decimal" autocomplete="off" maxlength="6" pattern="-?[0-9]*(\\.[0-9]*)?|[0-9]+/[0-9]+" aria-describedby="sprHelp sprValidation" value="${escapeHtml(state.answers[question.id] || "")}" ${locked ? "disabled" : ""}><p class="spr-help" id="sprHelp">Enter a fraction or decimal using no more than 5 characters, excluding a leading minus sign.</p><p class="validation" id="sprValidation" role="alert"></p>`;
         $("#sprAnswer").oninput = event => {
           let value = event.target.value.replace(/[^0-9.\/-]/g, "");
           if ((value.match(/\//g) || []).length > 1 || (value.match(/\./g) || []).length > 1 || (value.includes("/") && value.includes(".")) || value.slice(1).includes("-")) value = value.slice(0, -1);
           event.target.value = value;
           state.answers[question.id] = value.trim();
           $("#sprValidation").textContent = value && !/^-?(?:\d+(?:\.\d*)?|\.\d+|\d+\/\d+)$/.test(value) ? "Enter a valid integer, decimal, or fraction." : "";
+          const submit = $("#submitAnswerBtn"); if (submit) submit.disabled = !value.trim();
         };
       } else {
-        $("#answers").innerHTML = question.options.map((option, index) => { const letter = String.fromCharCode(65 + index); return `<button class="answer ${state.answers[question.id] === letter ? "selected" : ""}" data-answer="${letter}" aria-label="${escapeHtml(`${letter}. ${spokenText(option.content)}`)}"><span class="choice-letter">${letter}</span><span class="answer-text">${clean(option.content)}</span></button>`; }).join("");
-        $$('[data-answer]').forEach(button => button.onclick = () => { state.answers[question.id] = button.dataset.answer; renderQuestion(); });
+        const locked = state.revealed.has(question.id);
+        $("#answers").innerHTML = question.options.map((option, index) => {
+          const letter = String.fromCharCode(65 + index);
+          const struck = state.struck.has(`${question.id}:${letter}`);
+          return `<div class="answer-wrap"><button class="answer ${state.answers[question.id] === letter ? "selected" : ""} ${struck ? "struck" : ""}" data-answer="${letter}" aria-label="${escapeHtml(`${letter}. ${spokenText(option.content)}`)}" ${locked ? "disabled" : ""}><span class="choice-letter">${letter}</span><span class="answer-text">${clean(option.content)}</span></button><button class="strike-btn" data-strike="${letter}" aria-label="Strike out choice ${letter}" ${locked ? "disabled" : ""}>✕</button></div>`;
+        }).join("");
+        $$('[data-answer]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id)) return; state.answers[question.id] = button.dataset.answer; renderQuestion(); });
+        $$('[data-strike]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id)) return; const letter = button.dataset.strike; const key = `${question.id}:${letter}`; state.struck.has(key) ? state.struck.delete(key) : state.struck.add(key); renderQuestion(); });
       }
-      $("#backBtn").disabled = state.index === 0; $("#nextBtn").textContent = state.index === state.session.length - 1 ? "Finish" : "Next";
+      $("#backBtn").disabled = state.index === 0;
+      renderActionZone(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#passageText"), $("#prompt"), $("#answers")]).catch(() => {});
     }
 
-    async function navigate(delta) { state.index += delta; await renderQuestion(); document.querySelector(".exam-main").scrollTop = 0; window.scrollTo(0, 0); }
+    function renderActionZone(question) {
+      const zone = $("#feedbackZone");
+      zone.innerHTML = "";
+      $("#nextBtn").textContent = state.index === state.session.length - 1 ? (state.sessionMode === "review" ? "Done" : "Finish") : "Next";
+      if (state.sessionMode === "review") {
+        if (state.revealed.has(question.id)) { revealAnswer(); return; }
+        zone.innerHTML = `<button class="feedback-btn" id="revealAnswerBtn">Reveal answer</button>`;
+        $("#revealAnswerBtn").onclick = revealAnswer;
+        return;
+      }
+      if (!state.instantFeedback || state.revealed.has(question.id)) return;
+      const answered = Boolean(state.answers[question.id]);
+      zone.innerHTML = `<button class="feedback-btn" id="submitAnswerBtn" ${answered ? "" : "disabled"}>Submit answer</button><p class="submit-hint">${question.type === "spr" ? "Enter your answer, then submit to check it." : "Select an answer choice, then submit to check it. Click the ✕ on a choice to strike it out."}</p>`;
+      $("#submitAnswerBtn").onclick = () => showInstantFeedback(question);
+    }
+
+    function stopQuestionTimer() {
+      if (state.frozenElapsed == null) state.frozenElapsed = Math.floor((Date.now() - state.questionStart) / 1000);
+    }
+    function recordQuestionTime(question) {
+      const elapsed = state.frozenElapsed != null ? state.frozenElapsed : Math.floor((Date.now() - state.questionStart) / 1000);
+      if (!question) return;
+      state.questionTimes[question.id] = (state.questionTimes[question.id] || 0) + Math.max(0, elapsed);
+    }
+
+    function showInstantFeedback(question) {
+      if (state.revealed.has(question.id)) return;
+      state.revealed.add(question.id);
+      stopQuestionTimer();
+      recordQuestionTime(question);
+      const answer = state.answers[question.id];
+      const correct = isCorrect(question, answer);
+      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}"><p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>`;
+      $$('[data-answer], [data-strike], #sprAnswer').forEach(element => element.disabled = true);
+      if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
+    }
+
+    function revealAnswer() {
+      const question = state.session[state.index];
+      state.revealed.add(question.id);
+      stopQuestionTimer();
+      recordQuestionTime(question);
+      const answer = state.answers[question.id] || (state.sessionMode === "review" ? (state.submittedAnswers[question.id] !== undefined ? state.submittedAnswers[question.id] : state.submittedAnswer) : "");
+      const correct = answer ? isCorrect(question, answer) : false;
+      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>`;
+      if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
+    }
+
+    async function navigate(delta) {
+      const leaving = state.session[state.index];
+      if (leaving) recordQuestionTime(leaving);
+      state.index += delta; state.questionStart = Date.now(); state.frozenElapsed = null; await renderQuestion(); document.querySelector(".exam-main").scrollTop = 0; window.scrollTo(0, 0); }
     function renderGrid() { $("#qGrid").innerHTML = state.session.map((question, index) => `<button class="q-cell ${state.answers[question.id] !== undefined && state.answers[question.id] !== "" ? "answered" : ""} ${state.marked.has(question.id) ? "marked" : ""} ${state.index === index ? "current" : ""}" data-jump="${index}">${index + 1}</button>`).join(""); $$('[data-jump]').forEach(button => button.onclick = async () => { state.index = +button.dataset.jump; closeModals(); await renderQuestion(); }); }
     let modalTrigger = null;
     function openModal(id) {
@@ -479,26 +598,31 @@
       const option = question.options[answer.charCodeAt(0) - 65];
       return option ? `${answer}. ${clean(option.content)}` : escapeHtml(answer);
     }
-    async function openStoredReview(summary, submittedAnswer) {
-      $("#storedReviewSkill").textContent = "Loading saved attempt...";
-      $("#storedReviewStimulus").innerHTML = "";
-      $("#storedReviewStem").innerHTML = "";
-      $("#storedReviewAnswers").innerHTML = '<div class="empty-list">Loading answer review...</div>';
-      $("#storedReviewRationale").innerHTML = "";
-      openModal("storedReviewModal");
-      try {
-        const question = await getDetail(summary);
-        const answer = submittedAnswer ?? summary.submittedAnswer;
-        $("#storedReviewSkill").textContent = `${question.subject} · ${question.domain} · ${question.skill}`;
-        $("#storedReviewStimulus").innerHTML = clean(question.stimulus);
-        $("#storedReviewStem").innerHTML = clean(question.stem);
-        $("#storedReviewAnswers").innerHTML = `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p>`;
-        $("#storedReviewRationale").innerHTML = `<strong>Explanation</strong><br>${clean(question.rationale)}`;
-        if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#storedReviewModal")]).catch(() => {});
-      } catch (error) {
-        $("#storedReviewSkill").textContent = "Review unavailable";
-        $("#storedReviewAnswers").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
-      }
+    async function startStoredReview(summary, submittedAnswer) {
+      const question = await getDetail(summary);
+      if (!question) return;
+      state.answers = {};
+      state.submittedAnswer = submittedAnswer || "";
+      state.submittedAnswers = {};
+      state.session = [question]; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      state.sessionMode = "review"; state.instantFeedback = false;
+      state.timerMode = state.mistakeTimerMode === "none" ? "none" : "question";
+      $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
+      startTimer(); await renderQuestion(); window.scrollTo(0, 0);
+    }
+
+    function renderMistakeList() {
+      const difficulty = state.mistakeDifficulty;
+      const domain = state.mistakeDomain;
+      const filtered = state.mistakeItems.filter(item => (difficulty === "all" || item.question.difficulty === difficulty) && (!domain || item.question.domain === domain));
+      const domains = [...new Set(state.mistakeItems.map(item => item.question.domain))].sort();
+      $("#mistakeSummary").textContent = filtered.length ? `${filtered.length} question${filtered.length === 1 ? "" : "s"} answered incorrectly on this device. Click one to review it in the player, or run them all as a practice set.` : "No mistakes recorded yet. Any question you answer incorrectly will appear here so you can revisit it.";
+      $("#mistakeDomains").innerHTML = '<button class="mistake-domain-chip" data-domain="">All domains</button>' + domains.map(name => `<button class="mistake-domain-chip ${domain === name ? "active" : ""}" data-domain="${escapeHtml(name)}">${escapeHtml(name)} <small>${state.mistakeItems.filter(item => item.question.domain === name).length}</small></button>`).join("");
+      $$('[data-domain]').forEach(chip => chip.onclick = () => { state.mistakeDomain = chip.dataset.domain; renderMistakeList(); });
+      $("#mistakeList").innerHTML = filtered.length ? filtered.map((item, index) => `<button class="mistake-item" data-mistake="${escapeHtml(item.question.id)}"><span class="mistake-num">${index + 1}</span><span class="mistake-skill"><strong>${escapeHtml(item.question.skill)}</strong><small>${escapeHtml(item.question.subject)} · ${escapeHtml(item.question.domain)} · ${item.question.difficulty}</small></span><span class="mistake-answer ${item.answer ? "incorrect" : ""}">${item.answer ? `Your answer: ${escapeHtml(item.answer)}` : "Unanswered"}</span></button>`).join("") : '<div class="empty-list"><strong>No mistakes match these filters.</strong></div>';
+      $$('[data-mistake]').forEach(button => button.onclick = () => { const index = filtered.findIndex(item => item.question.id === button.dataset.mistake); closeModals(); startMistakeReview(filtered, index); });
+      $("#runMistakes").textContent = filtered.length ? `Run ${filtered.length} mistakes` : "Run mistakes";
+      $("#runMistakes").disabled = !filtered.length;
     }
 
     async function openMistakeLog() {
@@ -509,20 +633,123 @@
         const response = await fetch("/api/mistakes");
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Unable to load mistake log.");
-        $("#mistakeSummary").textContent = data.total ? `${data.total} question${data.total === 1 ? "" : "s"} answered incorrectly on this device. Click one to review the full question.` : "No mistakes recorded yet. Any question you answer incorrectly will appear here so you can revisit it.";
-        $("#mistakeList").innerHTML = data.items.length ? data.items.map((item, index) => `<button class="mistake-item" data-mistake="${escapeHtml(item.question.id)}"><span class="mistake-num">${index + 1}</span><span class="mistake-skill"><strong>${escapeHtml(item.question.skill)}</strong><small>${escapeHtml(item.question.subject)} · ${escapeHtml(item.question.domain)} · ${item.question.difficulty}</small></span><span class="mistake-answer ${item.answer ? "incorrect" : ""}">${item.answer ? `Your answer: ${escapeHtml(item.answer)}` : "Unanswered"}</span></button>`).join("") : '<div class="empty-list"><strong>You have no mistakes yet — keep it up!</strong></div>';
-        $$('[data-mistake]').forEach(button => button.onclick = () => { const question = data.items.find(item => item.question.id === button.dataset.mistake); openStoredReview(question.question, question.answer); });
+        state.mistakeItems = data.items;
+        state.mistakeDifficulty = $("#mistakeDifficulty").value;
+        state.mistakeTimerMode = $("#mistakeTimerMode").value;
+        renderMistakeList();
       } catch (error) {
         $("#mistakeSummary").textContent = "Could not load mistake log.";
         $("#mistakeList").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
       }
     }
 
+    function startMistakeReview(items, startIndex = 0) {
+      const questions = items.map(item => item.question);
+      if (!questions.length) return;
+      closeModals();
+      state.answers = {};
+      state.submittedAnswers = {};
+      items.forEach(item => { state.submittedAnswers[item.question.id] = item.answer || ""; });
+      state.session = questions; state.index = Math.max(0, Math.min(startIndex, questions.length - 1)); state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      state.sessionMode = "review"; state.instantFeedback = false;
+      state.timerMode = $("#mistakeTimerMode").value === "none" ? "none" : "question";
+      $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
+      startTimer(); renderQuestion(); window.scrollTo(0, 0);
+    }
+
+    function runMistakes() {
+      const difficulty = $("#mistakeDifficulty").value;
+      const domain = state.mistakeDomain;
+      const items = state.mistakeItems.filter(item => (difficulty === "all" || item.question.difficulty === difficulty) && (!domain || item.question.domain === domain));
+      startMistakeReview(items, 0);
+    }
+
+    async function openAnalytics() {
+      openModal("analyticsModal");
+      $("#analyticsBody").innerHTML = '<p class="analytics-empty">Loading analytics...</p>';
+      try {
+        const response = await fetch("/api/analytics");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load analytics.");
+        renderAnalytics(data.items);
+      } catch (error) {
+        $("#analyticsBody").innerHTML = `<p class="analytics-empty">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    function formatTime(seconds) {
+      if (!seconds) return "0s";
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60), rest = seconds % 60;
+      return `${minutes}m${rest ? ` ${rest}s` : ""}`;
+    }
+
+    function renderAnalytics(items) {
+      const attempts = items.length;
+      const correct = items.filter(item => item.correct).length;
+      const totalTime = items.reduce((sum, item) => sum + (item.time || 0), 0);
+      const accuracy = attempts ? Math.round(100 * correct / attempts) : 0;
+      const avgTime = attempts ? Math.round(totalTime / attempts) : 0;
+      let summary = `<div class="analytics-summary"><div class="analytics-stat"><strong>${attempts}</strong><span>Attempts</span></div><div class="analytics-stat"><strong>${accuracy}%</strong><span>Accuracy</span></div><div class="analytics-stat"><strong>${formatTime(avgTime)}</strong><span>Avg time / question</span></div><div class="analytics-stat"><strong>${formatTime(totalTime)}</strong><span>Total time</span></div></div>`;
+      if (!attempts) { $("#analyticsBody").innerHTML = summary + '<p class="analytics-empty">No completed questions yet. Finish a practice set to see your analytics.</p>'; return; }
+      const byDifficulty = groupTable(items, "difficulty", "Difficulty");
+      const byDomain = groupTable(items, "domain", "Strand (domain)");
+      const bySkill = groupTable(items, "skill", "Skill");
+      const correlation = correlationRow(items);
+      const csv = buildCsv(items);
+      $("#analyticsBody").innerHTML = summary + `<div class="analytics-section"><h3>By difficulty</h3>${byDifficulty}</div><div class="analytics-section"><h3>By strand</h3>${byDomain}</div><div class="analytics-section"><h3>By skill</h3>${bySkill}</div><div class="analytics-section"><h3>Time vs. accuracy</h3>${correlation}</div><button class="primary" id="exportCsv">Export CSV</button>`;
+      $("#exportCsv").onclick = () => {
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = "blueprep-analytics.csv"; link.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+
+    function groupTable(items, key, title) {
+      const groups = {};
+      items.forEach(item => {
+        const value = item[key] || "Unknown";
+        (groups[value] = groups[value] || []).push(item);
+      });
+      const rows = Object.entries(groups).sort((a, b) => b[1].length - a[1].length).map(([name, group]) => {
+        const correct = group.filter(item => item.correct).length;
+        const time = group.reduce((sum, item) => sum + (item.time || 0), 0);
+        const acc = Math.round(100 * correct / group.length);
+        const avg = Math.round(time / group.length);
+        return `<tr><td>${escapeHtml(name)}</td><td class="num">${group.length}</td><td class="num">${acc}%</td><td class="num">${formatTime(avg)}</td></tr>`;
+      }).join("");
+      return `<table class="analytics-table"><thead><tr><th>${escapeHtml(title)}</th><th class="num">Attempts</th><th class="num">Accuracy</th><th class="num">Avg time</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function correlationRow(items) {
+      const timed = items.filter(item => item.time > 0);
+      if (timed.length < 3) return '<p class="analytics-empty">Answer at least 3 questions with the timer on to see how time spent relates to accuracy.</p>';
+      const correctTimes = timed.filter(item => item.correct).map(item => item.time);
+      const incorrectTimes = timed.filter(item => !item.correct).map(item => item.time);
+      const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length;
+      const correctMean = correctTimes.length ? mean(correctTimes) : 0;
+      const incorrectMean = incorrectTimes.length ? mean(incorrectTimes) : 0;
+      const slowestCorrect = Math.max(...correctTimes) || 0;
+      const fastestIncorrect = incorrectTimes.length ? Math.min(...incorrectTimes) : 0;
+      const insight = !correctTimes.length || !incorrectTimes.length ? "Keep practicing — you need both correct and incorrect answers to compare pacing." : correctMean < incorrectMean ? "You tend to be faster on questions you get right — good sign." : "You tend to spend more time on questions you get right — that effort may be paying off.";
+      return `<p>Average time on correct answers: <strong>${formatTime(Math.round(correctMean))}</strong> vs. incorrect answers: <strong>${formatTime(Math.round(incorrectMean))}</strong>. ${insight}</p>`;
+    }
+
+    function buildCsv(items) {
+      const header = ["questionId", "subject", "domain", "skill", "difficulty", "correct", "answer", "timeSeconds", "updatedAt"];
+      const rows = items.map(item => [item.id, item.subject, item.domain, item.skill, item.difficulty, item.correct ? "yes" : "no", `"${String(item.answer || "").replace(/"/g, '""')}"`, item.time || 0, new Date(item.updatedAt || 0).toISOString()].join(","));
+      return [header.join(","), ...rows].join("\n");
+    }
+
     async function finishSession() {
       clearInterval(state.timerId);
+      const current = state.session[state.index];
+      if (current) recordQuestionTime(current);
       const details = await Promise.all(state.session.map(getDetail));
       const results = details.map(question => ({ question, answer: state.answers[question.id] || "", correct: isCorrect(question, state.answers[question.id]) }));
-      await Promise.all(results.map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct }) })));
+      await Promise.all(results.map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, time: state.questionTimes[result.question.id] || 0 }) })));
       const correct = results.filter(result => result.correct).length;
       $("#score").textContent = `${correct}/${results.length}`;
       $("#scoreMessage").textContent = correct === results.length ? "Excellent work. Every response was correct." : "Review the missed skills, then build another focused set.";
@@ -539,7 +766,7 @@
       event.preventDefault(); event.stopPropagation();
       const question = state.items.find(item => item.id === button.dataset.preview);
       if (!question) return;
-      question.completed ? openStoredReview(question) : startSession([question]);
+      question.completed ? startStoredReview(question, question.submittedAnswer) : startSession([question]);
     });
     $("#subjectFilter").onchange = () => { updateTaxonomy(); loadQuestions(); };
     $("#domainFilter").onchange = () => { updateTaxonomy(); loadQuestions(); };
@@ -551,18 +778,25 @@
     $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#domainFilter").value = "all"; $("#skillFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
     $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession(state.items.slice(0, 10));
     $("#mistakeBtn").onclick = openMistakeLog;
+    $("#mistakeDifficulty").onchange = () => { state.mistakeDifficulty = $("#mistakeDifficulty").value; renderMistakeList(); };
+    $("#mistakeTimerMode").onchange = () => { state.mistakeTimerMode = $("#mistakeTimerMode").value; };
+    $("#runMistakes").onclick = runMistakes;
     const TEST_BLUEPRINTS = {
       "Reading and Writing": { quarter: [7, 8], half: [14, 16], module: [27, 32], section: [54, 64] },
       Math: { quarter: [6, 9], half: [11, 17.5], module: [22, 35], section: [44, 70] }
     };
     function updateTestBlueprint() {
       const subject = $("#testSubject").value, size = $("#testSize").value, source = $("#testSource")?.value || "bank";
+      const feedback = $("#testFeedback")?.value || "end";
+      const timerMode = $("#testTimerMode")?.value || "section";
       const [count, minutes] = TEST_BLUEPRINTS[subject][size];
       const sourceLabel = source === "new" ? " (new questions only)" : "";
+      const feedbackLabel = feedback === "instant" ? ", instant feedback on" : "";
+      const timerLabel = timerMode === "none" ? ", no timer" : timerMode === "question" ? ", per-question timer" : "";
       const note = source === "new" && !(state.meta?.newCount > 0) ? " No new questions downloaded yet. Run <code>npm run detect</code> to fetch newly released questions." : " Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.";
-      $("#testBlueprint").innerHTML = `${size === "module" ? "Full module" : size === "section" ? "Full section" : size === "half" ? "Half module" : "Quarter module"}${sourceLabel}: ${count} questions in ${minutes} minutes.${note}`;
+      $("#testBlueprint").innerHTML = `${size === "module" ? "Full module" : size === "section" ? "Full section" : size === "half" ? "Half module" : "Quarter module"}${sourceLabel}: ${count} questions in ${minutes} minutes${feedbackLabel}${timerLabel}.${note}`;
     }
-    $("#testSubject").onchange = updateTestBlueprint; $("#testSize").onchange = updateTestBlueprint; $("#testSource")?.addEventListener("change", updateTestBlueprint);
+    $("#testSubject").onchange = updateTestBlueprint; $("#testSize").onchange = updateTestBlueprint; $("#testSource")?.addEventListener("change", updateTestBlueprint); $("#testFeedback")?.addEventListener("change", updateTestBlueprint); $("#testTimerMode")?.addEventListener("change", updateTestBlueprint);
     $("#generateTest").onclick = async () => {
       const button = $("#generateTest");
       const source = $("#testSource")?.value || "bank";
@@ -575,23 +809,30 @@
         const response = await fetch("/api/practice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject: $("#testSubject").value, size: $("#testSize").value, profile: $("#testDifficulty").value, source }) });
         const generated = await response.json();
         if (!response.ok) throw new Error(generated.error || "Unable to generate practice.");
-        await startSession(generated.questions, { seconds: generated.seconds });
+        await startSession(generated.questions, { seconds: generated.seconds, timerMode: $("#testTimerMode")?.value || "section", instantFeedback: ($("#testFeedback")?.value || "end") === "instant" });
       } catch (error) {
         $("#testBlueprint").textContent = error.message;
       } finally {
         button.disabled = false; button.textContent = "Generate timed practice";
       }
     };
-    $("#nextBtn").onclick = () => state.index === state.session.length - 1 ? reviewSubmission() : navigate(1); $("#backBtn").onclick = () => navigate(-1);
+    $("#nextBtn").onclick = () => {
+      if (state.sessionMode === "review") {
+        state.index === state.session.length - 1 ? returnToLibrary() : navigate(1);
+      } else {
+        state.index === state.session.length - 1 ? reviewSubmission() : navigate(1);
+      }
+    }; $("#backBtn").onclick = () => navigate(-1);
     $("#markBtn").onclick = () => { const id = state.session[state.index].id; state.marked.has(id) ? state.marked.delete(id) : state.marked.add(id); renderQuestion(); };
     $("#questionMenu").onclick = () => openModal("gridModal");
     $("#hideTimer").onclick = () => { const hidden = $("#timer").textContent === "Time hidden"; hidden ? updateTimer() : $("#timer").textContent = "Time hidden"; $("#hideTimer").textContent = hidden ? "Hide" : "Show"; };
     $("#highlightBtn").setAttribute("aria-pressed", "false");
     $("#highlightBtn").onclick = () => { if (state.session[state.index]?.subject === "Math") return; state.highlighting = !state.highlighting; $("#highlightBtn").classList.toggle("active", state.highlighting); $("#highlightBtn").setAttribute("aria-pressed", String(state.highlighting)); };
-    $("#passageText").addEventListener("mouseup", () => { if (!state.highlighting || state.session[state.index]?.subject !== "Reading and Writing") return; const selection = window.getSelection(); if (!selection.rangeCount || selection.isCollapsed) return; const range = selection.getRangeAt(0); if (!$("#passageText").contains(range.commonAncestorContainer)) return; const mark = document.createElement("mark"); try { range.surroundContents(mark); selection.removeAllRanges(); } catch {} });
+    $("#passageText").addEventListener("mouseup", () => { if (!state.highlighting || state.session[state.index]?.subject !== "Reading and Writing") return; const selection = window.getSelection(); if (!selection.rangeCount || selection.isCollapsed) return; const range = selection.getRangeAt(0); if (!$("#passageText").contains(range.commonAncestorContainer)) return; const mark = document.createElement("mark"); try { range.surroundContents(mark); selection.removeAllRanges(); state.highlights[state.session[state.index].id] = $("#passageText").innerHTML; } catch {} });
     $$('[data-modal]').forEach(button => button.onclick = () => { if (!button.disabled) openModal(button.dataset.modal); }); $$('[data-close]').forEach(button => button.onclick = closeModals); $$(".modal-bg").forEach(modal => modal.onclick = event => { if (event.target === modal && modal.id !== "resultsModal") closeModals(); });
     $("#backLibrary").onclick = returnToLibrary; $("#resultClose").onclick = returnToLibrary; $("#returnQuestions").onclick = closeModals; $("#confirmSubmit").onclick = () => { closeModals(); finishSession(); };
-    window.addEventListener("keydown", event => { if (event.key === "Escape") closeModals(); });
+    $("#exitBtn").onclick = returnToLibrary; $("#analyticsBtn").onclick = openAnalytics;
+    window.addEventListener("keydown", event => { if (event.key === "Escape") { if ($$(".modal-bg").some(modal => !modal.classList.contains("hidden"))) closeModals(); else if (!$("#player").classList.contains("hidden")) returnToLibrary(); } });
 
     const calculator = $(".desmos-modal");
     let calculatorDrag = null;
