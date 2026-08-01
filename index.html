@@ -248,6 +248,73 @@
     .mistake-domain-chip:hover { border-color: var(--blue); color: var(--blue); }
     .mistake-domain-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
     .mistake-domain-chip small { font-weight: 500; opacity: .8; margin-left: 3px; }
+    .mistakes-page { max-width: 900px; margin: 0 auto; padding: 26px 20px 80px; }
+    .mistakes-head { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .mistakes-head h1 { font-size: 26px; color: var(--navy); margin: 0; }
+    .mistakes-head p { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+    .mistakes-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mistake-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+    .mistake-stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--paper); }
+    .mistake-stat strong { display: block; color: var(--navy); font-size: 24px; }
+    .mistake-stat span { color: var(--muted); font-size: 12px; }
+    .mistake-stat.bad strong { color: var(--red); }
+    .mistake-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .mistake-tab { border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; background: #fff; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--muted); }
+    .mistake-tab:hover { border-color: var(--blue); color: var(--blue); }
+    .mistake-tab.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .mistake-tab small { font-weight: 500; opacity: .8; margin-left: 4px; }
+    .skill-group { margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--paper); }
+    .skill-group-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--canvas); border-bottom: 1px solid var(--line); }
+    .skill-group-head h3 { margin: 0; font-size: 14px; color: var(--navy); }
+    .skill-group-head small { color: var(--muted); }
+    .skill-group-stats { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
+    .skill-group-stats .bad { color: var(--red); font-weight: 700; }
+    .skill-group-stats .good { color: #1e7548; font-weight: 700; }
+    .mistake-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); align-items: center; cursor: pointer; }
+    .mistake-row:last-child { border-bottom: 0; }
+    .mistake-row:hover { background: var(--cyan-pale); }
+    .mistake-row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .mistake-row-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mistake-row-tags .tag { font-size: 10px; }
+    .mistake-row-meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
+    .mistake-row-meta .bad { color: var(--red); }
+    .mistake-row-meta .good { color: #1e7548; }
+    .mistake-row-answer { text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .mistake-row-answer .bad { color: var(--red); font-weight: 700; }
+    .mistake-row-answer .good { color: #1e7548; font-weight: 700; }
+    .mistake-detail { display: none; padding: 14px 16px; background: #fbfcfe; border-top: 1px solid var(--line); }
+    .mistake-row.open .mistake-detail { display: block; }
+    .mistake-detail p { margin: 6px 0; font-size: 13px; }
+    .mistake-detail .rationale { margin-top: 8px; color: #37424c; }
+    .advice-panel { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 22px; background: linear-gradient(180deg, #f7fafe, #fff); }
+    .advice-panel h3 { margin: 0 0 4px; font-size: 15px; color: var(--navy); }
+    .advice-panel .advice-meta { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+    .advice-body { font-size: 14px; line-height: 1.6; color: #1c2733; }
+    .advice-body h1, .advice-body h2, .advice-body h3 { color: var(--navy); margin: 16px 0 6px; font-size: 15px; }
+    .advice-body ul, .advice-body ol { margin: 8px 0; padding-left: 22px; }
+    .advice-body li { margin: 4px 0; }
+    .advice-body strong { color: var(--navy); }
+    .advice-body code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+    .advice-panel .feedback-btn { margin-top: 10px; }
+    .advice-panel .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+    .spinner { width: 16px; height: 16px; border: 2px solid #c6cfd9; border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .back-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .back-row .text-btn { font-size: 13px; }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+    .empty-state strong { color: var(--navy); display: block; margin-bottom: 6px; font-size: 16px; }
+    .mistake-subjects { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+    .mistake-subject-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); }
+    .mistake-subject-card h3 { margin: 0 0 2px; font-size: 14px; color: var(--navy); }
+    .mistake-subject-card .bar { height: 8px; border-radius: 999px; background: #e8edf3; margin: 10px 0 6px; overflow: hidden; }
+    .mistake-subject-card .bar i { display: block; height: 100%; border-radius: 999px; background: var(--blue); }
+    .mistake-subject-card .bar i.low { background: var(--red); }
+    .mistake-subject-card .bar i.mid { background: #e5a23b; }
+    @media (max-width: 640px) {
+      .mistake-stats { grid-template-columns: repeat(2, 1fr); }
+      .mistake-subjects { grid-template-columns: 1fr; }
+      .mistake-row-answer { display: none; }
+    }
 
     @media (max-width: 780px) {
       .site-head { height: 62px; padding: 0 16px; }
@@ -289,7 +356,7 @@
   <section id="library">
     <header class="site-head">
       <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
-      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
+      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="sessionsBtn">Practice history</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
     </header>
     <main class="library-shell">
       <div class="hero">
@@ -327,6 +394,26 @@
     </main>
   </section>
 
+  <section id="mistakesPage" class="hidden" aria-label="Mistakes and performance">
+    <header class="site-head">
+      <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
+      <div class="head-actions"><button class="ghost-light" id="mistakesBackBtn">Back to library</button><span class="avatar">AK</span></div>
+    </header>
+    <main class="mistakes-page">
+      <div class="back-row"><button class="text-btn" id="mistakesBackTop">← Back to question library</button></div>
+      <div class="mistakes-head">
+        <div><h1>Mistake Log &amp; Performance</h1><p>Every question you've missed, with time spent, struck-out choices, and your submitted answers.</p></div>
+        <div class="mistakes-actions"><button class="primary" id="runAllMistakes">Run all mistakes</button><button class="feedback-btn" id="aiCoachBtn">AI Performance Coach</button></div>
+      </div>
+      <div class="advice-panel hidden" id="advicePanel"><h3>AI Performance Coach</h3><p class="advice-meta" id="adviceMeta"></p><div class="advice-body" id="adviceBody"></div></div>
+      <div class="mistake-subjects" id="mistakeSubjects"></div>
+      <div class="mistake-stats" id="mistakeStats"></div>
+      <div class="mistake-tabs" id="mistakeTabs"></div>
+      <div class="mistake-toolbar"><select id="mistakeDifficulty" aria-label="Filter by difficulty"><option value="all">All difficulties</option><option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option></select><select id="mistakeTimerMode" aria-label="Review timer mode"><option value="none">No timer</option><option value="question" selected>Per-question timer</option></select><button class="text-btn" id="mistakeResetFilters">Reset filters</button></div>
+      <div id="mistakeGroups"></div>
+    </main>
+  </section>
+
   <section id="player" class="hidden" aria-label="Practice test">
     <header class="exam-top">
       <div class="exam-title"><span class="brand-mark">BP</span><span>BluePrep</span></div>
@@ -350,17 +437,47 @@
   <div class="modal-bg hidden" id="calcModal" role="dialog" aria-modal="false" aria-labelledby="calcTitle"><div class="modal desmos-modal"><div class="modal-h desmos-handle"><h2 id="calcTitle">Desmos Graphing Calculator</h2><div class="window-actions"><button id="maximizeCalculator" aria-label="Maximize calculator" aria-pressed="false">□</button><button class="close" data-close aria-label="Close calculator">&times;</button></div></div><iframe class="desmos-frame" title="Desmos SAT calculator" src="https://www.desmos.com/testing/cb-digital-sat/graphing"></iframe><div class="resize-handle" aria-hidden="true"></div></div></div>
   <div class="modal-bg hidden" id="referenceModal" role="dialog" aria-modal="true" aria-labelledby="referenceTitle"><div class="modal reference-modal"><div class="modal-h"><h2 id="referenceTitle">SAT Reference Sheet</h2><button class="close" data-close aria-label="Close reference sheet">&times;</button></div><div class="modal-b reference"><p class="reference-note">This is the complete official reference sheet available during the SAT Math section.</p><img class="reference-sheet-img" src="https://satquestionbank.org/images/reference_sheet.webp" alt="Official SAT reference sheet with area, circumference, volume, right triangle, angle, and circle formulas"></div></div></div>
   <div class="modal-bg hidden" id="submitModal" role="dialog" aria-modal="true" aria-labelledby="submitTitle"><div class="modal"><div class="modal-h"><h2 id="submitTitle">Submit Your Answers?</h2><button class="close" data-close aria-label="Close submission review">&times;</button></div><div class="modal-b"><p>Once you submit, you cannot return to this practice set.</p><div class="confirm-summary"><div class="confirm-stat"><strong id="unansweredCount">0</strong><span>Unanswered</span></div><div class="confirm-stat"><strong id="markedCount">0</strong><span>Marked for Review</span></div></div><div class="confirm-actions"><button class="nav-btn secondary" id="returnQuestions">Return to Questions</button><button class="nav-btn" id="confirmSubmit">Submit Answers</button></div></div></div></div>
-  <div class="modal-bg hidden" id="mistakeModal" role="dialog" aria-modal="true" aria-labelledby="mistakeTitle"><div class="modal mistake-modal"><div class="modal-h"><h2 id="mistakeTitle">Mistake Log</h2><button class="close" data-close aria-label="Close mistake log">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="mistakeSummary"></p><div class="mistake-toolbar"><select id="mistakeDifficulty" aria-label="Filter by difficulty"><option value="all">All difficulties</option><option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option></select><select id="mistakeTimerMode" aria-label="Review timer mode"><option value="none">No timer</option><option value="question" selected>Per-question timer</option></select><button class="primary" id="runMistakes">Run mistakes</button></div><div class="mistake-domains" id="mistakeDomains"></div><div class="mistake-list" id="mistakeList"></div></div></div></div>
   <div class="modal-bg hidden" id="resultsModal" role="dialog" aria-modal="true" aria-labelledby="resultsTitle"><div class="modal"><div class="modal-h"><h2 id="resultsTitle">Practice Complete</h2><button class="close" id="resultClose" aria-label="Close results">&times;</button></div><div class="modal-b results"><p class="eyebrow">Your result</p><div class="score-ring"><div><strong id="score">0/0</strong><span>correct</span></div></div><p id="scoreMessage"></p><div class="review-list" id="reviewList"></div><button class="primary" id="backLibrary">Return to question bank</button></div></div></div>
   <div class="modal-bg hidden" id="analyticsModal" role="dialog" aria-modal="true" aria-labelledby="analyticsTitle"><div class="modal analytics-modal"><div class="modal-h"><h2 id="analyticsTitle">Performance Analytics</h2><button class="close" data-close aria-label="Close analytics">&times;</button></div><div class="modal-b"><p class="analytics-empty" id="analyticsBody">Loading analytics...</p></div></div></div>
+
+  <div class="modal-bg hidden" id="sessionsModal" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle"><div class="modal sessions-modal"><div class="modal-h"><h2 id="sessionsTitle">Practice history</h2><button class="close" data-close aria-label="Close practice history">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionsSummary"></p><div class="mistake-list" id="sessionsList"></div></div></div></div>
+
+  <div class="modal-bg hidden" id="sessionDetailModal" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle"><div class="modal session-detail-modal"><div class="modal-h"><h2 id="sessionDetailTitle">Session details</h2><button class="close" data-close aria-label="Close session details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionDetailSummary"></p><div class="mistake-list" id="sessionDetailList"></div></div></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
   <script>
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
-    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "" };
+    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all" };
     const clean = html => window.DOMPurify ? DOMPurify.sanitize(html || "", { USE_PROFILES: { html: true, svg: true, mathMl: true }, ADD_ATTR: ["target", "xlink:href", "alttext"] }) : String(html || "");
     const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+    function renderMarkdown(text) {
+      const lines = String(text || "").split(/\r?\n/);
+      const out = [];
+      let list = null;
+      const flush = () => { if (list) { out.push(list === "ul" ? "</ul>" : "</ol>"); list = null; } };
+      for (const raw of lines) {
+        const line = raw.trimEnd();
+        if (!line.trim()) { flush(); out.push(""); continue; }
+        const esc = escapeHtml(line);
+        let html = esc
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
+          .replace(/`([^`]+)`/g, "<code>$1</code>");
+        const heading = html.match(/^(#{1,3})\s+(.*)$/);
+        if (heading) { flush(); out.push(`<h3>${heading[2]}</h3>`); continue; }
+        const hr = html.match(/^---+\s*$/);
+        if (hr) { flush(); out.push("<hr>"); continue; }
+        const ordered = html.match(/^\s*(\d+)\.\s+(.*)$/);
+        if (ordered) { if (list !== "ol") { flush(); out.push("<ol>"); list = "ol"; } out.push(`<li>${ordered[2]}</li>`); continue; }
+        const bullet = html.match(/^\s*[-•*]\s+(.*)$/);
+        if (bullet) { if (list !== "ul") { flush(); out.push("<ul>"); list = "ul"; } out.push(`<li>${bullet[1]}</li>`); continue; }
+        flush();
+        out.push(`<p>${html}</p>`);
+      }
+      flush();
+      return out.join("\n");
+    }
     const spokenText = html => {
       const documentNode = new DOMParser().parseFromString(String(html || ""), "text/html");
       documentNode.querySelectorAll("math").forEach(math => math.replaceWith(math.getAttribute("alttext") || math.textContent));
@@ -441,9 +558,22 @@
       return detail;
     }
 
+    async function fetchAllFiltered() {
+      const response = await fetch(`/api/questions?${queryParams(0, 50).toString()}&all=true`);
+      if (!response.ok) throw new Error("Unable to load questions");
+      const result = await response.json();
+      return result.items;
+    }
+
     async function startSession(chosen, options = {}) {
       let questions = chosen?.length ? chosen : [...state.selected.values()];
-      if (!questions.length) questions = state.items.slice(0, Math.min(10, state.items.length));
+      if (!questions.length) {
+        try {
+          questions = await fetchAllFiltered();
+        } catch (error) {
+          questions = state.items.slice(0, Math.min(10, state.items.length));
+        }
+      }
       if (!questions.length) return;
       if ($("#shuffleQuestions").checked) questions = [...questions].sort(() => Math.random() - .5);
       state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
@@ -545,9 +675,31 @@
       recordQuestionTime(question);
       const answer = state.answers[question.id];
       const correct = isCorrect(question, answer);
-      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}"><p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>`;
+      const similarButton = correct ? "" : `<button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
+      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}"><p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>${similarButton}`;
       $$('[data-answer], [data-strike], #sprAnswer').forEach(element => element.disabled = true);
+      if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
+    }
+
+    async function generateSimilar(question) {
+      const button = $("#similarBtn");
+      if (!button) return;
+      button.disabled = true; button.textContent = "Generating...";
+      try {
+        const response = await fetch("/api/ai/similar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: question.id }) });
+        const generated = await response.json();
+        if (!response.ok) throw new Error(generated.error || "Unable to generate a similar problem.");
+        state.details.set(generated.id, generated);
+        state.submittedAnswer = ""; state.submittedAnswers = {};
+        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+        state.sessionMode = "practice"; state.instantFeedback = true;
+        state.timerMode = "question";
+        startTimer(); await renderQuestion(); window.scrollTo(0, 0);
+      } catch (error) {
+        button.disabled = false; button.textContent = "Generate a similar problem";
+        button.insertAdjacentHTML("afterend", `<p class="submit-hint" style="color:var(--red)">${escapeHtml(error.message)}</p>`);
+      }
     }
 
     async function revealAnswer() {
@@ -562,7 +714,8 @@
           await fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: question.id, answer, correct, time: state.questionTimes[question.id] || 0 }) });
         } catch {}
       }
-      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>`;
+      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>${state.sessionMode === "review" && !correct && answer ? `<button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>` : ""}`;
+      if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
 
@@ -619,39 +772,118 @@
     function renderMistakeList() {
       const difficulty = state.mistakeDifficulty;
       const domain = state.mistakeDomain;
-      const filtered = state.mistakeItems.filter(item => (difficulty === "all" || item.question.difficulty === difficulty) && (!domain || item.question.domain === domain));
-      const domains = [...new Set(state.mistakeItems.map(item => item.question.domain))].sort();
-      $("#mistakeSummary").textContent = filtered.length ? `${filtered.length} question${filtered.length === 1 ? "" : "s"} answered incorrectly on this device. Click one to review it in the player, or run them all as a practice set.` : "No mistakes recorded yet. Any question you answer incorrectly will appear here so you can revisit it.";
-      $("#mistakeDomains").innerHTML = '<button class="mistake-domain-chip" data-domain="">All domains</button>' + domains.map(name => `<button class="mistake-domain-chip ${domain === name ? "active" : ""}" data-domain="${escapeHtml(name)}">${escapeHtml(name)} <small>${state.mistakeItems.filter(item => item.question.domain === name).length}</small></button>`).join("");
-      $$('[data-domain]').forEach(chip => chip.onclick = () => { state.mistakeDomain = chip.dataset.domain; renderMistakeList(); });
-      $("#mistakeList").innerHTML = filtered.length ? filtered.map((item, index) => `<button class="mistake-item" data-mistake="${escapeHtml(item.question.id)}"><span class="mistake-num">${index + 1}</span><span class="mistake-skill"><strong>${escapeHtml(item.question.skill)}</strong><small>${escapeHtml(item.question.subject)} · ${escapeHtml(item.question.domain)} · ${item.question.difficulty}</small></span><span class="mistake-answer ${item.answer ? "incorrect" : ""}">${item.answer ? `Your answer: ${escapeHtml(item.answer)}` : "Unanswered"}</span></button>`).join("") : '<div class="empty-list"><strong>No mistakes match these filters.</strong></div>';
-      $$('[data-mistake]').forEach(button => button.onclick = () => { const index = filtered.findIndex(item => item.question.id === button.dataset.mistake); closeModals(); startMistakeReview(filtered, index); });
-      $("#runMistakes").textContent = filtered.length ? `Run ${filtered.length} mistakes` : "Run mistakes";
-      $("#runMistakes").disabled = !filtered.length;
+      const subject = state.mistakeSubject;
+      const filtered = state.mistakeItems.filter(item => (difficulty === "all" || item.question.difficulty === difficulty) && (!domain || item.question.domain === domain) && (subject === "all" || item.question.subject === subject));
+      renderMistakeSubjects();
+      renderMistakeStats(filtered);
+      renderMistakeTabs();
+      const groups = {};
+      for (const item of filtered) {
+        const key = item.question.skill;
+        (groups[key] = groups[key] || []).push(item);
+      }
+      const groupEntries = Object.entries(groups).sort((a, b) => {
+        const rateA = a[1].filter(item => item.correct).length / a[1].length;
+        const rateB = b[1].filter(item => item.correct).length / b[1].length;
+        return rateA - rateB;
+      });
+      $("#mistakeGroups").innerHTML = filtered.length ? groupEntries.map(([skill, items]) => {
+        const wrong = items.length;
+        const totalWrongTime = items.reduce((sum, item) => sum + (item.time || 0), 0);
+        const repeatedlyWrong = items.filter(item => (item.attempts || 1) > 1).length;
+        const struckCorrect = items.filter(item => item.struck && item.question.correctAnswer && item.struck.includes(item.question.correctAnswer)).length;
+        const first = items[0].question;
+        return `<div class="skill-group"><div class="skill-group-head"><h3>${escapeHtml(skill)}</h3><div class="skill-group-stats"><span class="${repeatedlyWrong ? "bad" : ""}">${wrong} wrong${repeatedlyWrong ? ` · ${repeatedlyWrong} repeat` : ""}</span><span>${formatTime(totalWrongTime)} total</span>${struckCorrect ? `<span class="bad">struck right answer ${struckCorrect}×</span>` : ""}</div></div>${items.map((item, index) => {
+          const q = item.question;
+          const correctOption = q.correctAnswer && q.options ? q.options[q.correctAnswer.charCodeAt(0) - 65] : null;
+          const correctDisplay = q.type === "spr" ? escapeHtml(q.correctAnswer || "—") : correctOption ? `${escapeHtml(q.correctAnswer)}. ${clean(correctOption.content)}` : escapeHtml(q.correctAnswer || "—");
+          const yourOption = q.options && item.answer ? q.options[item.answer.charCodeAt(0) - 65] : null;
+          const yourDisplay = q.type === "spr" ? escapeHtml(item.answer || "—") : yourOption ? `${escapeHtml(item.answer)}. ${clean(yourOption.content)}` : escapeHtml(item.answer || "—");
+          const tags = `<span class="tag">${q.subject === "Math" ? "Math" : "R&W"}</span><span class="tag">${escapeHtml(q.domain)}</span><span class="tag ${q.difficulty.toLowerCase()}">${q.difficulty}</span>`;
+          return `<div class="mistake-row" data-mistake="${escapeHtml(q.id)}"><div class="mistake-row-main"><div class="mistake-row-tags">${tags}</div><div class="mistake-row-meta"><span class="bad">Your answer: ${yourDisplay}</span><span class="good">Correct: ${correctDisplay}</span><span>${item.time ? formatTime(item.time) : "—"} spent</span><span>${item.attempts || 1} attempt${item.attempts > 1 ? "s" : ""}</span>${item.struck && item.struck.length ? `<span class="bad">Struck: ${item.struck.map(escapeHtml).join(", ")}</span>` : ""}</div><div class="mistake-detail"><p><strong>Why it's wrong:</strong></p><div class="rationale">${clean(q.rationale)}</div><p style="margin-top:10px"><strong>Your answer:</strong> ${yourDisplay}</p><p><strong>Correct answer:</strong> ${correctDisplay}</p></div></div><button class="mistake-row-answer" data-mistake-btn="${escapeHtml(q.id)}">Review →</button></div>`;
+        }).join("")}</div>`;
+      }).join("") : '<div class="empty-state"><strong>No mistakes match these filters.</strong><span>Try widening the difficulty or subject filters.</span></div>';
+      $$('[data-mistake]').forEach(row => row.onclick = () => {
+        const id = row.dataset.mistake;
+        const index = filtered.findIndex(item => item.question.id === id);
+        startMistakeReview(filtered, index);
+      });
+      $$('[data-mistake-btn]').forEach(button => button.onclick = event => {
+        event.stopPropagation();
+        const id = button.dataset.mistakeBtn;
+        const index = filtered.findIndex(item => item.question.id === id);
+        startMistakeReview(filtered, index);
+      });
+      $("#runAllMistakes").textContent = filtered.length ? `Run ${filtered.length} mistakes` : "Run mistakes";
+      $("#runAllMistakes").disabled = !filtered.length;
     }
 
-    async function openMistakeLog() {
-      openModal("mistakeModal");
-      $("#mistakeSummary").textContent = "Loading mistake log...";
-      $("#mistakeList").innerHTML = '<div class="empty-list">Loading...</div>';
+    function renderMistakeSubjects() {
+      const counts = {};
+      for (const item of state.mistakeItems) {
+        const subject = item.question.subject === "Math" ? "Math" : "Reading and Writing";
+        counts[subject] = (counts[subject] || 0) + 1;
+      }
+      const cards = ["Math", "Reading and Writing"].map(subject => {
+        const total = counts[subject] || 0;
+        const items = state.mistakeItems.filter(item => (item.question.subject === "Math") === (subject === "Math"));
+        const attempted = items.reduce((sum, item) => sum + (item.attempts || 1), 0);
+        const avgTime = items.length ? Math.round(items.reduce((sum, item) => sum + (item.time || 0), 0) / items.length) : 0;
+        const pct = total ? Math.round(100 * items.filter(item => (item.attempts || 1) > 1).length / total) : 0;
+        const barClass = pct >= 40 ? "low" : pct >= 20 ? "mid" : "";
+        return `<div class="mistake-subject-card"><h3>${subject}</h3><p style="font-size:12px;color:var(--muted)">${total} missed question${total === 1 ? "" : "s"}</p><div class="bar"><i class="${barClass}" style="width:${Math.min(100, Math.max(4, pct))}%"></i></div><small style="color:var(--muted)">${pct}% repeated · avg ${formatTime(avgTime)}/question</small></div>`;
+      }).join("");
+      $("#mistakeSubjects").innerHTML = cards;
+    }
+
+    function renderMistakeStats(filtered) {
+      const repeated = filtered.filter(item => (item.attempts || 1) > 1).length;
+      const totalTime = filtered.reduce((sum, item) => sum + (item.time || 0), 0);
+      const struckCorrect = filtered.filter(item => item.struck && item.question.correctAnswer && item.struck.includes(item.question.correctAnswer)).length;
+      const distinctSkills = new Set(filtered.map(item => item.question.skill)).size;
+      $("#mistakeStats").innerHTML = `<div class="mistake-stat"><strong>${filtered.length}</strong><span>questions wrong</span></div><div class="mistake-stat ${repeated ? "bad" : ""}"><strong>${repeated}</strong><span>answered wrong more than once</span></div><div class="mistake-stat"><strong>${distinctSkills}</strong><span>skills to improve</span></div><div class="mistake-stat"><strong>${struckCorrect}</strong><span>struck the right answer but chose wrong</span></div>`;
+      $("#mistakeStats").insertAdjacentHTML("beforeend", `<div class="mistake-stat"><strong>${formatTime(totalTime)}</strong><span>total time on mistakes</span></div>`);
+    }
+
+    function renderMistakeTabs() {
+      const counts = { all: state.mistakeItems.length };
+      for (const item of state.mistakeItems) {
+        const key = item.question.subject === "Math" ? "Math" : "Reading and Writing";
+        counts[key] = (counts[key] || 0) + 1;
+      }
+      const tabs = [
+        { key: "all", label: "All subjects" },
+        { key: "Math", label: "Math" },
+        { key: "Reading and Writing", label: "Reading &amp; Writing" }
+      ];
+      $("#mistakeTabs").innerHTML = tabs.map(tab => `<button class="mistake-tab ${state.mistakeSubject === tab.key ? "active" : ""}" data-subject="${tab.key}">${tab.label} <small>${counts[tab.key] || 0}</small></button>`).join("");
+      $$('[data-subject]').forEach(tab => tab.onclick = () => { state.mistakeSubject = tab.dataset.subject; renderMistakeList(); });
+    }
+
+    async function openMistakesPage() {
+      $("#library").classList.add("hidden"); $("#mistakesPage").classList.remove("hidden"); $("#player").classList.add("hidden");
+      renderMistakeList();
       try {
         const response = await fetch("/api/mistakes");
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Unable to load mistake log.");
         state.mistakeItems = data.items;
-        state.mistakeDifficulty = $("#mistakeDifficulty").value;
-        state.mistakeTimerMode = $("#mistakeTimerMode").value;
         renderMistakeList();
       } catch (error) {
-        $("#mistakeSummary").textContent = "Could not load mistake log.";
-        $("#mistakeList").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
+        $("#mistakeGroups").innerHTML = `<div class="empty-state"><strong>Could not load mistake log.</strong><span>${escapeHtml(error.message)}</span></div>`;
       }
+    }
+
+    function closeMistakesPage() {
+      $("#mistakesPage").classList.add("hidden");
+      $("#library").classList.remove("hidden");
     }
 
     function startMistakeReview(items, startIndex = 0) {
       const questions = items.map(item => item.question);
       if (!questions.length) return;
       closeModals();
+      $("#mistakesPage").classList.add("hidden");
       state.answers = {};
       state.submittedAnswers = {};
       items.forEach(item => { state.submittedAnswers[item.question.id] = item.answer || ""; });
@@ -665,8 +897,109 @@
     function runMistakes() {
       const difficulty = $("#mistakeDifficulty").value;
       const domain = state.mistakeDomain;
-      const items = state.mistakeItems.filter(item => (difficulty === "all" || item.question.difficulty === difficulty) && (!domain || item.question.domain === domain));
+      const subject = state.mistakeSubject;
+      const items = state.mistakeItems.filter(item => (difficulty === "all" || item.question.difficulty === difficulty) && (!domain || item.question.domain === domain) && (subject === "all" || item.question.subject === subject));
       startMistakeReview(items, 0);
+    }
+
+    async function openAiCoach() {
+      const panel = $("#advicePanel");
+      panel.classList.remove("hidden");
+      $("#adviceMeta").textContent = "Analyzing your full practice history with K2 reasoning...";
+      $("#adviceBody").innerHTML = '<div class="loading"><span class="spinner"></span> Reviewing time spent, struck answers, and every missed question...</div>';
+      $("#aiCoachBtn").disabled = true; $("#aiCoachBtn").textContent = "Analyzing...";
+      try {
+        const response = await fetch("/api/ai/advice", { method: "POST", headers: { "content-type": "application/json" } });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to get AI advice.");
+        const d = data.digest;
+        $("#adviceMeta").textContent = `Based on ${d.totalAttempts} attempts · ${d.accuracy}% accuracy · ${d.skills.length} skills tracked`;
+        const rendered = renderMarkdown(data.advice);
+        $("#adviceBody").innerHTML = rendered;
+      } catch (error) {
+        $("#adviceMeta").textContent = "Could not get AI advice.";
+        $("#adviceBody").innerHTML = `<div class="empty-state"><strong>Something went wrong.</strong><span>${escapeHtml(error.message)}</span></div>`;
+      } finally {
+        $("#aiCoachBtn").disabled = false; $("#aiCoachBtn").textContent = "AI Performance Coach";
+      }
+    }
+
+    function formatDateTime(timestamp) {
+      const date = new Date(timestamp);
+      const pad = value => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    async function openSessions() {
+      openModal("sessionsModal");
+      $("#sessionsSummary").textContent = "Loading practice history...";
+      $("#sessionsList").innerHTML = '<div class="empty-list">Loading...</div>';
+      try {
+        const response = await fetch("/api/sessions");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load practice history.");
+        renderSessionsList(data.items);
+      } catch (error) {
+        $("#sessionsSummary").textContent = "Could not load practice history.";
+        $("#sessionsList").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderSessionsList(sessions) {
+      $("#sessionsSummary").textContent = sessions.length ? `${sessions.length} practice session${sessions.length === 1 ? "" : "s"} saved on this device. Click one to see every question, your answer, time spent, and struck-out choices.` : "No practice sessions yet. Finish a practice set and it will appear here with its own detailed mistake log.";
+      $("#sessionsList").innerHTML = sessions.length ? sessions.map(session => {
+        const correct = session.correct;
+        const accuracy = session.total ? Math.round(100 * correct / session.total) : 0;
+        const subject = session.subject || "Mixed";
+        return `<button class="mistake-item" data-session="${escapeHtml(session.id)}"><span class="mistake-num">${accuracy}%</span><span class="mistake-skill"><strong>${escapeHtml(formatDateTime(session.createdAt))} · ${escapeHtml(session.mode)}${subject ? " · " + escapeHtml(subject) : ""}</strong><small>${session.total} question${session.total === 1 ? "" : "s"} · ${correct} correct · ${formatTime(session.totalTime)} total</small></span><span class="mistake-answer ${correct < session.total ? "incorrect" : ""}">${correct}/${session.total}</span></button>`;
+      }).join("") : '<div class="empty-list"><strong>No practice sessions saved yet.</strong><br>Finish a practice set to record its full log.</div>';
+      $$('[data-session]').forEach(button => button.onclick = () => openSessionDetail(button.dataset.session));
+    }
+
+    async function openSessionDetail(sessionId) {
+      openModal("sessionDetailModal");
+      $("#sessionDetailSummary").textContent = "Loading session details...";
+      $("#sessionDetailList").innerHTML = '<div class="empty-list">Loading...</div>';
+      try {
+        const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load session details.");
+        renderSessionDetail(data);
+      } catch (error) {
+        $("#sessionDetailSummary").textContent = "Could not load session details.";
+        $("#sessionDetailList").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderSessionDetail(session) {
+      const questions = session.questions || [];
+      const correct = questions.filter(item => item.correct).length;
+      const totalTime = questions.reduce((sum, item) => sum + (item.time || 0), 0);
+      $("#sessionDetailSummary").textContent = `${formatDateTime(session.createdAt)} · ${escapeHtml(session.mode)}${session.subject ? " · " + escapeHtml(session.subject) : ""} · ${correct}/${questions.length} correct · ${formatTime(totalTime)} total`;
+      $("#sessionDetailList").innerHTML = questions.length ? questions.map((item, index) => {
+        const q = item.question;
+        const skill = q?.skill || "Question";
+        const subject = q?.subject || "";
+        const domain = q?.domain || "";
+        const difficulty = q?.difficulty || "";
+        const timeLabel = item.time > 0 ? formatTime(item.time) : "—";
+        const struckLabel = (item.struck || []).length ? `Struck: ${item.struck.map(letter => escapeHtml(letter)).join(", ")}` : "No choices struck";
+        const answerText = item.answer ? escapeHtml(item.answer) : "Unanswered";
+        const detail = q ? `<details class="review-details" data-session-question="${escapeHtml(item.id)}"><summary>Review question</summary><p class="review-answer"><strong>Your answer:</strong> ${answerText}</p>${item.correct ? "" : `<p class="review-answer"><strong>Correct answer:</strong> ${escapeHtml(q.correctAnswer)}</p>`}<p class="review-answer"><strong>${escapeHtml(struckLabel)}</strong></p></details>` : "";
+        return `<div class="review-item"><span>${index + 1}. ${escapeHtml(skill)}<small>${escapeHtml(subject)}${domain ? " · " + escapeHtml(domain) : ""}${difficulty ? " · " + escapeHtml(difficulty) : ""}</small></span><span class="${item.correct ? "correct" : "incorrect"}">${item.correct ? "Correct" : item.answer ? "Incorrect" : "Unanswered"} · ${timeLabel}</span></div>${detail}`;
+      }).join("") : '<div class="empty-list"><strong>This session has no recorded questions.</strong></div>';
+      $$('[data-session-question]').forEach(details => {
+        details.addEventListener("toggle", () => {
+          if (details.open && !details.dataset.loaded) {
+            details.dataset.loaded = "true";
+            getDetail({ id: details.dataset.sessionQuestion }).then(question => {
+              if (!question) return;
+              const answer = details.querySelector(".review-answer");
+              if (answer) answer.insertAdjacentHTML("afterend", `<div class="rationale">${clean(question.rationale)}</div>`);
+            }).catch(() => {});
+          }
+        });
+      });
     }
 
     async function openAnalytics() {
@@ -755,6 +1088,22 @@
       const details = await Promise.all(state.session.map(getDetail));
       const results = details.map(question => ({ question, answer: state.answers[question.id] || "", correct: isCorrect(question, state.answers[question.id]) }));
       await Promise.all(results.map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, time: state.questionTimes[result.question.id] || 0 }) })));
+      const subject = state.session[0]?.subject || "";
+      const sessionPayload = {
+        mode: state.sessionMode === "review" ? "review" : "practice",
+        subject,
+        questions: results.map(result => ({
+          id: result.question.id,
+          answer: result.answer,
+          correct: result.correct,
+          time: state.questionTimes[result.question.id] || 0,
+          struck: [...state.struck].filter(key => key.startsWith(`${result.question.id}:`)).map(key => key.split(":")[1])
+        }))
+      };
+      try {
+        const response = await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionPayload) });
+        if (response.ok) sessionPayload.lastSaved = (await response.json()).id;
+      } catch {}
       const correct = results.filter(result => result.correct).length;
       $("#score").textContent = `${correct}/${results.length}`;
       $("#scoreMessage").textContent = correct === results.length ? "Excellent work. Every response was correct." : "Review the missed skills, then build another focused set.";
@@ -762,7 +1111,7 @@
       openModal("resultsModal");
     }
 
-    async function returnToLibrary() { closeModals(); clearInterval(state.timerId); $("#player").classList.add("hidden"); $("#library").classList.remove("hidden"); state.selected.clear(); state.meta = await fetch("/api/meta").then(response => response.json()); await loadQuestions(); }
+    async function returnToLibrary() { closeModals(); clearInterval(state.timerId); $("#player").classList.add("hidden"); $("#mistakesPage").classList.add("hidden"); $("#library").classList.remove("hidden"); state.selected.clear(); state.meta = await fetch("/api/meta").then(response => response.json()); await loadQuestions(); }
 
     let searchTimer;
     $("#questionList").addEventListener("click", event => {
@@ -781,11 +1130,16 @@
     $("#newQuestions").onchange = () => loadQuestions();
     $$('input[name="difficulty"]').forEach(input => input.onchange = () => loadQuestions());
     $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#domainFilter").value = "all"; $("#skillFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
-    $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession(state.items.slice(0, 10));
-    $("#mistakeBtn").onclick = openMistakeLog;
+    $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession();
+    $("#mistakeBtn").onclick = openMistakesPage;
+    $("#sessionsBtn").onclick = openSessions;
+    $("#mistakesBackBtn").onclick = closeMistakesPage;
+    $("#mistakesBackTop").onclick = closeMistakesPage;
+    $("#runAllMistakes").onclick = runMistakes;
+    $("#aiCoachBtn").onclick = openAiCoach;
+    $("#mistakeResetFilters").onclick = () => { state.mistakeDifficulty = "all"; $("#mistakeDifficulty").value = "all"; state.mistakeSubject = "all"; state.mistakeDomain = ""; renderMistakeList(); };
     $("#mistakeDifficulty").onchange = () => { state.mistakeDifficulty = $("#mistakeDifficulty").value; renderMistakeList(); };
     $("#mistakeTimerMode").onchange = () => { state.mistakeTimerMode = $("#mistakeTimerMode").value; };
-    $("#runMistakes").onclick = runMistakes;
     const TEST_BLUEPRINTS = {
       "Reading and Writing": { quarter: [7, 8], half: [14, 16], module: [27, 32], section: [54, 64] },
       Math: { quarter: [6, 9], half: [11, 17.5], module: [22, 35], section: [44, 70] }

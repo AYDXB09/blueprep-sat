@@ -13,3 +13,4 @@ Thumbs.db
 .opencode/
 .env
 .env.*
+data/sessions.json

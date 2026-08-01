@@ -1,13 +1,31 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
+const https = require("node:https");
+const crypto = require("node:crypto");
 const { URL } = require("node:url");
 
 const ROOT = __dirname;
 const DATA_FILE = path.join(ROOT, "data", "questions.json");
 const NEW_FILE = path.join(ROOT, "data", "new_questions.json");
 const PROGRESS_FILE = path.join(ROOT, "data", "progress.json");
+const SESSIONS_FILE = path.join(ROOT, "data", "sessions.json");
 const PORT = Number(process.env.PORT || 4173);
+const K2_API_KEY = process.env.K2_API_KEY || readDotEnv().K2_API_KEY || "";
+const K2_MODEL = process.env.K2_MODEL || "MBZUAI-IFM/K2-Think-v2";
+const K2_BASE = process.env.K2_BASE || "api.k2think.ai";
+
+function readDotEnv() {
+  const result = {};
+  try {
+    const raw = fs.readFileSync(path.join(ROOT, ".env"), "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (match) result[match[1]] = match[2].replace(/^["']|["']$/g, "");
+    }
+  } catch {}
+  return result;
+}
 
 if (!fs.existsSync(DATA_FILE)) {
   console.error("Question catalog missing. Run `npm run download` first.");
@@ -28,6 +46,16 @@ newQuestions.forEach(question => {
 
 let progress = {};
 try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE, "utf8")); } catch { progress = {}; }
+
+let sessions = [];
+try { sessions = JSON.parse(fs.readFileSync(SESSIONS_FILE, "utf8")); } catch { sessions = []; }
+if (!Array.isArray(sessions)) sessions = [];
+
+const aiQuestions = [];
+
+function saveSessions() {
+  fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+}
 
 const PRACTICE_SIZES = {
   quarter: { "Reading and Writing": { count: 7, seconds: 8 * 60 }, Math: { count: 6, seconds: 9 * 60 } },
@@ -151,6 +179,91 @@ function readBody(request) {
   });
 }
 
+function callK2(messages, options = {}) {
+  return new Promise((resolve, reject) => {
+    if (!K2_API_KEY) return reject(new Error("K2 API key is not configured. Set K2_API_KEY in .env"));
+    const payload = {
+      model: K2_MODEL,
+      messages,
+      stream: false
+    };
+    if (options.responseFormat) payload.response_format = { type: "json_object" };
+    if (options.maxTokens) payload.max_completion_tokens = options.maxTokens;
+    const body = JSON.stringify(payload);
+    const request = https.request({
+      hostname: K2_BASE,
+      path: "/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+        authorization: `Bearer ${K2_API_KEY}`
+      }
+    }, response => {
+      let data = "";
+      response.on("data", chunk => data += chunk);
+      response.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+            return reject(new Error(parsed.error?.message || `K2 API error ${response.statusCode}`));
+          }
+          resolve(parsed.choices?.[0]?.message?.content || "");
+        } catch (error) {
+          reject(new Error(`Invalid K2 response: ${data.slice(0, 300)}`));
+        }
+      });
+    });
+    request.on("error", reject);
+    request.setTimeout(120000, () => request.destroy(new Error("K2 API timed out")));
+    request.write(body);
+    request.end();
+  });
+}
+
+function extractJson(text) {
+  let cleaned = String(text || "").trim();
+  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) cleaned = fence[1].trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) throw new Error("No JSON object in model output");
+  return JSON.parse(cleaned.slice(start, end + 1));
+}
+
+function stripHtml(html) {
+  const text = String(html || "")
+    .replace(/<math[^>]*alttext="([^"]*)"[^>]*>[\s\S]*?<\/math>/g, "$1")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ").trim();
+  return text;
+}
+
+function humanizeMath(text) {
+  return String(text || "")
+    .replace(/StartFraction\s*/g, "(")
+    .replace(/\s*Over\s+/g, "/")
+    .replace(/\s*EndFraction\s*/g, ")")
+    .replace(/equals/g, "=")
+    .replace(/minus/g, "-")
+    .replace(/plus/g, "+")
+    .replace(/times/g, "*")
+    .replace(/greater than or equal to/g, ">=")
+    .replace(/less than or equal to/g, "<=")
+    .replace(/greater than/g, ">")
+    .replace(/less than/g, "<")
+    .replace(/left parenthesis/g, "(")
+    .replace(/right parenthesis/g, ")");
+}
+
+function findQuestion(id) {
+  return questions.find(item => item.id === id) || newQuestions.find(item => item.id === id) || aiQuestions.find(item => item.id === id);
+}
+
+function questionStemText(question) {
+  return `${humanizeMath(stripHtml(question.stem || ""))} ${stripHtml(question.stimulus || "")}`.trim();
+}
+
 function questionSummary(question) {
   return {
     id: question.id,
@@ -165,6 +278,117 @@ function questionSummary(question) {
     correct: Boolean(progress[question.id]?.correct),
     submittedAnswer: progress[question.id]?.answer || ""
   };
+}
+
+function buildPerformanceDigest() {
+  const attempts = [];
+  for (const [id, record] of Object.entries(progress)) {
+    const question = findQuestion(id);
+    if (!question) continue;
+    let struck = [];
+    for (const session of sessions) {
+      const item = session.questions.find(entry => entry.id === id);
+      if (item && item.struck) struck = item.struck;
+    }
+    attempts.push({
+      id,
+      subject: question.subject,
+      domain: question.domain,
+      skill: question.skill,
+      difficulty: question.difficulty,
+      type: question.type,
+      correct: Boolean(record.correct),
+      answer: record.answer || "",
+      correctAnswer: question.correctAnswer || "",
+      time: record.time || 0,
+      attempts: record.attempts || 1,
+      struck,
+      updatedAt: record.updatedAt || 0
+    });
+  }
+  const bySubject = {};
+  const byDomain = {};
+  const bySkill = {};
+  const byDifficulty = {};
+  for (const attempt of attempts) {
+    (bySubject[attempt.subject] = bySubject[attempt.subject] || []).push(attempt);
+    (byDomain[attempt.domain] = byDomain[attempt.domain] || []).push(attempt);
+    (bySkill[attempt.skill] = bySkill[attempt.skill] || []).push(attempt);
+    (byDifficulty[attempt.difficulty] = byDifficulty[attempt.difficulty] || []).push(attempt);
+  }
+  const summarize = (name, group) => {
+    const total = group.length;
+    const correct = group.filter(item => item.correct).length;
+    const correctTime = group.filter(item => item.correct).reduce((sum, item) => sum + (item.time || 0), 0);
+    const incorrectTime = group.filter(item => !item.correct).reduce((sum, item) => sum + (item.time || 0), 0);
+    const struckCorrect = group.filter(item => item.struck && item.correctAnswer && item.struck.includes(item.correctAnswer) && !item.correct).length;
+    const repeatedlyWrong = group.filter(item => !item.correct && (item.attempts || 1) > 1).length;
+    return {
+      name,
+      total,
+      correct,
+      incorrect: total - correct,
+      accuracy: total ? Math.round(100 * correct / total) : 0,
+      avgTimeCorrect: correct ? Math.round(correctTime / correct) : 0,
+      avgTimeIncorrect: total - correct ? Math.round(incorrectTime / (total - correct)) : 0,
+      struckCorrectCount: struckCorrect,
+      repeatedlyWrongCount: repeatedlyWrong
+    };
+  };
+  const total = attempts.length;
+  const correct = attempts.filter(item => item.correct).length;
+  return {
+    totalAttempts: total,
+    correct,
+    incorrect: total - correct,
+    accuracy: total ? Math.round(100 * correct / total) : 0,
+    totalTime: attempts.reduce((sum, item) => sum + (item.time || 0), 0),
+    sessions: sessions.map(session => ({
+      id: session.id,
+      mode: session.mode || "practice",
+      subject: session.subject || "",
+      createdAt: session.createdAt || 0,
+      total: session.questions.length,
+      correct: session.questions.filter(item => item.correct).length,
+      totalTime: session.questions.reduce((sum, item) => sum + (item.time || 0), 0),
+      struckTotal: session.questions.reduce((sum, item) => sum + ((item.struck || []).length), 0)
+    })),
+    subjects: Object.entries(bySubject).map(([name, group]) => summarize(name, group)).sort((a, b) => b.total - a.total),
+    domains: Object.entries(byDomain).map(([name, group]) => summarize(name, group)).sort((a, b) => b.incorrect - a.incorrect),
+    skills: Object.entries(bySkill).map(([name, group]) => summarize(name, group)).sort((a, b) => b.incorrect - a.incorrect),
+    difficulties: Object.entries(byDifficulty).map(([name, group]) => summarize(name, group)).sort((a, b) => b.total - a.total),
+    recentWrong: attempts.filter(item => !item.correct).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
+  };
+}
+
+function digestToText(digest) {
+  const fmtTime = seconds => seconds ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : "0s";
+  const lines = [];
+  lines.push(`OVERALL: ${digest.totalAttempts} attempts, ${digest.correct} correct, ${digest.incorrect} incorrect, ${digest.accuracy}% accuracy, ${fmtTime(digest.totalTime)} total time.`);
+  lines.push("");
+  lines.push("BY SUBJECT:");
+  for (const s of digest.subjects) lines.push(`- ${s.name}: ${s.correct}/${s.total} (${s.accuracy}%), avg time correct ${fmtTime(s.avgTimeCorrect)}, avg time incorrect ${fmtTime(s.avgTimeIncorrect)}${s.repeatedlyWrongCount ? `, ${s.repeatedlyWrongCount} repeatedly wrong` : ""}.`);
+  lines.push("");
+  lines.push("BY DOMAIN (worst first):");
+  for (const d of digest.domains.slice(0, 8)) lines.push(`- ${d.name}: ${d.correct}/${d.total} (${d.accuracy}%), ${d.struckCorrectCount} struck the correct answer but still got it wrong, ${d.repeatedlyWrongCount} repeatedly wrong.`);
+  lines.push("");
+  lines.push("BY SKILL (worst first, top 12):");
+  for (const s of digest.skills.slice(0, 12)) lines.push(`- ${s.name}: ${s.correct}/${s.total} (${s.accuracy}%), avg time ${fmtTime(s.avgTimeCorrect)} correct vs ${fmtTime(s.avgTimeIncorrect)} incorrect${s.struckCorrectCount ? `, struck correct answer ${s.struckCorrectCount}x without choosing it` : ""}${s.repeatedlyWrongCount ? `, ${s.repeatedlyWrongCount} repeatedly wrong` : ""}.`);
+  lines.push("");
+  lines.push("BY DIFFICULTY:");
+  for (const d of digest.difficulties) lines.push(`- ${d.name}: ${d.correct}/${d.total} (${d.accuracy}%).`);
+  lines.push("");
+  lines.push("SESSION TREND (most recent first):");
+  for (const session of digest.sessions.slice(0, 10)) {
+    const date = new Date(session.createdAt).toLocaleString();
+    lines.push(`- ${date} (${session.mode}${session.subject ? " " + session.subject : ""}): ${session.correct}/${session.total} correct, ${fmtTime(session.totalTime)} total, ${session.struckTotal} choices struck.`);
+  }
+  lines.push("");
+  lines.push("MOST RECENT WRONG ANSWERS:");
+  for (const item of digest.recentWrong.slice(0, 8)) {
+    lines.push(`- [${item.subject}/${item.domain}/${item.skill}/${item.difficulty}] your answer "${item.answer}" vs correct "${item.correctAnswer}", ${fmtTime(item.time)} spent, struck ${item.struck.length ? item.struck.join(",") : "none"}, attempt #${item.attempts}.`);
+  }
+  return lines.join("\n");
 }
 
 function handleApi(request, response, url) {
@@ -196,7 +420,8 @@ function handleApi(request, response, url) {
     const excludeActive = url.searchParams.get("excludeActive") === "true" || newOnly;
     const sourcePool = newOnly ? newQuestions : questions;
     const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
-    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 50)));
+    const fetchAll = url.searchParams.get("all") === "true";
+    const limit = fetchAll ? Infinity : Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 50)));
     const filtered = sourcePool.filter(question =>
       (subject === "all" || question.subject === subject) &&
       (domain === "all" || question.domain === domain) &&
@@ -221,9 +446,25 @@ function handleApi(request, response, url) {
     const mistakes = [];
     for (const [id, record] of Object.entries(progress)) {
       if (record.correct) continue;
-      const question = questions.find(item => item.id === id) || newQuestions.find(item => item.id === id);
+      const question = findQuestion(id);
       if (!question) continue;
-      mistakes.push({ question, answer: record.answer || "", updatedAt: record.updatedAt || 0 });
+      mistakes.push({
+        question,
+        answer: record.answer || "",
+        correct: Boolean(record.correct),
+        time: record.time || 0,
+        attempts: record.attempts || 1,
+        struck: [],
+        updatedAt: record.updatedAt || 0
+      });
+    }
+    for (const mistake of mistakes) {
+      let latest = null;
+      for (const session of sessions) {
+        const item = session.questions.find(entry => entry.id === mistake.question.id);
+        if (item) latest = item;
+      }
+      if (latest && latest.struck) mistake.struck = latest.struck.filter(letter => /^[A-D]$/.test(String(letter)));
     }
     mistakes.sort((a, b) => b.updatedAt - a.updatedAt);
     return json(response, 200, { total: mistakes.length, items: mistakes });
@@ -231,14 +472,15 @@ function handleApi(request, response, url) {
 
   const match = url.pathname.match(/^\/api\/questions\/([0-9a-f-]+)$/i);
   if (request.method === "GET" && match) {
-    const question = questions.find(item => item.id === match[1]) || newQuestions.find(item => item.id === match[1]);
+    const question = findQuestion(match[1]);
     return question ? json(response, 200, question) : json(response, 404, { error: "Question not found" });
   }
 
   if (request.method === "POST" && url.pathname === "/api/progress") {
     return readBody(request).then(body => {
-      if (!questions.some(question => question.id === body.id) && !newQuestions.some(question => question.id === body.id)) return json(response, 404, { error: "Question not found" });
-      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), time: Math.max(0, Number(body.time) || 0), updatedAt: Date.now() };
+      if (!findQuestion(body.id)) return json(response, 404, { error: "Question not found" });
+      const previous = progress[body.id] || {};
+      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), time: Math.max(0, Number(body.time) || 0), attempts: (previous.attempts || 0) + 1, updatedAt: Date.now() };
       fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
       return json(response, 200, { ok: true });
     }).catch(error => json(response, 400, { error: error.message }));
@@ -247,7 +489,7 @@ function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/analytics") {
     const items = [];
     for (const [id, record] of Object.entries(progress)) {
-      const question = questions.find(item => item.id === id) || newQuestions.find(item => item.id === id);
+      const question = findQuestion(id);
       if (!question) continue;
       items.push({
         id,
@@ -263,6 +505,185 @@ function handleApi(request, response, url) {
     }
     items.sort((a, b) => b.updatedAt - a.updatedAt);
     return json(response, 200, { total: items.length, items });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/sessions") {
+    const summary = sessions.map(session => ({
+      id: session.id,
+      mode: session.mode || "practice",
+      subject: session.subject || "",
+      createdAt: session.createdAt || 0,
+      total: session.questions.length,
+      correct: session.questions.filter(item => item.correct).length,
+      totalTime: session.questions.reduce((sum, item) => sum + (item.time || 0), 0)
+    })).sort((a, b) => b.createdAt - a.createdAt);
+    return json(response, 200, { total: summary.length, items: summary });
+  }
+
+  const sessionMatch = url.pathname.match(/^\/api\/sessions\/([0-9a-z-]+)$/i);
+  if (request.method === "GET" && sessionMatch) {
+    const session = sessions.find(item => item.id === sessionMatch[1]);
+    if (!session) return json(response, 404, { error: "Session not found" });
+    return json(response, 200, {
+      id: session.id,
+      mode: session.mode || "practice",
+      subject: session.subject || "",
+      createdAt: session.createdAt || 0,
+      questions: session.questions.map(item => {
+        const question = item.question || findQuestion(item.id);
+        return {
+          id: item.id,
+          answer: item.answer || "",
+          correct: Boolean(item.correct),
+          time: item.time || 0,
+          struck: item.struck || [],
+          question: question ? questionSummary(question) : null,
+          questionId: question?.questionId || item.id
+        };
+      })
+    });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/session") {
+    return readBody(request).then(body => {
+      const questionsList = Array.isArray(body.questions) ? body.questions.slice(0, 200) : [];
+      const session = {
+        id: crypto.randomUUID().slice(0, 13),
+        mode: body.mode || "practice",
+        subject: body.subject || "",
+        createdAt: Date.now(),
+        questions: questionsList.map(item => ({
+          id: item.id,
+          answer: String(item.answer || ""),
+          correct: Boolean(item.correct),
+          time: Math.max(0, Number(item.time) || 0),
+          struck: Array.isArray(item.struck) ? item.struck.filter(letter => /^[A-D]$/.test(String(letter))) : [],
+          question: item.question || null
+        }))
+      };
+      sessions.push(session);
+      if (sessions.length > 200) sessions = sessions.slice(-200);
+      saveSessions();
+      return json(response, 200, { id: session.id });
+    }).catch(error => json(response, 400, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/ai/advice") {
+    if (!K2_API_KEY) return json(response, 400, { error: "AI is not configured. Set K2_API_KEY in .env to use AI performance coaching." });
+    return (async () => {
+      const digest = buildPerformanceDigest();
+      const text = digestToText(digest);
+      const prompt = [
+        "You are an elite SAT tutor and performance coach. Analyze the student's complete practice history below and give specific, honest, actionable advice.",
+        "",
+        "The data includes accuracy by subject/domain/skill/difficulty, average time on correct vs incorrect answers, which questions were struck (answer choices eliminated) but still answered wrong, repeatedly-wrong questions, session trends, and recent wrong answers.",
+        "",
+        "Structure your response with these sections:",
+        "1. OVERVIEW - 2-3 sentences summarizing where the student stands.",
+        "2. BIGGEST WEAKNESSES - the 3-5 skills/domains with the weakest accuracy and why, using the numbers.",
+        "3. PATTERNS - time usage (too slow/fast on correct vs incorrect), strike-out behavior (are they striking the right answer then picking wrong?), and repeated mistakes.",
+        "4. SPECIFIC NEXT STEPS - concrete, prioritized actions with exact skill names the student should drill next, and study strategy.",
+        "",
+        "Use the exact skill and domain names from the data. Be blunt and specific. Do not be generic.",
+        "",
+        "STUDENT DATA:",
+        text
+      ].join("\n");
+      let advice = "";
+      for (let attempt = 0; attempt < 2 && !advice; attempt++) {
+        const content = await callK2([{ role: "user", content: prompt }], { maxTokens: 16000 });
+        advice = String(content || "").trim();
+      }
+      if (!advice) return json(response, 502, { error: "The AI coach could not produce advice. Try again." });
+      return json(response, 200, { advice, digest });
+    })().catch(error => json(response, 502, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/ai/similar") {
+    if (!K2_API_KEY) return json(response, 400, { error: "AI is not configured. Set K2_API_KEY in .env to use similar-problem generation." });
+    return readBody(request).then(async body => {
+      const question = findQuestion(body.id);
+      if (!question) return json(response, 404, { error: "Question not found" });
+      const optionsText = (question.options || []).map(option => `- ${stripHtml(option.content)}`).join("\n");
+      const source = {
+        subject: question.subject,
+        domain: question.domain,
+        skill: question.skill,
+        difficulty: question.difficulty,
+        type: question.type,
+        stem: questionStemText(question),
+        options: optionsText,
+        correctAnswer: question.correctAnswer
+      };
+      const typeHint = question.type === "spr"
+        ? "This is a student-produced response (grid-in) question. The answer is a single number or fraction; produce NO options."
+        : "This is a multiple-choice question. Produce exactly 4 answer options.";
+      const prompt = [
+        "You are an expert SAT question writer who matches the exact style, tone, and framing conventions of the College Board Digital SAT.",
+        "",
+        `Generate a NEW original question on the same concept as the source below, for subject "${source.subject}", strand "${source.domain}", skill "${source.skill}", difficulty "${source.difficulty}".`,
+        "The new question must test the SAME underlying skill and concept but use DIFFERENT numbers, wording, context, or scenario so it is not a copy.",
+        "If the source has a passage, data table, or graph, write a fresh equivalent passage/data so the question stands alone.",
+        typeHint,
+        "",
+        "SOURCE QUESTION:",
+        `Stem: ${source.stem}`,
+        source.options ? `Options:\n${source.options}` : "",
+        `Correct answer: ${source.correctAnswer}`,
+        "",
+        'Respond with ONLY a single valid JSON object, no markdown, matching exactly this shape: {"stem": "question text", "options": [], "correctAnswer": "answer", "rationale": "explanation"}.',
+        `options is an array of exactly 4 strings (multiple choice) or an empty array (grid-in). For multiple choice, correctAnswer is the letter "A", "B", "C", or "D". For grid-in, correctAnswer is the numeric answer as a string.`,
+        "Keep the difficulty and length comparable to the source. Finish with the closing brace of the JSON object."
+      ].filter(Boolean).join("\n");
+      let generated = null;
+      let lastError = "No response from model";
+      for (let attempt = 0; attempt < 3 && generated === null; attempt++) {
+        const content = await callK2([{ role: "user", content: prompt }], { maxTokens: 16000 });
+        if (!content || !content.trim()) { lastError = "Empty model output"; continue; }
+        try {
+          generated = extractJson(content);
+        } catch (error) {
+          lastError = error.message;
+          try { fs.writeFileSync(path.join(ROOT, "data", "ai_debug.txt"), `QID: ${question.id}\n\n${content}`); } catch (_) {}
+        }
+      }
+      if (!generated) return json(response, 502, { error: `The model returned invalid output. ${lastError}` });
+      const mcq = question.type !== "spr";
+      let options = [];
+      let correctAnswer = String(generated.correctAnswer || "").trim();
+      if (mcq) {
+        const rawOptions = Array.isArray(generated.options) ? generated.options : [];
+        const letters = ["A", "B", "C", "D"];
+        if (correctAnswer.length === 1 && /[A-D]/i.test(correctAnswer)) correctAnswer = correctAnswer.toUpperCase();
+        options = letters.slice(0, Math.max(4, rawOptions.length) && 4).map((letter, index) => ({
+          id: crypto.randomUUID(),
+          content: `<p>${stripHtml(rawOptions[index] || "")}</p>`
+        }));
+        if (!/[A-D]/.test(correctAnswer)) correctAnswer = "";
+      } else {
+        correctAnswer = correctAnswer.replace(/[^\d./-]/g, "");
+      }
+      const newQuestion = {
+        id: crypto.randomUUID(),
+        questionId: `AI-${question.skill.replace(/[^A-Za-z]/g, "").slice(0, 20)}`,
+        subject: question.subject,
+        domain: question.domain,
+        skill: question.skill,
+        difficulty: question.difficulty,
+        active: false,
+        type: question.type,
+        stimulus: "",
+        stem: `<p>${stripHtml(generated.stem || "")}</p>`,
+        options,
+        correctAnswer,
+        rationale: `<p>${stripHtml(generated.rationale || "")}</p>`,
+        aiGenerated: true,
+        sourceId: question.id
+      };
+      aiQuestions.push(newQuestion);
+      if (aiQuestions.length > 200) aiQuestions.splice(0, aiQuestions.length - 200);
+      return json(response, 200, newQuestion);
+    }).catch(error => json(response, 502, { error: error.message }));
   }
 
   return json(response, 404, { error: "Not found" });
