@@ -299,6 +299,33 @@
     .advice-panel .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
     .spinner { width: 16px; height: 16px; border: 2px solid #c6cfd9; border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .ai-chat-modal { display: flex; flex-direction: column; max-height: min(720px, 90vh); overflow: hidden; }
+    .ai-chat-modal .modal-b { flex: 1; display: flex; flex-direction: column; padding: 16px 20px 20px; overflow: hidden; }
+    .ai-chat-context { font-size: 12px; margin-bottom: 10px; }
+    .ai-chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; min-height: 220px; }
+    .chat-msg { max-width: 88%; padding: 10px 13px; border-radius: 12px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
+    .chat-msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+    .chat-msg.bot { align-self: flex-start; background: #f1f4f8; color: #1c2733; border-bottom-left-radius: 4px; }
+    .chat-msg.bot h1, .chat-msg.bot h2, .chat-msg.bot h3 { color: var(--navy); margin: 10px 0 4px; font-size: 14px; }
+    .chat-msg.bot ul, .chat-msg.bot ol { margin: 6px 0; padding-left: 20px; }
+    .chat-msg.bot li { margin: 3px 0; }
+    .chat-msg.bot strong { color: var(--navy); }
+    .chat-msg.bot code { background: #e6eaf0; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+    .chat-msg.bot table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    .chat-msg.bot th, .chat-msg.bot td { border: 1px solid #d3dae2; padding: 4px 8px; text-align: left; }
+    .chat-msg.error { align-self: center; background: #fdecec; color: var(--red); font-size: 13px; }
+    .ai-chat-input { display: flex; gap: 10px; margin-top: 12px; }
+    .ai-chat-input textarea { flex: 1; resize: none; border: 1px solid #cfd8e1; border-radius: 8px; padding: 10px; font-size: 14px; font-family: inherit; min-height: 44px; }
+    .ai-chat-input .primary { align-self: flex-end; }
+    .ai-chat-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .ai-chat-suggest .feedback-btn { font-size: 12px; padding: 5px 10px; }
+    .ai-chat-suggest .feedback-btn:disabled { opacity: .5; pointer-events: none; }
+    .session-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+    .session-filter select { padding: 5px 8px; border: 1px solid #cfd8e1; border-radius: 6px; font-size: 13px; }
+    .session-detail-actions { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; flex-wrap: wrap; }
+    .session-detail-actions .primary { margin-left: auto; }
+    .session-detail-actions .submit-hint { margin: 0; font-size: 12px; color: var(--muted); flex: 1; min-width: 200px; }
+    @media (max-width: 640px) { .session-detail-actions .primary { margin-left: 0; } }
     .back-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
     .back-row .text-btn { font-size: 13px; }
     .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
@@ -356,7 +383,7 @@
   <section id="library">
     <header class="site-head">
       <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
-      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="sessionsBtn">Practice history</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
+      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="sessionsBtn">Practice history</button><button class="ghost-light" id="aiChatBtn">AI Assistant</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
     </header>
     <main class="library-shell">
       <div class="hero">
@@ -403,7 +430,7 @@
       <div class="back-row"><button class="text-btn" id="mistakesBackTop">← Back to question library</button></div>
       <div class="mistakes-head">
         <div><h1>Mistake Log &amp; Performance</h1><p>Every question you've missed, with time spent, struck-out choices, and your submitted answers.</p></div>
-        <div class="mistakes-actions"><button class="primary" id="runAllMistakes">Run all mistakes</button><button class="feedback-btn" id="aiCoachBtn">AI Performance Coach</button></div>
+        <div class="mistakes-actions"><button class="primary" id="runAllMistakes">Run all mistakes</button><button class="feedback-btn" id="aiCoachBtn">AI Performance Coach</button><button class="feedback-btn" id="aiChatBtnMistakes">Ask AI Assistant</button></div>
       </div>
       <div class="advice-panel hidden" id="advicePanel"><h3>AI Performance Coach</h3><p class="advice-meta" id="adviceMeta"></p><div class="advice-body" id="adviceBody"></div></div>
       <div class="mistake-subjects" id="mistakeSubjects"></div>
@@ -428,7 +455,7 @@
     <div class="timer-strip"><span class="timer" id="timer">25:00</span><button class="hide-time" id="hideTimer">Hide</button></div>
     <main class="exam-main">
       <article class="passage"><div class="passage-inner"><p class="passage-label" id="passageLabel">Read the text and answer the question.</p><div class="passage-text" id="passageText"></div></div></article>
-      <section class="question-side"><div class="question-inner"><div class="question-meta"><span class="number-badge" id="questionNumber">1</span><button class="mark-review" id="markBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Mark for Review</button></div><p class="prompt" id="prompt"></p><div class="answers" id="answers"></div><div class="feedback-zone" id="feedbackZone"></div></div></section>
+      <section class="question-side"><div class="question-inner"><div class="question-meta"><span class="number-badge" id="questionNumber">1</span><button class="mark-review" id="markBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Mark for Review</button><button class="mark-review" id="askAiBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 1 3 3c1.5.5 2.5 2 2.5 3.5C17.5 12 14 15 12 15s-5.5-3-5.5-6.5C6.5 7 7.5 5.5 9 5a3 3 0 0 1 3-3z"></path><path d="M12 15v4"></path><path d="M8 22h8"></path></svg>Ask AI</button></div><p class="prompt" id="prompt"></p><div class="answers" id="answers"></div><div class="feedback-zone" id="feedbackZone"></div></div></section>
     </main>
     <footer class="exam-foot"><span class="student">AK &nbsp; SAT Practice</span><button class="q-menu-btn" id="questionMenu">Question <span id="footNumber">1</span> of <span id="footTotal">1</span> ▾</button><div class="nav-btns"><button class="nav-btn secondary" id="backBtn">Back</button><button class="nav-btn" id="nextBtn">Next</button></div></footer>
   </section>
@@ -440,15 +467,17 @@
   <div class="modal-bg hidden" id="resultsModal" role="dialog" aria-modal="true" aria-labelledby="resultsTitle"><div class="modal"><div class="modal-h"><h2 id="resultsTitle">Practice Complete</h2><button class="close" id="resultClose" aria-label="Close results">&times;</button></div><div class="modal-b results"><p class="eyebrow">Your result</p><div class="score-ring"><div><strong id="score">0/0</strong><span>correct</span></div></div><p id="scoreMessage"></p><div class="review-list" id="reviewList"></div><button class="primary" id="backLibrary">Return to question bank</button></div></div></div>
   <div class="modal-bg hidden" id="analyticsModal" role="dialog" aria-modal="true" aria-labelledby="analyticsTitle"><div class="modal analytics-modal"><div class="modal-h"><h2 id="analyticsTitle">Performance Analytics</h2><button class="close" data-close aria-label="Close analytics">&times;</button></div><div class="modal-b"><p class="analytics-empty" id="analyticsBody">Loading analytics...</p></div></div></div>
 
-  <div class="modal-bg hidden" id="sessionsModal" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle"><div class="modal sessions-modal"><div class="modal-h"><h2 id="sessionsTitle">Practice history</h2><button class="close" data-close aria-label="Close practice history">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionsSummary"></p><div class="mistake-list" id="sessionsList"></div></div></div></div>
+  <div class="modal-bg hidden" id="sessionsModal" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle"><div class="modal sessions-modal"><div class="modal-h"><h2 id="sessionsTitle">Practice history</h2><button class="close" data-close aria-label="Close practice history">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionsSummary"></p><div class="session-filter"><label for="sessionsFilter">Show</label><select id="sessionsFilter"><option value="test">Timed tests</option><option value="practice">Practice &amp; review</option><option value="all">Everything</option></select></div><div class="mistake-list" id="sessionsList"></div></div></div></div>
 
-  <div class="modal-bg hidden" id="sessionDetailModal" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle"><div class="modal session-detail-modal"><div class="modal-h"><h2 id="sessionDetailTitle">Session details</h2><button class="close" data-close aria-label="Close session details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionDetailSummary"></p><div class="mistake-list" id="sessionDetailList"></div></div></div></div>
+  <div class="modal-bg hidden" id="sessionDetailModal" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle"><div class="modal session-detail-modal"><div class="modal-h"><h2 id="sessionDetailTitle">Session details</h2><button class="close" data-close aria-label="Close session details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionDetailSummary"></p><div class="session-detail-actions"><button class="primary" id="reviewSessionBtn">Review full test</button><p class="submit-hint">Reopen the whole test in the practice player, exactly as you took it, to review every question, your answer, struck choices, and rationale.</p></div><div class="mistake-list" id="sessionDetailList"></div></div></div></div>
+
+  <div class="modal-bg hidden" id="aiChatModal" role="dialog" aria-modal="true" aria-labelledby="aiChatTitle"><div class="modal ai-chat-modal"><div class="modal-h"><h2 id="aiChatTitle">BluePrep Assistant</h2><button class="close" data-close aria-label="Close assistant">&times;</button></div><div class="modal-b ai-chat-body"><p class="mistake-summary ai-chat-context" id="aiChatContext"></p><div class="ai-chat-log" id="aiChatLog"></div><div class="ai-chat-input"><textarea id="aiChatInput" rows="2" placeholder="Ask about your performance, get coaching, or say things like &quot;give me 10 hard questions on quadratic functions&quot; or &quot;drill my weakest skill&quot;..."></textarea><button class="primary" id="aiChatSend">Send</button></div><div class="ai-chat-suggest"><button class="feedback-btn" data-prompt="What are my biggest weaknesses and exactly what should I drill next?">Biggest weaknesses</button><button class="feedback-btn" data-prompt="Drill my weakest skill with real questions now.">Drill weakest skill</button><button class="feedback-btn" data-prompt="Give me a full timed Math test.">Full Math test</button><button class="feedback-btn" data-prompt="Which of my mistakes am I repeating and why?">Repeated mistakes</button></div></div></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
   <script>
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
-    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all" };
+    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false };
     const clean = html => window.DOMPurify ? DOMPurify.sanitize(html || "", { USE_PROFILES: { html: true, svg: true, mathMl: true }, ADD_ATTR: ["target", "xlink:href", "alttext"] }) : String(html || "");
     const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
     function renderMarkdown(text) {
@@ -576,7 +605,7 @@
       }
       if (!questions.length) return;
       if ($("#shuffleQuestions").checked) questions = [...questions].sort(() => Math.random() - .5);
-      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
       if (options.timerMode === "question" || options.timerMode === "none") state.seconds = 0;
       state.timerMode = options.timerMode || "section";
       $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
@@ -636,7 +665,7 @@
           return `<div class="answer-wrap"><button class="answer ${state.answers[question.id] === letter ? "selected" : ""} ${struck ? "struck" : ""}" data-answer="${letter}" aria-label="${escapeHtml(`${letter}. ${spokenText(option.content)}`)}" ${locked ? "disabled" : ""}><span class="choice-letter">${letter}</span><span class="answer-text">${clean(option.content)}</span></button><button class="strike-btn" data-strike="${letter}" aria-label="Strike out choice ${letter}" ${locked ? "disabled" : ""}>✕</button></div>`;
         }).join("");
         $$('[data-answer]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id)) return; state.answers[question.id] = button.dataset.answer; renderQuestion(); });
-        $$('[data-strike]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id)) return; const letter = button.dataset.strike; const key = `${question.id}:${letter}`; state.struck.has(key) ? state.struck.delete(key) : state.struck.add(key); renderQuestion(); });
+        $$('[data-strike]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id)) return; const letter = button.dataset.strike; const key = `${question.id}:${letter}`; const at = state.frozenElapsed != null ? state.frozenElapsed : Math.floor((Date.now() - state.questionStart) / 1000); if (state.struck.has(key)) { state.struck.delete(key); state.strikeLog[question.id] = (state.strikeLog[question.id] || []).filter(entry => entry.letter !== letter); } else { state.struck.add(key); (state.strikeLog[question.id] = state.strikeLog[question.id] || []).push({ letter, at }); } renderQuestion(); });
       }
       $("#backBtn").disabled = state.index === 0;
       renderActionZone(question);
@@ -675,7 +704,7 @@
       recordQuestionTime(question);
       const answer = state.answers[question.id];
       const correct = isCorrect(question, answer);
-      const similarButton = correct ? "" : `<button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
+      const similarButton = `<button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
       $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}"><p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>${similarButton}`;
       $$('[data-answer], [data-strike], #sprAnswer').forEach(element => element.disabled = true);
       if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
@@ -692,7 +721,7 @@
         if (!response.ok) throw new Error(generated.error || "Unable to generate a similar problem.");
         state.details.set(generated.id, generated);
         state.submittedAnswer = ""; state.submittedAnswers = {};
-        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
         state.sessionMode = "practice"; state.instantFeedback = true;
         state.timerMode = "question";
         startTimer(); await renderQuestion(); window.scrollTo(0, 0);
@@ -703,18 +732,18 @@
     }
 
     async function revealAnswer() {
-      const question = state.session[state.index];
+      const question = await getDetail(state.session[state.index]);
       state.revealed.add(question.id);
       stopQuestionTimer();
       recordQuestionTime(question);
       const answer = state.answers[question.id] || (state.sessionMode === "review" ? (state.submittedAnswers[question.id] !== undefined ? state.submittedAnswers[question.id] : state.submittedAnswer) : "");
       const correct = answer ? isCorrect(question, answer) : false;
-      if (state.sessionMode === "review") {
+      if (state.sessionMode === "review" && !state.reviewingStored) {
         try {
           await fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: question.id, answer, correct, time: state.questionTimes[question.id] || 0 }) });
         } catch {}
       }
-      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>${state.sessionMode === "review" && !correct && answer ? `<button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>` : ""}`;
+      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div><button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
       if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
@@ -762,7 +791,7 @@
       state.answers = {};
       state.submittedAnswer = submittedAnswer || "";
       state.submittedAnswers = {};
-      state.session = [question]; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      state.session = [question]; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
       state.sessionMode = "review"; state.instantFeedback = false;
       state.timerMode = state.mistakeTimerMode === "none" ? "none" : "question";
       $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
@@ -887,7 +916,7 @@
       state.answers = {};
       state.submittedAnswers = {};
       items.forEach(item => { state.submittedAnswers[item.question.id] = item.answer || ""; });
-      state.session = questions; state.index = Math.max(0, Math.min(startIndex, questions.length - 1)); state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      state.session = questions; state.index = Math.max(0, Math.min(startIndex, questions.length - 1)); state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
       state.sessionMode = "review"; state.instantFeedback = false;
       state.timerMode = $("#mistakeTimerMode").value === "none" ? "none" : "question";
       $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
@@ -924,6 +953,109 @@
       }
     }
 
+    function openAiChat(questionId, initialPrompt) {
+      state.chatQuestionId = questionId || null;
+      if (!state.chatMessages.length) {
+        state.chatMessages = [{ role: "assistant", content: "Hi, I'm your BluePrep assistant. I can see your entire practice history — every question, time spent, answer choices you struck out and when, skills, and tests. Ask me for coaching, or tell me to do something like \"drill my weakest skill\" or \"give me a timed Math test\"." }];
+      }
+      const context = $("#aiChatContext");
+      context.textContent = state.chatQuestionId ? "Context: the current question and your history on it are visible to me." : "Context: your full practice history is visible to me.";
+      renderAiChat();
+      openModal("aiChatModal");
+      if (initialPrompt) {
+        const input = $("#aiChatInput");
+        input.value = initialPrompt;
+        sendAiChat();
+      } else {
+        $("#aiChatInput").focus();
+      }
+    }
+
+    function renderAiChat() {
+      $("#aiChatLog").innerHTML = state.chatMessages.map(message => {
+        const className = message.role === "assistant" ? "bot" : "user";
+        const html = message.role === "assistant" ? renderMarkdown(message.content) : escapeHtml(message.content).replace(/\n/g, "<br>");
+        return `<div class="chat-msg ${className}">${html}</div>`;
+      }).join("");
+      if (state.chatSending) {
+        $("#aiChatLog").insertAdjacentHTML("beforeend", '<div class="chat-msg bot"><div class="loading"><span class="spinner"></span> Thinking...</div></div>');
+      }
+      const log = $("#aiChatLog"); log.scrollTop = log.scrollHeight;
+      if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#aiChatLog")]).catch(() => {});
+      $("#aiChatSend").disabled = state.chatSending;
+      $$(".ai-chat-suggest .feedback-btn").forEach(button => button.disabled = state.chatSending);
+    }
+
+    async function sendAiChat() {
+      if (state.chatSending) return;
+      const input = $("#aiChatInput");
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      state.chatMessages.push({ role: "user", content: text });
+      state.chatSending = true;
+      renderAiChat();
+      try {
+        const response = await fetch("/api/ai/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: state.chatMessages.slice(0, -1).slice(-8), questionId: state.chatQuestionId }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "The assistant could not respond.");
+        state.chatMessages.push({ role: "assistant", content: data.reply });
+        state.chatSending = false;
+        renderAiChat();
+        if (data.action && typeof data.action === "object") executeAiAction(data.action);
+      } catch (error) {
+        state.chatSending = false;
+        state.chatMessages.push({ role: "assistant", content: `Error: ${error.message}` });
+        renderAiChat();
+      }
+    }
+
+    async function executeAiAction(action) {
+      try {
+        if (action.type === "start_practice") {
+          const subject = action.subject && action.subject !== "any" ? action.subject : "";
+          const domain = action.domain && action.domain !== "any" ? action.domain : "";
+          const skill = action.skill && action.skill !== "any" ? action.skill : "";
+          const difficulty = action.difficulty && action.difficulty !== "any" ? action.difficulty : "Easy,Medium,Hard";
+          const count = Math.max(1, Math.min(50, Number(action.count) || 10));
+          const params = new URLSearchParams({ subject, domain, skill, difficulty, all: "true" });
+          const response = await fetch(`/api/questions?${params.toString()}`);
+          const data = await response.json();
+          if (!response.ok || !data.items.length) throw new Error("No questions match those filters.");
+          const chosen = [...data.items].sort(() => Math.random() - .5).slice(0, count);
+          closeModals();
+          await startSession(chosen, { seconds: action.mode === "test" ? Math.max(300, chosen.length * 90) : 0, timerMode: action.mode === "test" ? "section" : "question", instantFeedback: false, mode: action.mode === "test" ? "test" : "practice" });
+          $("#aiChatContext").textContent = "";
+        } else if (action.type === "open_mistakes") {
+          closeModals();
+          state.mistakeSubject = action.subject && action.subject !== "all" ? action.subject : "all";
+          state.mistakeDomain = action.skill || "";
+          await openMistakesPage();
+        } else if (action.type === "generate_similar") {
+          if (action.questionId) {
+            const question = state.session.find(item => item.id === action.questionId) || state.details.get(action.questionId);
+            if (question) {
+              closeModals();
+              await generateSimilar(question);
+            } else {
+              throw new Error("That question is no longer available.");
+            }
+          } else {
+            throw new Error("No question specified for similar-problem generation.");
+          }
+        } else if (action.type === "open_sessions") {
+          closeModals();
+          openSessions();
+        } else if (action.type === "open_analytics") {
+          closeModals();
+          openAnalytics();
+        }
+      } catch (error) {
+        state.chatMessages.push({ role: "assistant", content: `Action failed: ${error.message}` });
+        renderAiChat();
+      }
+    }
+
     function formatDateTime(timestamp) {
       const date = new Date(timestamp);
       const pad = value => String(value).padStart(2, "0");
@@ -946,15 +1078,21 @@
     }
 
     function renderSessionsList(sessions) {
-      $("#sessionsSummary").textContent = sessions.length ? `${sessions.length} practice session${sessions.length === 1 ? "" : "s"} saved on this device. Click one to see every question, your answer, time spent, and struck-out choices.` : "No practice sessions yet. Finish a practice set and it will appear here with its own detailed mistake log.";
-      $("#sessionsList").innerHTML = sessions.length ? sessions.map(session => {
+      const filter = $("#sessionsFilter")?.value || "test";
+      const filtered = sessions.filter(session => filter === "all" ? true : filter === "test" ? session.mode === "test" : session.mode !== "test");
+      $("#sessionsSummary").textContent = filtered.length ? `${filtered.length} ${filter === "test" ? "test session" : filter === "practice" ? "practice/review session" : "session"}${filtered.length === 1 ? "" : "s"}${filter === "test" ? " saved on this device. Click one to see every question, your answer, time spent, and struck-out choices." : " on this device. Click one to see its full log."}` : `No ${filter === "test" ? "timed tests" : filter === "practice" ? "practice sessions" : "sessions"} saved yet. Finish a ${filter === "test" ? "timed test" : "practice set"} and it will appear here with its own detailed mistake log.`;
+      $("#sessionsList").innerHTML = filtered.length ? filtered.map(session => {
         const correct = session.correct;
         const accuracy = session.total ? Math.round(100 * correct / session.total) : 0;
         const subject = session.subject || "Mixed";
-        return `<button class="mistake-item" data-session="${escapeHtml(session.id)}"><span class="mistake-num">${accuracy}%</span><span class="mistake-skill"><strong>${escapeHtml(formatDateTime(session.createdAt))} · ${escapeHtml(session.mode)}${subject ? " · " + escapeHtml(subject) : ""}</strong><small>${session.total} question${session.total === 1 ? "" : "s"} · ${correct} correct · ${formatTime(session.totalTime)} total</small></span><span class="mistake-answer ${correct < session.total ? "incorrect" : ""}">${correct}/${session.total}</span></button>`;
-      }).join("") : '<div class="empty-list"><strong>No practice sessions saved yet.</strong><br>Finish a practice set to record its full log.</div>';
+        const modeLabel = session.mode === "test" ? "Timed test" : session.mode === "review" ? "Review" : "Practice";
+        return `<button class="mistake-item" data-session="${escapeHtml(session.id)}"><span class="mistake-num">${accuracy}%</span><span class="mistake-skill"><strong>${escapeHtml(formatDateTime(session.createdAt))} · ${modeLabel}${subject ? " · " + escapeHtml(subject) : ""}</strong><small>${session.total} question${session.total === 1 ? "" : "s"} · ${correct} correct · ${formatTime(session.totalTime)} total</small></span><span class="mistake-answer ${correct < session.total ? "incorrect" : ""}">${correct}/${session.total}</span></button>`;
+      }).join("") : '<div class="empty-list"><strong>No sessions saved yet.</strong><br>Finish a practice set to record its full log.</div>';
       $$('[data-session]').forEach(button => button.onclick = () => openSessionDetail(button.dataset.session));
     }
+    $("#sessionsFilter")?.addEventListener("change", () => {
+      fetch("/api/sessions").then(response => response.json()).then(data => renderSessionsList(data.items)).catch(() => {});
+    });
 
     async function openSessionDetail(sessionId) {
       openModal("sessionDetailModal");
@@ -976,6 +1114,12 @@
       const correct = questions.filter(item => item.correct).length;
       const totalTime = questions.reduce((sum, item) => sum + (item.time || 0), 0);
       $("#sessionDetailSummary").textContent = `${formatDateTime(session.createdAt)} · ${escapeHtml(session.mode)}${session.subject ? " · " + escapeHtml(session.subject) : ""} · ${correct}/${questions.length} correct · ${formatTime(totalTime)} total`;
+      const reviewable = questions.filter(item => item.question);
+      const reviewBtn = $("#reviewSessionBtn");
+      if (reviewBtn) {
+        reviewBtn.disabled = !reviewable.length;
+        reviewBtn.onclick = () => startSessionReview(session);
+      }
       $("#sessionDetailList").innerHTML = questions.length ? questions.map((item, index) => {
         const q = item.question;
         const skill = q?.skill || "Question";
@@ -983,7 +1127,8 @@
         const domain = q?.domain || "";
         const difficulty = q?.difficulty || "";
         const timeLabel = item.time > 0 ? formatTime(item.time) : "—";
-        const struckLabel = (item.struck || []).length ? `Struck: ${item.struck.map(letter => escapeHtml(letter)).join(", ")}` : "No choices struck";
+        const strikeTiming = Array.isArray(item.strikeLog) && item.strikeLog.length ? item.strikeLog.map(log => `${log.letter} at ${formatTime(log.at)}`).join(", ") : "";
+        const struckLabel = (item.struck || []).length ? `Struck: ${item.struck.map(letter => escapeHtml(letter)).join(", ")}${strikeTiming ? ` (${escapeHtml(strikeTiming)})` : ""}` : "No choices struck";
         const answerText = item.answer ? escapeHtml(item.answer) : "Unanswered";
         const detail = q ? `<details class="review-details" data-session-question="${escapeHtml(item.id)}"><summary>Review question</summary><p class="review-answer"><strong>Your answer:</strong> ${answerText}</p>${item.correct ? "" : `<p class="review-answer"><strong>Correct answer:</strong> ${escapeHtml(q.correctAnswer)}</p>`}<p class="review-answer"><strong>${escapeHtml(struckLabel)}</strong></p></details>` : "";
         return `<div class="review-item"><span>${index + 1}. ${escapeHtml(skill)}<small>${escapeHtml(subject)}${domain ? " · " + escapeHtml(domain) : ""}${difficulty ? " · " + escapeHtml(difficulty) : ""}</small></span><span class="${item.correct ? "correct" : "incorrect"}">${item.correct ? "Correct" : item.answer ? "Incorrect" : "Unanswered"} · ${timeLabel}</span></div>${detail}`;
@@ -1000,6 +1145,31 @@
           }
         });
       });
+    }
+
+    function startSessionReview(session) {
+      const entries = (session.questions || []).filter(item => item.question);
+      if (!entries.length) return;
+      const questions = entries.map(item => item.question);
+      closeModals();
+      $("#library").classList.add("hidden");
+      $("#mistakesPage").classList.add("hidden");
+      state.answers = {};
+      state.submittedAnswers = {};
+      state.submittedAnswer = "";
+      const struckKeys = new Set();
+      state.strikeLog = {};
+      entries.forEach(item => {
+        state.answers[item.id] = item.answer || "";
+        state.submittedAnswers[item.id] = item.answer || "";
+        (item.struck || []).forEach(letter => struckKeys.add(`${item.id}:${letter}`));
+        if (Array.isArray(item.strikeLog) && item.strikeLog.length) state.strikeLog[item.id] = item.strikeLog.map(entry => ({ letter: entry.letter, at: entry.at }));
+      });
+      state.session = questions; state.index = 0; state.marked.clear(); state.revealed = new Set(questions.map(q => q.id)); state.highlighting = false; state.seconds = 0; state.struck = struckKeys; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {};
+      state.sessionMode = "review"; state.instantFeedback = false; state.reviewingStored = true;
+      state.timerMode = "none";
+      $("#player").classList.remove("hidden");
+      startTimer(); renderQuestion(); window.scrollTo(0, 0);
     }
 
     async function openAnalytics() {
@@ -1090,14 +1260,15 @@
       await Promise.all(results.map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, time: state.questionTimes[result.question.id] || 0 }) })));
       const subject = state.session[0]?.subject || "";
       const sessionPayload = {
-        mode: state.sessionMode === "review" ? "review" : "practice",
+        mode: state.sessionMode === "review" ? "review" : state.sessionMode === "test" ? "test" : "practice",
         subject,
         questions: results.map(result => ({
           id: result.question.id,
           answer: result.answer,
           correct: result.correct,
           time: state.questionTimes[result.question.id] || 0,
-          struck: [...state.struck].filter(key => key.startsWith(`${result.question.id}:`)).map(key => key.split(":")[1])
+          struck: [...state.struck].filter(key => key.startsWith(`${result.question.id}:`)).map(key => key.split(":")[1]),
+          strikeLog: (state.strikeLog[result.question.id] || []).map(entry => ({ letter: entry.letter, at: entry.at }))
         }))
       };
       try {
@@ -1111,7 +1282,35 @@
       openModal("resultsModal");
     }
 
-    async function returnToLibrary() { closeModals(); clearInterval(state.timerId); $("#player").classList.add("hidden"); $("#mistakesPage").classList.add("hidden"); $("#library").classList.remove("hidden"); state.selected.clear(); state.meta = await fetch("/api/meta").then(response => response.json()); await loadQuestions(); }
+    async function returnToLibrary() { closeModals(); clearInterval(state.timerId); $("#player").classList.add("hidden"); $("#mistakesPage").classList.add("hidden"); $("#library").classList.remove("hidden"); state.selected.clear(); state.reviewingStored = false; state.meta = await fetch("/api/meta").then(response => response.json()); await loadQuestions(); }
+
+    async function exitSession() {
+      clearInterval(state.timerId);
+      const current = state.session[state.index];
+      if (current) recordQuestionTime(current);
+      const details = await Promise.all(state.session.map(getDetail));
+      const results = details.map(question => ({ question, answer: state.answers[question.id] || "", correct: isCorrect(question, state.answers[question.id]) }));
+      if (results.some(result => result.answer) && !state.reviewingStored) {
+        try {
+          await Promise.all(results.filter(result => result.answer).map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, time: state.questionTimes[result.question.id] || 0 }) })));
+          const subject = state.session[0]?.subject || "";
+          const sessionPayload = {
+            mode: state.sessionMode === "review" ? "review" : state.sessionMode === "test" ? "test" : "practice",
+            subject,
+            questions: results.filter(result => result.answer).map(result => ({
+              id: result.question.id,
+              answer: result.answer,
+              correct: result.correct,
+              time: state.questionTimes[result.question.id] || 0,
+              struck: [...state.struck].filter(key => key.startsWith(`${result.question.id}:`)).map(key => key.split(":")[1]),
+              strikeLog: (state.strikeLog[result.question.id] || []).map(entry => ({ letter: entry.letter, at: entry.at }))
+            }))
+          };
+          await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionPayload) });
+        } catch {}
+      }
+      returnToLibrary();
+    }
 
     let searchTimer;
     $("#questionList").addEventListener("click", event => {
@@ -1136,6 +1335,12 @@
     $("#mistakesBackBtn").onclick = closeMistakesPage;
     $("#mistakesBackTop").onclick = closeMistakesPage;
     $("#runAllMistakes").onclick = runMistakes;
+    $("#aiChatBtn").onclick = () => openAiChat(null);
+    $("#aiChatBtnMistakes").onclick = () => openAiChat(null);
+    $("#askAiBtn").onclick = () => { const q = state.session[state.index]; openAiChat(q?.id); };
+    $("#aiChatSend").onclick = sendAiChat;
+    $("#aiChatInput").addEventListener("keydown", event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendAiChat(); } });
+    $$(".ai-chat-suggest .feedback-btn").forEach(button => button.onclick = () => openAiChat(state.chatQuestionId, button.dataset.prompt));
     $("#aiCoachBtn").onclick = openAiCoach;
     $("#mistakeResetFilters").onclick = () => { state.mistakeDifficulty = "all"; $("#mistakeDifficulty").value = "all"; state.mistakeSubject = "all"; state.mistakeDomain = ""; renderMistakeList(); };
     $("#mistakeDifficulty").onchange = () => { state.mistakeDifficulty = $("#mistakeDifficulty").value; renderMistakeList(); };
@@ -1168,7 +1373,7 @@
         const response = await fetch("/api/practice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject: $("#testSubject").value, size: $("#testSize").value, profile: $("#testDifficulty").value, source }) });
         const generated = await response.json();
         if (!response.ok) throw new Error(generated.error || "Unable to generate practice.");
-        await startSession(generated.questions, { seconds: generated.seconds, timerMode: $("#testTimerMode")?.value || "section", instantFeedback: ($("#testFeedback")?.value || "end") === "instant" });
+        await startSession(generated.questions, { seconds: generated.seconds, timerMode: $("#testTimerMode")?.value || "section", instantFeedback: ($("#testFeedback")?.value || "end") === "instant", mode: "test" });
       } catch (error) {
         $("#testBlueprint").textContent = error.message;
       } finally {
@@ -1190,8 +1395,8 @@
     $("#passageText").addEventListener("mouseup", () => { if (!state.highlighting || state.session[state.index]?.subject !== "Reading and Writing") return; const selection = window.getSelection(); if (!selection.rangeCount || selection.isCollapsed) return; const range = selection.getRangeAt(0); if (!$("#passageText").contains(range.commonAncestorContainer)) return; const mark = document.createElement("mark"); try { range.surroundContents(mark); selection.removeAllRanges(); state.highlights[state.session[state.index].id] = $("#passageText").innerHTML; } catch {} });
     $$('[data-modal]').forEach(button => button.onclick = () => { if (!button.disabled) openModal(button.dataset.modal); }); $$('[data-close]').forEach(button => button.onclick = closeModals); $$(".modal-bg").forEach(modal => modal.onclick = event => { if (event.target === modal && modal.id !== "resultsModal") closeModals(); });
     $("#backLibrary").onclick = returnToLibrary; $("#resultClose").onclick = returnToLibrary; $("#returnQuestions").onclick = closeModals; $("#confirmSubmit").onclick = () => { closeModals(); finishSession(); };
-    $("#exitBtn").onclick = returnToLibrary; $("#analyticsBtn").onclick = openAnalytics;
-    window.addEventListener("keydown", event => { if (event.key === "Escape") { if ($$(".modal-bg").some(modal => !modal.classList.contains("hidden"))) closeModals(); else if (!$("#player").classList.contains("hidden")) returnToLibrary(); } });
+    $("#exitBtn").onclick = exitSession; $("#analyticsBtn").onclick = openAnalytics;
+    window.addEventListener("keydown", event => { if (event.key === "Escape") { if ($$(".modal-bg").some(modal => !modal.classList.contains("hidden"))) closeModals(); else if (!$("#player").classList.contains("hidden")) exitSession(); } });
 
     const calculator = $(".desmos-modal");
     let calculatorDrag = null;

@@ -285,10 +285,11 @@ function buildPerformanceDigest() {
   for (const [id, record] of Object.entries(progress)) {
     const question = findQuestion(id);
     if (!question) continue;
-    let struck = [];
+    let struck = [], strikeLog = [];
     for (const session of sessions) {
       const item = session.questions.find(entry => entry.id === id);
       if (item && item.struck) struck = item.struck;
+      if (item && item.strikeLog) strikeLog = item.strikeLog;
     }
     attempts.push({
       id,
@@ -303,6 +304,7 @@ function buildPerformanceDigest() {
       time: record.time || 0,
       attempts: record.attempts || 1,
       struck,
+      strikeLog,
       updatedAt: record.updatedAt || 0
     });
   }
@@ -391,6 +393,77 @@ function digestToText(digest) {
   return lines.join("\n");
 }
 
+function buildFullContext() {
+  const digest = buildPerformanceDigest();
+  const base = digestToText(digest);
+  const lines = [base, ""];
+  lines.push("PER-QUESTION DETAIL (most recent first, max 40):");
+  const entries = [];
+  for (const [id, record] of Object.entries(progress)) {
+    const question = findQuestion(id);
+    if (!question) continue;
+    let struck = [], strikeLog = [];
+    for (const session of sessions) {
+      const item = session.questions.find(entry => entry.id === id);
+      if (item && item.struck) struck = item.struck;
+      if (item && item.strikeLog) strikeLog = item.strikeLog;
+    }
+    entries.push({
+      updatedAt: record.updatedAt || 0,
+      id,
+      subject: question.subject,
+      domain: question.domain,
+      skill: question.skill,
+      difficulty: question.difficulty,
+      type: question.type,
+      correct: Boolean(record.correct),
+      answer: record.answer || "",
+      correctAnswer: question.correctAnswer || "",
+      time: record.time || 0,
+      attempts: record.attempts || 1,
+      struck,
+      strikeLog
+    });
+  }
+  entries.sort((a, b) => b.updatedAt - a.updatedAt);
+  for (const entry of entries.slice(0, 40)) {
+    const strikeSeq = Array.isArray(entry.strikeLog) && entry.strikeLog.length
+      ? entry.strikeLog.map(log => `${log.letter} at ${log.at}s`).join(", ")
+      : ((entry.struck && entry.struck.length) ? entry.struck.join(",") + " (timing unavailable)" : "none");
+    lines.push(`- Q ${entry.id} [${entry.subject}/${entry.domain}/${entry.skill}/${entry.difficulty}] ${entry.correct ? "CORRECT" : "WRONG"}: your answer "${entry.answer}", correct "${entry.correctAnswer}", ${entry.time}s spent, attempts ${entry.attempts}, struck sequence: ${strikeSeq}.`);
+  }
+  lines.push("");
+  lines.push("SESSION DETAIL (most recent 8):");
+  for (const session of sessions.slice(-8)) {
+    const date = new Date(session.createdAt).toLocaleString();
+    const perQuestion = session.questions.map(item => {
+      const q = item.question || findQuestion(item.id);
+      const label = q ? `${q.domain}/${q.skill}` : item.id;
+      const strikeSeq = Array.isArray(item.strikeLog) && item.strikeLog.length ? item.strikeLog.map(log => `${log.letter}@${log.at}s`).join(",") : ((item.struck && item.struck.length) ? item.struck.join(",") : "none");
+      return `[${label} ${item.correct ? "ok" : "X"} ${item.time || 0}s struck:${strikeSeq}]`;
+    }).join(" ");
+    lines.push(`- ${date} (${session.mode}${session.subject ? " " + session.subject : ""}) ${session.questions.filter(q => q.correct).length}/${session.questions.length} correct: ${perQuestion}`);
+  }
+  return lines.join("\n");
+}
+
+function buildQuestionContext(questionId) {
+  if (!questionId) return "None (student is not asking about a specific question).";
+  const question = findQuestion(questionId);
+  if (!question) return `Question id ${questionId} not found in the bank.`;
+  const options = (question.options || []).map(option => `- ${stripHtml(option.content)}`).join("\n");
+  const progressRecord = progress[questionId];
+  const attemptDetail = progressRecord ? `The student answered "${progressRecord.answer}" (${progressRecord.correct ? "correct" : "incorrect"}), spent ${progressRecord.time || 0}s, ${progressRecord.attempts || 1} attempt(s).` : "The student has not answered this question yet.";
+  return [
+    `Subject: ${question.subject}, Strand: ${question.domain}, Skill: ${question.skill}, Difficulty: ${question.difficulty}, Type: ${question.type}`,
+    `Stem: ${questionStemText(question)}`,
+    options ? `Options:\n${options}` : "",
+    `Correct answer: ${question.correctAnswer}`,
+    attemptDetail,
+    `Rationale: ${stripHtml(question.rationale || "")}`
+  ].filter(Boolean).join("\n");
+}
+
 function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/meta") {
     const domains = {};
@@ -465,6 +538,7 @@ function handleApi(request, response, url) {
         if (item) latest = item;
       }
       if (latest && latest.struck) mistake.struck = latest.struck.filter(letter => /^[A-D]$/.test(String(letter)));
+      if (latest && latest.strikeLog) mistake.strikeLog = latest.strikeLog.slice(0, 50);
     }
     mistakes.sort((a, b) => b.updatedAt - a.updatedAt);
     return json(response, 200, { total: mistakes.length, items: mistakes });
@@ -537,6 +611,7 @@ function handleApi(request, response, url) {
           correct: Boolean(item.correct),
           time: item.time || 0,
           struck: item.struck || [],
+          strikeLog: item.strikeLog || [],
           question: question ? questionSummary(question) : null,
           questionId: question?.questionId || item.id
         };
@@ -558,6 +633,7 @@ function handleApi(request, response, url) {
           correct: Boolean(item.correct),
           time: Math.max(0, Number(item.time) || 0),
           struck: Array.isArray(item.struck) ? item.struck.filter(letter => /^[A-D]$/.test(String(letter))) : [],
+          strikeLog: Array.isArray(item.strikeLog) ? item.strikeLog.slice(0, 50).map(entry => ({ letter: String(entry.letter || ""), at: Math.max(0, Number(entry.at) || 0) })).filter(entry => /^[A-D]$/.test(entry.letter)) : [],
           question: item.question || null
         }))
       };
@@ -585,6 +661,8 @@ function handleApi(request, response, url) {
         "4. SPECIFIC NEXT STEPS - concrete, prioritized actions with exact skill names the student should drill next, and study strategy.",
         "",
         "Use the exact skill and domain names from the data. Be blunt and specific. Do not be generic.",
+        "",
+        "MATH FORMATTING: The app renders LaTeX. Any math in your advice MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). Never use unicode math symbols or HTML sub/sup. Do NOT use markdown tables (they render badly) -- use short bullet lists instead.",
         "",
         "STUDENT DATA:",
         text
@@ -625,6 +703,8 @@ function handleApi(request, response, url) {
         "The new question must test the SAME underlying skill and concept but use DIFFERENT numbers, wording, context, or scenario so it is not a copy.",
         "If the source has a passage, data table, or graph, write a fresh equivalent passage/data so the question stands alone.",
         typeHint,
+        "",
+        "MATH FORMATTING: The student's app renders math with LaTeX. Any math symbols, formulas, equations, exponents, fractions, or variables in the stem, options, or rationale MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). NEVER use unicode math symbols, HTML sub/sup, or plaintext like x^2 without LaTeX. Keep LaTeX short and self-contained.",
         "",
         "SOURCE QUESTION:",
         `Stem: ${source.stem}`,
@@ -683,6 +763,64 @@ function handleApi(request, response, url) {
       aiQuestions.push(newQuestion);
       if (aiQuestions.length > 200) aiQuestions.splice(0, aiQuestions.length - 200);
       return json(response, 200, newQuestion);
+    }).catch(error => json(response, 502, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/ai/chat") {
+    if (!K2_API_KEY) return json(response, 400, { error: "AI is not configured. Set K2_API_KEY in .env to use the AI assistant." });
+    return readBody(request).then(async body => {
+      const history = Array.isArray(body.messages) ? body.messages.slice(-20).map(message => ({
+        role: message.role === "assistant" ? "assistant" : "user",
+        content: String(message.content || "").slice(0, 4000)
+      })) : [];
+      const context = buildFullContext();
+      const prompt = [
+        "You are BluePrep Assistant, an elite SAT tutor embedded inside the student's practice app. You have access to the student's ENTIRE practice history in fine detail, including exactly which answer choices they struck out (eliminated), the second-by-second timing of those strikes, how long they spent per question, their answers vs the correct answers, skill/domain/difficulty tags, and their full session history.",
+        "",
+        "Use every relevant detail to coach them precisely. Quote their actual data. Never be generic.",
+        "You may also take ACTIONS on the app. When the student asks you to do something in the app (start practice, drill a skill, review mistakes, generate a similar problem, open analytics, etc.), set the `action` field. Otherwise set it to null.",
+        "",
+        "Available actions (return exactly one, or null):",
+        '{ "type": "start_practice", "subject": "Math"|"Reading and Writing", "domain": "strand name", "skill": "exact skill name", "difficulty": "Easy"|"Medium"|"Hard"|"any", "count": number, "mode": "test"|"practice" }  -- starts a practice/test using REAL questions from the question bank filtered to those criteria.',
+        '{ "type": "open_mistakes", "subject": "all"|"Math"|"Reading and Writing", "skill": "exact skill name or empty" }  -- opens the mistakes review page filtered to those criteria.',
+        '{ "type": "generate_similar", "questionId": "exact id of a question" }  -- generates an AI-similar problem for that question and starts it.',
+        '{ "type": "open_sessions" }  -- opens the practice/session history.',
+        '{ "type": "open_analytics" }  -- opens the analytics page.',
+        "",
+        "When taking an action, first say in your reply what you are doing and why, then set the action field. Only use exact skill/domain names that exist in the data below. For start_practice, pick a count between 5 and 30.",
+        "",
+        "MATH FORMATTING: The app renders LaTeX. Any math in your reply MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). Never use unicode math symbols or HTML sub/sup. Do NOT use markdown tables (they render badly) -- use short bullet lists instead.",
+        "",
+        "CURRENT QUESTION CONTEXT (if the student is asking about a specific question):",
+        buildQuestionContext(body.questionId),
+        "",
+        "FULL STUDENT DATA:",
+        context,
+        "",
+        'Respond with ONLY a single valid JSON object, no markdown, exactly this shape: {"reply": "your coaching message", "action": null | one of the action objects above}.',
+        "Finish with the closing brace of the JSON object."
+      ].filter(Boolean).join("\n");
+      const messages = [
+        { role: "system", content: "You are BluePrep Assistant, an SAT tutor who replies with a single JSON object containing a `reply` and optional `action`." },
+        { role: "user", content: prompt },
+        ...history
+      ];
+      let result = null;
+      let lastError = "No response from model";
+      for (let attempt = 0; attempt < 3 && result === null; attempt++) {
+        const content = await callK2(messages, { maxTokens: 16000 });
+        if (!content || !content.trim()) { lastError = "Empty model output"; continue; }
+        try {
+          result = extractJson(content);
+        } catch (error) {
+          lastError = error.message;
+        }
+      }
+      if (!result) return json(response, 502, { error: `The model returned invalid output. ${lastError}` });
+      const reply = String(result.reply || "").trim();
+      const action = result.action && typeof result.action === "object" ? result.action : null;
+      if (!reply) return json(response, 502, { error: "The model produced no reply. Try again." });
+      return json(response, 200, { reply, action, digest: buildPerformanceDigest() });
     }).catch(error => json(response, 502, { error: error.message }));
   }
 
