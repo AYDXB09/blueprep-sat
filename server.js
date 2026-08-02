@@ -10,6 +10,7 @@ const DATA_FILE = path.join(ROOT, "data", "questions.json");
 const NEW_FILE = path.join(ROOT, "data", "new_questions.json");
 const PROGRESS_FILE = path.join(ROOT, "data", "progress.json");
 const SESSIONS_FILE = path.join(ROOT, "data", "sessions.json");
+const IMPORTED_FILE = path.join(ROOT, "data", "imported_tests.json");
 const PORT = Number(process.env.PORT || 4173);
 const K2_API_KEY = process.env.K2_API_KEY || readDotEnv().K2_API_KEY || "";
 const K2_MODEL = process.env.K2_MODEL || "MBZUAI-IFM/K2-Think-v2";
@@ -50,6 +51,10 @@ try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE, "utf8")); } catch { p
 let sessions = [];
 try { sessions = JSON.parse(fs.readFileSync(SESSIONS_FILE, "utf8")); } catch { sessions = []; }
 if (!Array.isArray(sessions)) sessions = [];
+
+let importedTests = [];
+try { importedTests = JSON.parse(fs.readFileSync(IMPORTED_FILE, "utf8")); } catch { importedTests = []; }
+if (!Array.isArray(importedTests)) importedTests = [];
 
 const aiQuestions = [];
 
@@ -179,6 +184,85 @@ function readBody(request) {
   });
 }
 
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else quoted = false;
+      } else field += char;
+    } else if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(field); field = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      rows.push(row); row = [];
+    } else {
+      field += char;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function parseTrackerCsv(text) {
+  const rows = parseCsvRows(String(text || ""));
+  let title = "Imported SAT practice test";
+  let answerIdx = -1, correctedIdx = -1, idIdx = -1;
+  let currentSubject = "", currentModule = "";
+  const questions = [];
+  for (const rawRow of rows) {
+    const cells = rawRow.map(cell => String(cell || "").trim());
+    const joined = cells.join(" ");
+    if (!joined.trim()) continue;
+    const titleMatch = joined.match(/\b(?:SAT|Practice Test|Bluebook)[^\d]*(\d+)\b/i);
+    if (titleMatch && !/[RM]\s+\d+\.\d+/i.test(joined)) title = `SAT ${titleMatch[1]}`;
+    if (/module\s+\d+/i.test(joined)) {
+      currentModule = (joined.match(/module\s+(\d+)/i) || [])[1] || "";
+      if (/reading and writing/i.test(joined) || /(^|\s)RW($|\s)/i.test(joined)) currentSubject = "Reading and Writing";
+      else if (/math/i.test(joined) || /(^|\s)M($|\s)/i.test(joined)) currentSubject = "Math";
+      continue;
+    }
+    if (/reading and writing/i.test(joined) && !/module/i.test(joined)) { currentSubject = "Reading and Writing"; continue; }
+    if (/^\s*math\s*$/i.test(joined)) { currentSubject = "Math"; continue; }
+    const answerCol = cells.findIndex(cell => /^answer$/i.test(cell));
+    const correctedCol = cells.findIndex(cell => /^corrected$/i.test(cell));
+    if (answerCol >= 0 && correctedCol >= 0) {
+      answerIdx = answerCol; correctedIdx = correctedCol;
+      idIdx = cells.findIndex(cell => /question|item|^\s*#\s*$/i.test(cell));
+      if (idIdx < 0 && answerIdx > 0) idIdx = answerIdx - 1;
+      continue;
+    }
+    if (answerIdx < 0) continue;
+    const answer = cells[answerIdx] || "";
+    const corrected = cells[correctedIdx] || "";
+    if (!answer) continue;
+    const qid = (idIdx >= 0 && cells[idIdx]) || cells[0] || "";
+    const qidMatch = String(qid).match(/(\d+\.\d+)/);
+    if (!qidMatch) continue;
+    const subjectFromId = String(qid).match(/\b(RW|M)\b/i);
+    const subject = subjectFromId ? (subjectFromId[1].toUpperCase() === "RW" ? "Reading and Writing" : "Math") : currentSubject;
+    const moduleFromId = String(qid).match(/[RM]\s*(\d+)\.\d+/i);
+    const module = moduleFromId ? moduleFromId[1] : currentModule;
+    if (!subject || !module) continue;
+    questions.push({
+      id: qid,
+      subject,
+      module,
+      number: qidMatch[1],
+      answer,
+      correct: !corrected,
+      correctAnswer: corrected || ""
+    });
+  }
+  const stats = { total: questions.length, correct: questions.filter(question => question.correct).length };
+  return { title, questions, stats };
+}
+
 function callK2(messages, options = {}) {
   return new Promise((resolve, reject) => {
     if (!K2_API_KEY) return reject(new Error("K2 API key is not configured. Set K2_API_KEY in .env"));
@@ -237,6 +321,13 @@ function stripHtml(html) {
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ").trim();
   return text;
+}
+
+function cleanOptionText(text) {
+  return String(text || "")
+    .trim()
+    .replace(/^[A-Da-d][\s.:)\]]+\s*/i, "")
+    .trim();
 }
 
 const ALLOWED_TAGS = new Set(["p", "br", "div", "span", "strong", "b", "em", "i", "u", "sub", "sup", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "figure", "figcaption", "svg", "g", "rect", "line", "circle", "path", "polygon", "text", "tspan", "defs", "pattern", "math", "mrow", "mi", "mo", "mn", "msup", "msub", "mfrac", "msqrt", "annotation", "semantics"]);
@@ -383,7 +474,11 @@ function buildPerformanceDigest() {
     domains: Object.entries(byDomain).map(([name, group]) => summarize(name, group)).sort((a, b) => b.incorrect - a.incorrect),
     skills: Object.entries(bySkill).map(([name, group]) => summarize(name, group)).sort((a, b) => b.incorrect - a.incorrect),
     difficulties: Object.entries(byDifficulty).map(([name, group]) => summarize(name, group)).sort((a, b) => b.total - a.total),
-    recentWrong: attempts.filter(item => !item.correct).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
+    recentWrong: attempts.filter(item => !item.correct).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12),
+    importedTests: importedTests.map(test => {
+      const wrong = test.questions.filter(question => !question.correct);
+      return { title: test.title, total: test.questions.length, correct: test.questions.length - wrong.length, wrong: wrong.length, wrongQuestions: wrong.slice(0, 25).map(question => `${question.id} (${question.subject} M${question.module} Q${question.number})`) };
+    })
   };
 }
 
@@ -413,6 +508,13 @@ function digestToText(digest) {
   lines.push("MOST RECENT WRONG ANSWERS:");
   for (const item of digest.recentWrong.slice(0, 8)) {
     lines.push(`- [${item.subject}/${item.domain}/${item.skill}/${item.difficulty}] your answer "${item.answer}" vs correct "${item.correctAnswer}", ${fmtTime(item.time)} spent, struck ${item.struck.length ? item.struck.join(",") : "none"}, attempt #${item.attempts}.`);
+  }
+  if (digest.importedTests && digest.importedTests.length) {
+    lines.push("");
+    lines.push("IMPORTED PAST SAT TESTS:");
+    for (const test of digest.importedTests) {
+      lines.push(`- ${test.title}: ${test.correct}/${test.total} correct (${test.wrong} wrong). Wrong question IDs: ${test.wrongQuestions.length ? test.wrongQuestions.join(", ") : "none"}.`);
+    }
   }
   return lines.join("\n");
 }
@@ -468,24 +570,56 @@ function buildFullContext() {
     }).join(" ");
     lines.push(`- ${date} (${session.mode}${session.subject ? " " + session.subject : ""}) ${session.questions.filter(q => q.correct).length}/${session.questions.length} correct: ${perQuestion}`);
   }
+  if (importedTests.length) {
+    lines.push("");
+    lines.push("IMPORTED PAST TESTS (answer sheets uploaded from real practice tests):");
+    for (const test of importedTests.slice(0, 8)) {
+      const wrong = test.questions.filter(question => !question.correct);
+      lines.push(`- "${test.title}": ${test.questions.length} questions, ${test.questions.length - wrong.length} correct, ${wrong.length} wrong.`);
+      for (const question of wrong.slice(0, 20)) {
+        lines.push(`  * ${question.id} [${question.subject}, module ${question.module}, Q${question.number}]: answered "${question.answer}", correct "${question.correctAnswer}".`);
+      }
+      if (wrong.length > 20) lines.push(`  * ... and ${wrong.length - 20} more wrong questions.`);
+    }
+  }
   return lines.join("\n");
 }
 
 function buildQuestionContext(questionId) {
   if (!questionId) return "None (student is not asking about a specific question).";
   const question = findQuestion(questionId);
-  if (!question) return `Question id ${questionId} not found in the bank.`;
-  const options = (question.options || []).map(option => `- ${stripHtml(option.content)}`).join("\n");
-  const progressRecord = progress[questionId];
-  const attemptDetail = progressRecord ? `The student answered "${progressRecord.answer}" (${progressRecord.correct ? "correct" : "incorrect"}), spent ${progressRecord.time || 0}s, ${progressRecord.attempts || 1} attempt(s).` : "The student has not answered this question yet.";
-  return [
-    `Subject: ${question.subject}, Strand: ${question.domain}, Skill: ${question.skill}, Difficulty: ${question.difficulty}, Type: ${question.type}`,
-    `Stem: ${questionStemText(question)}`,
-    options ? `Options:\n${options}` : "",
-    `Correct answer: ${question.correctAnswer}`,
-    attemptDetail,
-    `Rationale: ${stripHtml(question.rationale || "")}`
-  ].filter(Boolean).join("\n");
+  if (question) {
+    const options = (question.options || []).map(option => `- ${stripHtml(option.content)}`).join("\n");
+    const progressRecord = progress[questionId];
+    const attemptDetail = progressRecord ? `The student answered "${progressRecord.answer}" (${progressRecord.correct ? "correct" : "incorrect"}), spent ${progressRecord.time || 0}s, ${progressRecord.attempts || 1} attempt(s).` : "The student has not answered this question yet.";
+    return [
+      `Subject: ${question.subject}, Strand: ${question.domain}, Skill: ${question.skill}, Difficulty: ${question.difficulty}, Type: ${question.type}`,
+      `Stem: ${questionStemText(question)}`,
+      options ? `Options:\n${options}` : "",
+      `Correct answer: ${question.correctAnswer}`,
+      attemptDetail,
+      `Rationale: ${stripHtml(question.rationale || "")}`
+    ].filter(Boolean).join("\n");
+  }
+  const importedItem = importedTests.flatMap(test => test.questions.map(entry => ({ test, entry }))).find(entry => entry.entry.id === questionId);
+  if (importedItem) {
+    const { test, entry } = importedItem;
+    const modules = {};
+    for (const q of test.questions) {
+      modules[q.subject] = modules[q.subject] || {};
+      modules[q.subject][q.module] = modules[q.subject][q.module] || { total: 0, correct: 0 };
+      modules[q.subject][q.module].total++;
+      if (q.correct) modules[q.subject][q.module].correct++;
+    }
+    return [
+      `This question is from the imported past test "${test.title}" (question ID "${entry.id}").`,
+      `Subject: ${entry.subject}, Module: ${entry.module}, Question #${entry.number}`,
+      `The student answered "${entry.answer}" and the recorded correct answer is "${entry.correctAnswer}" (${entry.correct ? "correct" : "incorrect"}).`,
+      `That test's score on ${entry.subject} module ${entry.module}: ${modules[entry.subject]?.[entry.module]?.correct || 0}/${modules[entry.subject]?.[entry.module]?.total || 0} correct.`,
+      "NOTE: Imported past tests only carry the student's answer sheet (question IDs, answers, correct answers) — the actual question text, options, and skill tags are NOT available. Infer the likely skill from the SAT blueprint, question number, and module, and coach accordingly."
+    ].join("\n");
+  }
+  return `Question id ${questionId} not found in the bank.`;
 }
 
 function handleApi(request, response, url) {
@@ -508,8 +642,8 @@ function handleApi(request, response, url) {
 
   if (request.method === "GET" && url.pathname === "/api/questions") {
     const subject = url.searchParams.get("subject") || "all";
-    const domain = url.searchParams.get("domain") || "all";
-    const skill = url.searchParams.get("skill") || "all";
+    const domains = new Set((url.searchParams.get("domain") || "all").split(",").filter(Boolean));
+    const skills = new Set((url.searchParams.get("skill") || "all").split(",").filter(Boolean));
     const difficulties = new Set((url.searchParams.get("difficulty") || "Easy,Medium,Hard").split(","));
     const search = (url.searchParams.get("search") || "").toLowerCase().trim();
     const excludeCorrect = url.searchParams.get("excludeCorrect") === "true";
@@ -521,8 +655,8 @@ function handleApi(request, response, url) {
     const limit = fetchAll ? Infinity : Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 50)));
     const filtered = sourcePool.filter(question =>
       (subject === "all" || question.subject === subject) &&
-      (domain === "all" || question.domain === domain) &&
-      (skill === "all" || question.skill === skill) &&
+      (domains.has("all") || domains.has(question.domain)) &&
+      (skills.has("all") || skills.has(question.skill)) &&
       difficulties.has(question.difficulty) &&
       (!excludeActive || !question.active) &&
       (!excludeCorrect || !progress[question.id]?.correct) &&
@@ -647,6 +781,56 @@ function handleApi(request, response, url) {
     });
   }
 
+  if (request.method === "GET" && url.pathname === "/api/tests/imported") {
+    const summary = importedTests.map(test => ({
+      id: test.id,
+      title: test.title,
+      createdAt: test.createdAt || 0,
+      total: test.questions.length,
+      correct: test.questions.filter(question => question.correct).length
+    })).sort((a, b) => b.createdAt - a.createdAt);
+    return json(response, 200, { total: summary.length, items: summary });
+  }
+
+  const importedMatch = url.pathname.match(/^\/api\/tests\/imported\/([0-9a-z-]+)$/i);
+  if (importedMatch) {
+    const test = importedTests.find(item => item.id === importedMatch[1]);
+    if (request.method === "GET" && test) {
+      const bySubject = {};
+      for (const question of test.questions) {
+        const entry = (bySubject[question.subject] = bySubject[question.subject] || {});
+        entry[question.module] = entry[question.module] || { total: 0, correct: 0 };
+        entry[question.module].total++;
+        if (question.correct) entry[question.module].correct++;
+      }
+      return json(response, 200, { id: test.id, title: test.title, createdAt: test.createdAt, questions: test.questions, bySubject });
+    }
+    if (request.method === "DELETE" && test) {
+      importedTests = importedTests.filter(item => item.id !== test.id);
+      fs.writeFileSync(IMPORTED_FILE, JSON.stringify(importedTests, null, 2));
+      return json(response, 200, { ok: true });
+    }
+    return json(response, 404, { error: "Imported test not found" });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/tests/import") {
+    return readBody(request).then(body => {
+      const parsed = parseTrackerCsv(body.csv);
+      if (!parsed.questions.length) return json(response, 400, { error: "No questions could be parsed from that CSV. Make sure it has Answer and Corrected columns with question IDs like \"SAT8 RW 1.1\"." });
+      const test = {
+        id: crypto.randomUUID().slice(0, 13),
+        title: body.title || parsed.title,
+        createdAt: Date.now(),
+        questions: parsed.questions
+      };
+      importedTests.unshift(test);
+      if (importedTests.length > 100) importedTests.length = 100;
+      fs.writeFileSync(IMPORTED_FILE, JSON.stringify(importedTests, null, 2));
+      return json(response, 200, { id: test.id, title: test.title, total: test.questions.length, correct: test.questions.filter(question => question.correct).length });
+    }).catch(error => json(response, 400, { error: error.message }));
+  }
+
+
   if (request.method === "POST" && url.pathname === "/api/session") {
     return readBody(request).then(body => {
       const questionsList = Array.isArray(body.questions) ? body.questions.slice(0, 200) : [];
@@ -704,6 +888,64 @@ function handleApi(request, response, url) {
       if (!advice) return json(response, 502, { error: "The AI coach could not produce advice. Try again." });
       return json(response, 200, { advice, digest });
     })().catch(error => json(response, 502, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/ai/pasttest") {
+    if (!K2_API_KEY) return json(response, 400, { error: "AI is not configured. Set K2_API_KEY in .env to use AI past-test analysis." });
+    return readBody(request).then(async body => {
+      const test = importedTests.find(item => item.id === body.testId);
+      if (!test) return json(response, 404, { error: "Imported test not found" });
+      const wrong = test.questions.filter(question => !question.correct);
+      const wrongText = wrong.length
+        ? wrong.map(question => `- ${question.id} [${question.subject}, module ${question.module}, Q${question.number}]: student answered "${question.answer}", correct answer "${question.correctAnswer}".`).join("\n")
+        : "- none.";
+      const skillsBySubject = {};
+      for (const question of questions) {
+        (skillsBySubject[question.subject] = skillsBySubject[question.subject] || new Set()).add(question.skill);
+      }
+      const skillsText = Object.entries(skillsBySubject).map(([subject, skills]) => `${subject}: ${[...skills].join(", ")}`).join("\n");
+      const prompt = [
+        "You are an elite SAT tutor. The student has uploaded their answer sheet from a real SAT practice test. For each wrong question we ONLY know the question ID, subject, module, question number, their answer, and the correct answer -- NOT the question text.",
+        "",
+        `TEST: ${test.title} -- ${test.questions.length} questions, ${test.questions.filter(q => q.correct).length} correct, ${wrong.length} wrong.`,
+        "",
+        "WRONG QUESTIONS:",
+        wrongText,
+        "",
+        "SAT BLUEPRINT CONVENTIONS YOU MUST USE:",
+        "- In Reading and Writing, question order within a module roughly follows: Words in Context early, then Text Structure and Purpose, Cross-Text Connections, Central Ideas and Details, Command of Evidence, Inferences, Boundaries, Form Structure and Sense, Transitions, Rhetorical Synthesis near the end. Module 1 is generally easier than Module 2.",
+        "- In Math, early questions are typically easy algebra (linear equations, systems, inequalities, operations), middle questions cover quadratics, functions, exponents, data analysis (mean/median, scatterplots, probability), and the later questions and Module 2 add harder geometry, advanced functions, and multi-step problems.",
+        "- High question numbers within a module are harder and more likely to be the harder route of an adaptive test.",
+        "",
+        "Do the following:",
+        "1. For EACH wrong question, infer the most likely skill from the SAT blueprint (question number, module, subject) and write 1-2 sentences explaining what it likely tests and the common trap, based on the wrong answer the student chose.",
+        "2. Group the wrong questions into 3-6 'weak concepts' (skill areas) with an estimated accuracy in each.",
+        "3. Explain the most likely reasons the student is making these mistakes (using the pattern of their wrong answers), and give specific next steps to fix each weak concept.",
+        "",
+        `AVAILABLE SKILL NAMES (use these exact names so drills can be generated):\n${skillsText}`,
+        "",
+        "MATH FORMATTING: The app renders LaTeX. Any math in your reply MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). Never use unicode math symbols or HTML sub/sup. Do NOT use markdown tables.",
+        "",
+        "Respond with ONLY a single valid JSON object, no markdown, exactly this shape: {\"analysis\": \"markdown coaching\", \"wrong\": [{\"id\": \"question id\", \"skill\": \"exact skill name\", \"explanation\": \"why missed / likely trap\"}], \"weakConcepts\": [{\"skill\": \"exact skill name\", \"reason\": \"why weak\", \"count\": number}], \"nextSteps\": [\"step 1\", \"step 2\"]}.",
+        "Finish with the closing brace of the JSON object."
+      ].join("\n");
+      let result = null;
+      let lastError = "No response from model";
+      for (let attempt = 0; attempt < 3 && result === null; attempt++) {
+        const content = await callK2([{ role: "user", content: prompt }], { maxTokens: 16000 });
+        if (!content || !content.trim()) { lastError = "Empty model output"; continue; }
+        try { result = extractJson(content); } catch (error) { lastError = error.message; }
+      }
+      if (!result) return json(response, 502, { error: `The model returned invalid output. ${lastError}` });
+      const analysis = String(result.analysis || "").trim();
+      if (!analysis) return json(response, 502, { error: "The model produced no analysis. Try again." });
+      return json(response, 200, {
+        analysis,
+        wrong: Array.isArray(result.wrong) ? result.wrong.slice(0, 60) : [],
+        weakConcepts: Array.isArray(result.weakConcepts) ? result.weakConcepts.slice(0, 8) : [],
+        nextSteps: Array.isArray(result.nextSteps) ? result.nextSteps.slice(0, 8) : []
+      });
+    }).catch(error => json(response, 502, { error: error.message }));
   }
 
   if (request.method === "POST" && url.pathname === "/api/ai/similar") {
@@ -768,7 +1010,7 @@ function handleApi(request, response, url) {
         if (correctAnswer.length === 1 && /[A-D]/i.test(correctAnswer)) correctAnswer = correctAnswer.toUpperCase();
         options = letters.slice(0, Math.max(4, rawOptions.length) && 4).map((letter, index) => ({
           id: crypto.randomUUID(),
-          content: `<p>${stripHtml(rawOptions[index] || "")}</p>`
+          content: `<p>${cleanOptionText(stripHtml(rawOptions[index] || ""))}</p>`
         }));
         if (!/[A-D]/.test(correctAnswer)) correctAnswer = "";
       } else {
@@ -790,6 +1032,85 @@ function handleApi(request, response, url) {
         rationale: `<p>${stripHtml(generated.rationale || "")}</p>`,
         aiGenerated: true,
         sourceId: question.id
+      };
+      aiQuestions.push(newQuestion);
+      if (aiQuestions.length > 200) aiQuestions.splice(0, aiQuestions.length - 200);
+      return json(response, 200, newQuestion);
+    }).catch(error => json(response, 502, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/ai/generate") {
+    if (!K2_API_KEY) return json(response, 400, { error: "AI is not configured. Set K2_API_KEY in .env to generate practice questions." });
+    return readBody(request).then(async body => {
+      const subject = String(body.subject || "").trim();
+      const domain = String(body.domain || "").trim();
+      const skill = String(body.skill || "").trim();
+      const difficulty = ["Easy", "Medium", "Hard"].includes(body.difficulty) ? body.difficulty : "Medium";
+      const type = body.type === "spr" ? "spr" : "mcq";
+      if (!subject || !skill) return json(response, 400, { error: "subject and skill are required" });
+      const typeHint = type === "spr"
+        ? "This is a student-produced response (grid-in) question. The answer is a single number or fraction; produce NO options."
+        : "This is a multiple-choice question. Produce exactly 4 answer options.";
+      const prompt = [
+        "You are an expert SAT question writer who matches the exact style, tone, and framing conventions of the College Board Digital SAT.",
+        "",
+        `Generate a NEW original question for subject "${subject}", strand "${domain}", skill "${skill}", difficulty "${difficulty}".`,
+        "The question must test exactly that skill and be appropriate for that difficulty. Use fresh numbers, wording, context, and scenario.",
+        "If the question needs a passage, data table, or graph, write an original passage/data so it stands alone.",
+        "If the question displays data in a table, chart, or graph, it MUST present the data visually. Embed a simple inline HTML table (using <table>, <tr>, <td> tags) inside the stem so the data is readable, and do NOT say \"shown below\" or \"as shown in the graph\" unless you actually include that table.",
+        "The stem may contain HTML for the passage/data table, but keep all other text as plain text (paragraphs separated by blank lines, rendered as-is). Do NOT use markdown like **bold** or # headers.",
+        typeHint,
+        "",
+        "MATH FORMATTING: The student's app renders math with LaTeX. Any math symbols, formulas, equations, exponents, fractions, or variables in the stem, options, or rationale MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). NEVER use unicode math symbols, HTML sub/sup, or plaintext like x^2 without LaTeX. Keep LaTeX short and self-contained.",
+        "",
+        'Respond with ONLY a single valid JSON object, no markdown, matching exactly this shape: {"stem": "question text", "options": [], "correctAnswer": "answer", "rationale": "explanation"}.',
+        "options is an array of exactly 4 strings (multiple choice) or an empty array (grid-in). For multiple choice, correctAnswer is the letter \"A\", \"B\", \"C\", or \"D\". For grid-in, correctAnswer is the numeric answer as a string.",
+        "Finish with the closing brace of the JSON object."
+      ].join("\n");
+      let generated = null;
+      let lastError = "No response from model";
+      for (let attempt = 0; attempt < 3 && generated === null; attempt++) {
+        const content = await callK2([{ role: "user", content: prompt }], { maxTokens: 16000 });
+        if (!content || !content.trim()) { lastError = "Empty model output"; continue; }
+        try {
+          generated = extractJson(content);
+        } catch (error) {
+          lastError = error.message;
+          try { fs.writeFileSync(path.join(ROOT, "data", "ai_debug.txt"), `SKILL: ${skill}\n\n${content}`); } catch (_) {}
+        }
+      }
+      if (!generated) return json(response, 502, { error: `The model returned invalid output. ${lastError}` });
+      const mcq = type !== "spr";
+      let options = [];
+      let correctAnswer = String(generated.correctAnswer || "").trim();
+      if (mcq) {
+        const rawOptions = Array.isArray(generated.options) ? generated.options : [];
+        const letters = ["A", "B", "C", "D"];
+        if (correctAnswer.length === 1 && /[A-D]/i.test(correctAnswer)) correctAnswer = correctAnswer.toUpperCase();
+        options = letters.slice(0, 4).map((letter, index) => ({
+          id: crypto.randomUUID(),
+          content: `<p>${cleanOptionText(stripHtml(rawOptions[index] || ""))}</p>`
+        }));
+        if (!/[A-D]/.test(correctAnswer)) correctAnswer = "";
+      } else {
+        correctAnswer = correctAnswer.replace(/[^\d./-]/g, "");
+      }
+      const newQuestion = {
+        id: crypto.randomUUID(),
+        questionId: `AI-${skill.replace(/[^A-Za-z]/g, "").slice(0, 20)}`,
+        subject,
+        domain,
+        skill,
+        difficulty,
+        active: false,
+        type,
+        stimulus: "",
+        stem: sanitizeHtml(generated.stem || ""),
+        options,
+        correctAnswer,
+        rationale: `<p>${stripHtml(generated.rationale || "")}</p>`,
+        aiGenerated: true,
+        sourceId: ""
       };
       aiQuestions.push(newQuestion);
       if (aiQuestions.length > 200) aiQuestions.splice(0, aiQuestions.length - 200);

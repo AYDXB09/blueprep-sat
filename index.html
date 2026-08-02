@@ -22,6 +22,8 @@
       --canvas: #f3f4f5;
       --yellow: #f6c54d;
       --red: #c63c3c;
+      --navy-text: var(--navy);
+      --navy-deep-text: var(--navy-deep);
       --font-ui: "DM Sans", sans-serif;
       --font-reading: "Source Serif 4", Georgia, serif;
     }
@@ -41,25 +43,39 @@
     .brand small { display: block; margin-top: 1px; color: #b8d0e3; font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; }
     .head-actions { display: flex; align-items: center; gap: 10px; }
     .ghost-light { border: 1px solid rgba(255,255,255,.45); background: transparent; color: #fff; border-radius: 5px; padding: 9px 14px; cursor: pointer; }
+    .theme-toggle { width: 38px; height: 38px; border: 1px solid rgba(255,255,255,.45); border-radius: 5px; background: transparent; color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
+    .theme-toggle:hover { background: rgba(255,255,255,.13); }
+    .theme-toggle .icon { margin: auto; }
+    .theme-moon { display: none; }
+    html[data-theme="dark"] .theme-sun { display: none; }
+    html[data-theme="dark"] .theme-moon { display: block; }
     .avatar { width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.7); border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
     .library-shell { width: min(1240px, calc(100% - 36px)); margin: 0 auto; padding: 48px 0 70px; }
     .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; margin-bottom: 34px; }
     .eyebrow { margin: 0 0 8px; color: var(--blue); font-size: 12px; line-height: 1; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { margin: 0; color: var(--navy-deep); font-size: clamp(32px, 4vw, 50px); line-height: 1.04; letter-spacing: -.045em; }
+    h1 { margin: 0; color: var(--navy-deep-text); font-size: clamp(32px, 4vw, 50px); line-height: 1.04; letter-spacing: -.045em; }
     .hero p:last-child { max-width: 630px; margin: 14px 0 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
     .progress-card { min-width: 245px; padding: 17px 20px; border-left: 4px solid var(--cyan); background: #fff; box-shadow: 0 2px 12px rgba(24,43,73,.08); }
-    .progress-card strong { display: block; font-size: 24px; color: var(--navy); }
+    .progress-card strong { display: block; font-size: 24px; color: var(--navy-text); }
     .progress-card span { color: var(--muted); font-size: 13px; }
     .bank-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
     .filters, .question-panel { background: #fff; border: 1px solid var(--line); box-shadow: 0 3px 16px rgba(24,43,73,.055); }
     .filters { padding: 18px 22px 20px; position: sticky; top: 12px; z-index: 4; }
     .filter-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .filter-top h2, .question-head h2 { margin: 0; color: var(--navy); font-size: 18px; }
+    .filter-top h2, .question-head h2 { margin: 0; color: var(--navy-text); font-size: 18px; }
     .text-btn { border: 0; padding: 2px; background: transparent; color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; }
-    .filter-groups { display: grid; grid-template-columns: 1.1fr 1.1fr 1.25fr 1.55fr 1.7fr; gap: 16px; align-items: start; }
+    .filter-groups { display: grid; grid-template-columns: 1fr 2fr 1.4fr 1.8fr; gap: 16px; align-items: start; }
     .filter-group { padding: 0 16px 0 0; border-right: 1px solid #e7eaed; }
     .filter-group:last-child { border-right: 0; padding-right: 0; }
     .filter-group > label { display: block; margin-bottom: 9px; color: #394556; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .strand-tree { max-height: 300px; overflow-y: auto; padding-right: 6px; }
+    .strand { border-bottom: 1px solid #eef1f3; }
+    .strand:last-child { border-bottom: 0; }
+    .strand-head { display: flex; align-items: center; gap: 6px; }
+    .strand-toggle { border: 0; background: transparent; color: var(--muted); font-size: 11px; width: 18px; height: 18px; padding: 0; cursor: pointer; border-radius: 4px; }
+    .strand-toggle:hover { background: #eef4f9; color: var(--navy-text); }
+    .strand-skills { padding: 2px 0 4px 24px; }
+    .strand-skills .check { margin: 4px 0; font-size: 12px; }
     select, .search-input { width: 100%; height: 42px; border: 1px solid #acb5bf; border-radius: 4px; padding: 0 11px; background: #fff; outline: none; }
     select:focus, .search-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(0,111,186,.14); }
     .check { display: flex; align-items: center; gap: 8px; margin: 7px 0; color: #354253; font-size: 12px; cursor: pointer; }
@@ -74,7 +90,7 @@
     .q-row { display: grid; grid-template-columns: 27px minmax(0,1fr) auto; gap: 11px; align-items: center; padding: 13px 16px; border-bottom: 1px solid #e5e8eb; border-right: 1px solid #e5e8eb; transition: background .15s; }
     .q-row:hover { background: #f4f9fc; }
     .q-row input { width: 19px; height: 19px; accent-color: var(--blue); }
-    .q-row h3 { margin: 0 0 6px; color: var(--navy); font-size: 14px; line-height: 1.3; font-weight: 700; }
+    .q-row h3 { margin: 0 0 6px; color: var(--navy-text); font-size: 14px; line-height: 1.3; font-weight: 700; }
     .tags { display: flex; flex-wrap: wrap; gap: 6px; }
     .tag { padding: 3px 7px; border-radius: 3px; background: #edf1f4; color: #566272; font-size: 10px; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; }
     .tag.easy { background: #e6f4ec; color: #22734b; }
@@ -91,7 +107,7 @@
     .selection-bar .primary { background: #fff; color: var(--navy); }
     .primary:hover { filter: brightness(.94); }
     .test-builder { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; margin-bottom: 18px; padding: 20px 22px; border: 1px solid #b9d4e3; background: linear-gradient(110deg, #f3fbfd, #fff); box-shadow: 0 3px 16px rgba(24,43,73,.055); }
-    .test-builder h2 { margin: 0 0 5px; color: var(--navy); font-size: 19px; }
+    .test-builder h2 { margin: 0 0 5px; color: var(--navy-text); font-size: 19px; }
     .test-builder p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
     .builder-field label { display: block; margin-bottom: 7px; color: #394556; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .builder-field select { min-width: 0; }
@@ -99,7 +115,7 @@
     .review-details { margin: 8px 0 0; padding: 12px; border: 1px solid var(--line); background: #fafbfc; text-align: left; }
     .review-details summary { cursor: pointer; color: var(--blue); font-size: 12px; font-weight: 700; }
     .review-answer { margin: 8px 0; font-size: 13px; line-height: 1.4; }
-    .review-answer strong { color: var(--navy); }
+    .review-answer strong { color: var(--navy-text); }
     .rationale { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-family: var(--font-reading); font-size: 14px; line-height: 1.45; }
     #prompt table, #passageText table, .feedback table { border-collapse: collapse; margin: 10px auto; min-width: 280px; }
     #prompt table td, #prompt table th, #passageText table td, #passageText table th, .feedback table td, .feedback table th { border: 1px solid #c6cdd3; padding: 6px 12px; text-align: center; font-family: var(--font-reading); font-size: 13px; }
@@ -119,7 +135,7 @@
     .tool-btn:hover, .tool-btn.active { background: rgba(255,255,255,.13); }
     .tool-btn .icon { margin: 0 auto 3px; }
     .timer-strip { height: 45px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #b7bec6; background: #fff; position: relative; }
-    .timer { min-width: 100px; text-align: center; color: var(--navy-deep); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .timer { min-width: 100px; text-align: center; color: var(--navy-deep-text); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .hide-time { margin-left: 9px; border: 0; background: transparent; color: var(--blue); font-size: 11px; font-weight: 700; cursor: pointer; }
     .exam-main { flex: 1; min-height: 0; display: flex; }
     .passage, .question-side { width: 50%; padding: clamp(28px, 4vw, 56px); overflow-y: auto; }
@@ -178,8 +194,6 @@
     .window-actions button { width: 30px; height: 28px; border: 0; background: transparent; color: #fff; font-size: 18px; cursor: pointer; }
     .window-actions button:hover { background: rgba(255,255,255,.14); }
     .resize-handle { position: absolute; right: 0; bottom: 0; z-index: 5; width: 28px; height: 28px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 45%, #6d7c8c 46%, #6d7c8c 52%, transparent 53%, transparent 62%, #6d7c8c 63%, #6d7c8c 69%, transparent 70%); }
-    .protect-note { margin: 0; color: #2a6548; font-size: 12px; font-weight: 600; }
-    .protect-note b { color: #17633e; }
     .set-copy { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
     .spr-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
     .spr-input { width: min(280px, 100%); height: 48px; border: 2px solid #697581; border-radius: 4px; padding: 0 13px; font-size: 18px; }
@@ -193,7 +207,7 @@
     .reference-note { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
     .results { text-align: center; }
     .score-ring { width: 130px; height: 130px; margin: 8px auto 20px; border: 11px solid var(--cyan); border-radius: 50%; display: grid; place-items: center; }
-    .score-ring strong { display: block; color: var(--navy); font-size: 32px; }
+    .score-ring strong { display: block; color: var(--navy-text); font-size: 32px; }
     .score-ring span { color: var(--muted); font-size: 11px; }
     .review-list { margin: 22px 0; text-align: left; }
     .review-item { padding: 12px; display: flex; justify-content: space-between; border-top: 1px solid var(--line); font-size: 13px; }
@@ -212,7 +226,7 @@
     .incorrect { color: var(--red); font-weight: 700; }
     .confirm-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 22px; }
     .confirm-stat { border: 1px solid var(--line); padding: 18px; text-align: center; }
-    .confirm-stat strong { display: block; color: var(--navy); font-size: 28px; }
+    .confirm-stat strong { display: block; color: var(--navy-text); font-size: 28px; }
     .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
     .validation { min-height: 18px; margin-top: 7px; color: var(--red); font-size: 12px; font-weight: 600; }
     .feedback-zone { margin-top: 16px; }
@@ -240,13 +254,13 @@
     .analytics-modal { width: min(780px, 96vw); }
     .analytics-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
     .analytics-stat { border: 1px solid var(--line); padding: 14px; text-align: center; }
-    .analytics-stat strong { display: block; color: var(--navy); font-size: 24px; }
+    .analytics-stat strong { display: block; color: var(--navy-text); font-size: 24px; }
     .analytics-stat span { color: var(--muted); font-size: 12px; }
     .analytics-table { width: 100%; border-collapse: collapse; margin: 8px 0 22px; font-size: 13px; }
     .analytics-table th, .analytics-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
     .analytics-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
     .analytics-table td.num, .analytics-table th.num { text-align: right; }
-    .analytics-section h3 { margin: 20px 0 6px; color: var(--navy); font-size: 15px; }
+    .analytics-section h3 { margin: 20px 0 6px; color: var(--navy-text); font-size: 15px; }
     .analytics-empty { padding: 34px; text-align: center; color: var(--muted); }
     .exit-btn { border: 1px solid rgba(255,255,255,.5); border-radius: 3px; padding: 6px 11px; background: transparent; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
     .exit-btn:hover { background: rgba(255,255,255,.13); }
@@ -260,12 +274,12 @@
     .mistake-domain-chip small { font-weight: 500; opacity: .8; margin-left: 3px; }
     .mistakes-page { max-width: 900px; margin: 0 auto; padding: 26px 20px 80px; }
     .mistakes-head { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .mistakes-head h1 { font-size: 26px; color: var(--navy); margin: 0; }
+    .mistakes-head h1 { font-size: 26px; color: var(--navy-text); margin: 0; }
     .mistakes-head p { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
     .mistakes-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .mistake-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
     .mistake-stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--paper); }
-    .mistake-stat strong { display: block; color: var(--navy); font-size: 24px; }
+    .mistake-stat strong { display: block; color: var(--navy-text); font-size: 24px; }
     .mistake-stat span { color: var(--muted); font-size: 12px; }
     .mistake-stat.bad strong { color: var(--red); }
     .mistake-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
@@ -275,7 +289,7 @@
     .mistake-tab small { font-weight: 500; opacity: .8; margin-left: 4px; }
     .skill-group { margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--paper); }
     .skill-group-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--canvas); border-bottom: 1px solid var(--line); }
-    .skill-group-head h3 { margin: 0; font-size: 14px; color: var(--navy); }
+    .skill-group-head h3 { margin: 0; font-size: 14px; color: var(--navy-text); }
     .skill-group-head small { color: var(--muted); }
     .skill-group-stats { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
     .skill-group-stats .bad { color: var(--red); font-weight: 700; }
@@ -297,13 +311,13 @@
     .mistake-detail p { margin: 6px 0; font-size: 13px; }
     .mistake-detail .rationale { margin-top: 8px; color: #37424c; }
     .advice-panel { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 22px; background: linear-gradient(180deg, #f7fafe, #fff); }
-    .advice-panel h3 { margin: 0 0 4px; font-size: 15px; color: var(--navy); }
+    .advice-panel h3 { margin: 0 0 4px; font-size: 15px; color: var(--navy-text); }
     .advice-panel .advice-meta { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
     .advice-body { font-size: 14px; line-height: 1.6; color: #1c2733; }
-    .advice-body h1, .advice-body h2, .advice-body h3 { color: var(--navy); margin: 16px 0 6px; font-size: 15px; }
+    .advice-body h1, .advice-body h2, .advice-body h3 { color: var(--navy-text); margin: 16px 0 6px; font-size: 15px; }
     .advice-body ul, .advice-body ol { margin: 8px 0; padding-left: 22px; }
     .advice-body li { margin: 4px 0; }
-    .advice-body strong { color: var(--navy); }
+    .advice-body strong { color: var(--navy-text); }
     .advice-body code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
     .advice-panel .feedback-btn { margin-top: 10px; }
     .advice-panel .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
@@ -316,10 +330,10 @@
     .chat-msg { max-width: 88%; padding: 10px 13px; border-radius: 12px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
     .chat-msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
     .chat-msg.bot { align-self: flex-start; background: #f1f4f8; color: #1c2733; border-bottom-left-radius: 4px; }
-    .chat-msg.bot h1, .chat-msg.bot h2, .chat-msg.bot h3 { color: var(--navy); margin: 10px 0 4px; font-size: 14px; }
+    .chat-msg.bot h1, .chat-msg.bot h2, .chat-msg.bot h3 { color: var(--navy-text); margin: 10px 0 4px; font-size: 14px; }
     .chat-msg.bot ul, .chat-msg.bot ol { margin: 6px 0; padding-left: 20px; }
     .chat-msg.bot li { margin: 3px 0; }
-    .chat-msg.bot strong { color: var(--navy); }
+    .chat-msg.bot strong { color: var(--navy-text); }
     .chat-msg.bot code { background: #e6eaf0; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
     .chat-msg.bot table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
     .chat-msg.bot th, .chat-msg.bot td { border: 1px solid #d3dae2; padding: 4px 8px; text-align: left; }
@@ -330,6 +344,35 @@
     .ai-chat-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .ai-chat-suggest .feedback-btn { font-size: 12px; padding: 5px 10px; }
     .ai-chat-suggest .feedback-btn:disabled { opacity: .5; pointer-events: none; }
+    .ai-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 92vw; z-index: 40; display: flex; flex-direction: column; background: #fff; border-left: 1px solid var(--line); box-shadow: -14px 0 44px rgba(12,27,47,.22); }
+    .ai-panel.hidden { display: none; }
+    .ai-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: var(--navy); color: #fff; }
+    .ai-panel-head h2 { margin: 0; font-size: 15px; }
+    .ai-panel-actions { display: flex; align-items: center; gap: 8px; }
+    .ai-panel-actions .tool-btn { background: transparent; border: 1px solid rgba(255,255,255,.35); color: #fff; }
+    .ai-panel-body { flex: 1; display: flex; flex-direction: column; padding: 14px 16px 18px; overflow: hidden; min-height: 0; }
+    .ai-panel-body .ai-chat-context { flex: 0 0 auto; }
+    .ai-panel-body .ai-chat-log { flex: 1 1 auto; min-height: 0; }
+    .ai-panel-resize { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: ew-resize; z-index: 5; }
+    .ai-panel-resize::after { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 3px; border-radius: 3px; background: transparent; transition: background .15s; }
+    .ai-panel-resize:hover::after, .ai-panel-resize.resizing::after { background: var(--blue); }
+    @media (max-width: 640px) { .ai-panel { width: 100vw; max-width: 100vw; } }
+    body.chat-window .ai-panel { left: 0; right: 0; top: 0; bottom: 0; width: auto; max-width: none; border-left: none; box-shadow: none; }
+    .ai-panel.window-mode { border-left: none; box-shadow: none; }
+    body.chat-window .ai-panel-resize { display: none; }
+    .pasttest-upload { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+    .pasttest-upload input[type="file"] { flex: 1; min-width: 200px; font-size: 13px; }
+    .pasttest-question { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
+    .pasttest-question.wrong { background: #fdf5f5; }
+    .pasttest-question span.sub { color: var(--muted); }
+    .pasttest-question .status { margin-left: auto; white-space: nowrap; font-weight: 600; }
+    .pasttest-question .status.ok { color: #1c8a4d; }
+    .pasttest-question .status.bad { color: var(--red); }
+    .weak-concept-chip { display: inline-flex; align-items: center; gap: 6px; margin: 4px 6px 4px 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: 12px; }
+    .weak-concept-chip .text-btn { font-size: 12px; }
+    .weak-concept-chip .skill-name { font-weight: 600; color: var(--navy-text); }
+    .pasttest-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+    .pasttest-actions .text-btn { font-size: 12px; }
     .session-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
     .session-filter select { padding: 5px 8px; border: 1px solid #cfd8e1; border-radius: 6px; font-size: 13px; }
     .session-detail-actions { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; flex-wrap: wrap; }
@@ -339,10 +382,10 @@
     .back-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
     .back-row .text-btn { font-size: 13px; }
     .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
-    .empty-state strong { color: var(--navy); display: block; margin-bottom: 6px; font-size: 16px; }
+    .empty-state strong { color: var(--navy-text); display: block; margin-bottom: 6px; font-size: 16px; }
     .mistake-subjects { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
     .mistake-subject-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); }
-    .mistake-subject-card h3 { margin: 0 0 2px; font-size: 14px; color: var(--navy); }
+    .mistake-subject-card h3 { margin: 0 0 2px; font-size: 14px; color: var(--navy-text); }
     .mistake-subject-card .bar { height: 8px; border-radius: 999px; background: #e8edf3; margin: 10px 0 6px; overflow: hidden; }
     .mistake-subject-card .bar i { display: block; height: 100%; border-radius: 999px; background: var(--blue); }
     .mistake-subject-card .bar i.low { background: var(--red); }
@@ -387,13 +430,171 @@
       .q-grid { grid-template-columns: repeat(5, 1fr); }
       .desmos-modal { top: 76px; right: 8px; width: calc(100vw - 16px); height: calc(100vh - 92px); min-width: 0; min-height: 0; resize: none; }
     }
+
+    /* Dark mode */
+    html[data-theme="dark"] {
+      --navy: #0f1c2e;
+      --navy-deep: #0a1422;
+      --blue: #4da3d6;
+      --blue-dark: #3a8fc4;
+      --cyan: #35c3d1;
+      --cyan-pale: #12262f;
+      --ink: #dce4ee;
+      --muted: #8f9cac;
+      --line: #2b3948;
+      --paper: #1a2431;
+      --canvas: #111a25;
+      --yellow: #f0b429;
+      --red: #e0655f;
+      --navy-text: #dce4ee;
+      --navy-deep-text: #e9eff6;
+      color-scheme: dark;
+    }
+    html[data-theme="dark"] body { background: var(--canvas); color: var(--ink); }
+    html[data-theme="dark"] h1 { color: var(--navy-deep-text); }
+    html[data-theme="dark"] mark { background: #8a6d1a; color: #f5e9c8; }
+    html[data-theme="dark"] mjx-container[jax="CHTML"] { color: inherit; }
+
+    html[data-theme="dark"] .progress-card,
+    html[data-theme="dark"] .filters,
+    html[data-theme="dark"] .question-panel,
+    html[data-theme="dark"] .preview-btn,
+    html[data-theme="dark"] select,
+    html[data-theme="dark"] .search-input,
+    html[data-theme="dark"] .modal,
+    html[data-theme="dark"] .timer-strip,
+    html[data-theme="dark"] .answer,
+    html[data-theme="dark"] .nav-btn.secondary,
+    html[data-theme="dark"] .q-cell,
+    html[data-theme="dark"] .strike-btn,
+    html[data-theme="dark"] .mistake-domain-chip,
+    html[data-theme="dark"] .mistake-tab,
+    html[data-theme="dark"] .load-more,
+    html[data-theme="dark"] .ai-panel,
+    html[data-theme="dark"] .spr-input { background: var(--paper); }
+
+    html[data-theme="dark"] select,
+    html[data-theme="dark"] .search-input,
+    html[data-theme="dark"] .spr-input,
+    html[data-theme="dark"] .ai-chat-input textarea,
+    html[data-theme="dark"] .session-filter select,
+    html[data-theme="dark"] .mistake-toolbar select { color: var(--ink); border-color: var(--line); }
+    html[data-theme="dark"] .filters, html[data-theme="dark"] .question-panel { border-color: var(--line); }
+
+    html[data-theme="dark"] .test-builder { background: linear-gradient(110deg, #142230, #1a2431); border-color: #2c4658; }
+    html[data-theme="dark"] .test-builder h2,
+    html[data-theme="dark"] .filter-top h2,
+    html[data-theme="dark"] .question-head h2,
+    html[data-theme="dark"] .q-row h3,
+    html[data-theme="dark"] .review-answer strong,
+    html[data-theme="dark"] .score-ring strong,
+    html[data-theme="dark"] .confirm-stat strong,
+    html[data-theme="dark"] .analytics-stat strong,
+    html[data-theme="dark"] .analytics-section h3,
+    html[data-theme="dark"] .mistakes-head h1,
+    html[data-theme="dark"] .mistake-stat strong,
+    html[data-theme="dark"] .skill-group-head h3,
+    html[data-theme="dark"] .advice-panel h3,
+    html[data-theme="dark"] .advice-body h1,
+    html[data-theme="dark"] .advice-body h2,
+    html[data-theme="dark"] .advice-body h3,
+    html[data-theme="dark"] .advice-body strong,
+    html[data-theme="dark"] .chat-msg.bot h1,
+    html[data-theme="dark"] .chat-msg.bot h2,
+    html[data-theme="dark"] .chat-msg.bot h3,
+    html[data-theme="dark"] .chat-msg.bot strong,
+    html[data-theme="dark"] .weak-concept-chip .skill-name,
+    html[data-theme="dark"] .empty-state strong,
+    html[data-theme="dark"] .mistake-subject-card h3,
+    html[data-theme="dark"] .progress-card strong { color: var(--ink); }
+
+    html[data-theme="dark"] .strand-toggle:hover { background: #1a2836; color: var(--ink); }
+    html[data-theme="dark"] .strand { border-bottom-color: var(--line); }
+    html[data-theme="dark"] .filter-group { border-right-color: var(--line); border-bottom-color: var(--line); }
+    html[data-theme="dark"] .filter-group > label, html[data-theme="dark"] .builder-field label { color: var(--muted); }
+    html[data-theme="dark"] .check { color: var(--ink); }
+    html[data-theme="dark"] .q-row { border-color: #242f3c; }
+    html[data-theme="dark"] .q-row:hover, html[data-theme="dark"] .answer:hover { background: #17222e; }
+    html[data-theme="dark"] .question-head { border-bottom-color: var(--line); }
+    html[data-theme="dark"] .tag { background: #26323f; color: #aeb9c6; }
+    html[data-theme="dark"] .tag.easy { background: #10301f; color: #63c98f; }
+    html[data-theme="dark"] .tag.medium { background: #352b16; color: #e5b44a; }
+    html[data-theme="dark"] .tag.hard { background: #37201e; color: #e8877f; }
+    html[data-theme="dark"] .preview-btn { border-color: var(--line); color: var(--ink); }
+    html[data-theme="dark"] .preview-btn:hover { border-color: var(--blue); color: var(--blue); }
+    html[data-theme="dark"] .empty-list code, html[data-theme="dark"] .advice-body code { background: #26323f; }
+    html[data-theme="dark"] .builder-note { color: var(--muted); }
+
+    html[data-theme="dark"] #player { background: var(--paper); }
+    html[data-theme="dark"] .timer-strip { border-bottom-color: var(--line); }
+    html[data-theme="dark"] .passage { background: #141d28; border-right-color: var(--line); }
+    html[data-theme="dark"] .exam-foot { background: #141d28; border-top-color: var(--line); }
+    html[data-theme="dark"] .answer { border-color: var(--line); }
+    html[data-theme="dark"] .answer.selected { background: #0e2836; border-color: var(--blue); }
+    html[data-theme="dark"] .choice-letter { border-color: var(--line); }
+    html[data-theme="dark"] .strike-btn { border-color: var(--line); color: var(--muted); }
+    html[data-theme="dark"] .strike-btn:hover, html[data-theme="dark"] .strike-btn.active { background: #2b1518; }
+
+    html[data-theme="dark"] .modal-bg { background: rgba(0,0,0,.62); }
+    html[data-theme="dark"] .grid-key { color: var(--muted); }
+    html[data-theme="dark"] .key-dot { border-color: var(--line); }
+    html[data-theme="dark"] .key-dot.unknown { background: #3a2f14; border-color: #a8851e; }
+    html[data-theme="dark"] .q-cell { border-color: var(--line); }
+    html[data-theme="dark"] .q-cell.unknown { background: #3a2f14; color: #e8c35a; border-color: #a8851e; }
+    html[data-theme="dark"] .reference { background: #141d28; }
+    html[data-theme="dark"] .review-details { background: #141d28; border-color: var(--line); }
+    html[data-theme="dark"] .confirm-stat { border-color: var(--line); }
+    html[data-theme="dark"] .feedback { background: #141d28; border-color: var(--line); }
+    html[data-theme="dark"] .feedback.correct { background: #0e2a1c; border-color: #2c6b46; }
+    html[data-theme="dark"] .feedback.incorrect { background: #2b1518; border-color: #7c3a35; }
+    html[data-theme="dark"] .correct { color: #63c98f; }
+    html[data-theme="dark"] .skill-group-stats .good,
+    html[data-theme="dark"] .mistake-row-meta .good,
+    html[data-theme="dark"] .mistake-row-answer .good,
+    html[data-theme="dark"] .pasttest-question .status.ok { color: #63c98f; }
+
+    html[data-theme="dark"] #prompt table td, html[data-theme="dark"] #prompt table th,
+    html[data-theme="dark"] #passageText table td, html[data-theme="dark"] #passageText table th,
+    html[data-theme="dark"] .feedback table td, html[data-theme="dark"] .feedback table th { border-color: var(--line); }
+    html[data-theme="dark"] #prompt table th, html[data-theme="dark"] #passageText table th, html[data-theme="dark"] .feedback table th { background: var(--canvas); }
+
+    html[data-theme="dark"] .mistake-row { border-bottom-color: var(--line); }
+    html[data-theme="dark"] .mistake-detail { background: #141d28; border-top-color: var(--line); }
+    html[data-theme="dark"] .mistake-detail .rationale { color: var(--muted); }
+    html[data-theme="dark"] .skill-group-head { background: var(--canvas); }
+    html[data-theme="dark"] .advice-panel { background: linear-gradient(180deg, #16202b, #1a2431); }
+    html[data-theme="dark"] .advice-body { color: var(--ink); }
+    html[data-theme="dark"] .spinner { border-color: #33424f; border-top-color: var(--blue); }
+
+    html[data-theme="dark"] .chat-msg.bot { background: #1f2a37; color: var(--ink); }
+    html[data-theme="dark"] .chat-msg.bot code { background: #2c3a49; }
+    html[data-theme="dark"] .chat-msg.bot th, html[data-theme="dark"] .chat-msg.bot td { border-color: var(--line); }
+    html[data-theme="dark"] .chat-msg.error { background: #3a1f1f; }
+    html[data-theme="dark"] .ai-chat-input textarea { background: var(--paper); border-color: var(--line); color: var(--ink); }
+    html[data-theme="dark"] .session-filter select, html[data-theme="dark"] .mistake-toolbar select { background: var(--paper); border-color: var(--line); }
+
+    html[data-theme="dark"] .pasttest-question.wrong { background: #2b1518; }
+    html[data-theme="dark"] .weak-concept-chip { background: var(--paper); border-color: var(--line); }
+    html[data-theme="dark"] .mistake-subject-card .bar { background: #26323f; }
+    html[data-theme="dark"] .ai-panel { background: var(--paper); border-left-color: var(--line); }
+    html[data-theme="dark"] .desmos-modal { border-color: var(--line); }
   </style>
+  <script>
+    (function () {
+      var theme = "light";
+      try {
+        var saved = localStorage.getItem("blueprep-theme");
+        theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      } catch (error) {}
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
 </head>
 <body>
   <section id="library">
     <header class="site-head">
       <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
-      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="sessionsBtn">Practice history</button><button class="ghost-light" id="aiChatBtn">AI Assistant</button><button class="ghost-light" id="resumeBtn">Resume practice</button><span class="avatar">AK</span></div>
+      <div class="head-actions"><button class="ghost-light" id="analyticsBtn">Analytics</button><button class="ghost-light" id="mistakeBtn">Review mistakes</button><button class="ghost-light" id="sessionsBtn">Practice history</button><button class="ghost-light" id="pastTestsBtn">Past tests</button><button class="ghost-light" id="aiChatBtn">AI Assistant</button><button class="ghost-light" id="resumeBtn">Resume practice</button><button class="theme-toggle" type="button" aria-pressed="false" aria-label="Toggle dark mode"><svg class="icon theme-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></button><span class="avatar">AK</span></div>
     </header>
     <main class="library-shell">
       <div class="hero">
@@ -413,11 +614,10 @@
           <p class="builder-note" id="testBlueprint">Full module: 27 questions in 32 minutes. Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.</p>
         </section>
         <aside class="filters">
-          <div class="filter-top"><div><h2>Build a practice set</h2><p class="protect-note"><b>Protection on:</b> official-test questions and your correct answers are excluded by default.</p></div><button class="text-btn" id="clearFilters">Reset filters</button></div>
+          <div class="filter-top"><div><h2>Build a practice set</h2><p class="set-copy">Pick the strands and substrands you want, then start practice to play every matching question.</p></div><button class="text-btn" id="clearFilters">Reset filters</button></div>
           <div class="filter-groups">
             <div class="filter-group"><label for="subjectFilter">Section</label><select id="subjectFilter"><option value="all">All sections</option><option value="Reading and Writing">Reading and Writing</option><option value="Math">Math</option></select></div>
-            <div class="filter-group"><label for="domainFilter">Domain</label><select id="domainFilter"><option value="all">All domains</option></select></div>
-            <div class="filter-group"><label for="skillFilter">Skill</label><select id="skillFilter"><option value="all">All skills</option></select></div>
+            <div class="filter-group strand-group"><label>Strands</label><div class="strand-tree" id="strandTree"></div></div>
             <div class="filter-group"><label>Difficulty</label><label class="check"><input type="checkbox" name="difficulty" value="Easy" checked> Easy</label><label class="check"><input type="checkbox" name="difficulty" value="Medium" checked> Medium</label><label class="check"><input type="checkbox" name="difficulty" value="Hard" checked> Hard</label></div>
             <div class="filter-group"><label>Practice options</label><label class="check"><input id="shuffleQuestions" type="checkbox"> Shuffle questions</label><label class="check"><input id="excludeActive" type="checkbox" checked> Exclude questions in official tests</label><label class="check"><input id="newQuestions" type="checkbox"> New questions only</label><label class="check"><input id="excludeCorrect" type="checkbox" checked> Exclude correctly answered</label></div>
           </div>
@@ -434,13 +634,13 @@
   <section id="mistakesPage" class="hidden" aria-label="Mistakes and performance">
     <header class="site-head">
       <div class="brand"><span class="brand-mark">BP</span><span>BluePrep<small>SAT practice workspace</small></span></div>
-      <div class="head-actions"><button class="ghost-light" id="mistakesBackBtn">Back to library</button><span class="avatar">AK</span></div>
+      <div class="head-actions"><button class="ghost-light" id="mistakesBackBtn">Back to library</button><button class="theme-toggle" type="button" aria-pressed="false" aria-label="Toggle dark mode"><svg class="icon theme-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></button><span class="avatar">AK</span></div>
     </header>
     <main class="mistakes-page">
       <div class="back-row"><button class="text-btn" id="mistakesBackTop">← Back to question library</button></div>
       <div class="mistakes-head">
         <div><h1>Mistake Log &amp; Performance</h1><p>Every question you've missed, with time spent, struck-out choices, and your submitted answers.</p></div>
-        <div class="mistakes-actions"><button class="primary" id="runAllMistakes">Run all mistakes</button><button class="feedback-btn" id="aiCoachBtn">AI Performance Coach</button><button class="feedback-btn" id="aiChatBtnMistakes">Ask AI Assistant</button></div>
+        <div class="mistakes-actions"><button class="primary" id="runAllMistakes">Run all mistakes</button><button class="feedback-btn" id="aiCoachBtn">AI Performance Coach</button><button class="feedback-btn" id="aiChatBtnMistakes">Ask AI Assistant</button><button class="feedback-btn" id="pastTestsBtnMistakes">Past tests</button></div>
       </div>
       <div class="advice-panel hidden" id="advicePanel"><h3>AI Performance Coach</h3><p class="advice-meta" id="adviceMeta"></p><div class="advice-body" id="adviceBody"></div></div>
       <div class="mistake-subjects" id="mistakeSubjects"></div>
@@ -481,13 +681,26 @@
 
   <div class="modal-bg hidden" id="sessionDetailModal" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle"><div class="modal session-detail-modal"><div class="modal-h"><h2 id="sessionDetailTitle">Session details</h2><button class="close" data-close aria-label="Close session details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionDetailSummary"></p><div class="session-detail-actions"><button class="primary" id="reviewSessionBtn">Review full test</button><p class="submit-hint">Reopen the whole test in the practice player, exactly as you took it, to review every question, your answer, struck choices, and rationale.</p></div><div class="mistake-list" id="sessionDetailList"></div></div></div></div>
 
-  <div class="modal-bg hidden" id="aiChatModal" role="dialog" aria-modal="true" aria-labelledby="aiChatTitle"><div class="modal ai-chat-modal"><div class="modal-h"><h2 id="aiChatTitle">BluePrep Assistant</h2><button class="close" data-close aria-label="Close assistant">&times;</button></div><div class="modal-b ai-chat-body"><p class="mistake-summary ai-chat-context" id="aiChatContext"></p><div class="ai-chat-log" id="aiChatLog"></div><div class="ai-chat-input"><textarea id="aiChatInput" rows="2" placeholder="Ask about your performance, get coaching, or say things like &quot;give me 10 hard questions on quadratic functions&quot; or &quot;drill my weakest skill&quot;..."></textarea><button class="primary" id="aiChatSend">Send</button></div><div class="ai-chat-suggest"><button class="feedback-btn" data-prompt="What are my biggest weaknesses and exactly what should I drill next?">Biggest weaknesses</button><button class="feedback-btn" data-prompt="Drill my weakest skill with real questions now.">Drill weakest skill</button><button class="feedback-btn" data-prompt="Give me a full timed Math test.">Full Math test</button><button class="feedback-btn" data-prompt="Which of my mistakes am I repeating and why?">Repeated mistakes</button></div></div></div></div>
+  <div class="modal-bg hidden" id="pastTestsModal" role="dialog" aria-modal="true" aria-labelledby="pastTestsTitle"><div class="modal"><div class="modal-h"><h2 id="pastTestsTitle">Past practice tests</h2><button class="close" data-close aria-label="Close past tests">&times;</button></div><div class="modal-b"><p class="mistake-summary">Upload the answer sheet CSV from a practice test you took (e.g. on Bluebook). The AI will read which questions you got wrong, infer the concepts behind them from the SAT blueprint, explain exactly why you're missing them, and generate practice questions on those weak concepts.</p><div class="pasttest-upload"><input type="file" id="pastTestFile" accept=".csv,text/csv"><button class="primary" id="pastTestImport">Import CSV</button></div><p class="mistake-summary" id="pastTestStatus"></p><div class="mistake-list" id="pastTestsList"></div></div></div></div>
+
+  <div class="modal-bg hidden" id="pastTestDetailModal" role="dialog" aria-modal="true" aria-labelledby="pastTestDetailTitle"><div class="modal pasttest-detail-modal"><div class="modal-h"><h2 id="pastTestDetailTitle">Past test</h2><button class="close" data-close aria-label="Close past test details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="pastTestDetailSummary"></p><div class="session-detail-actions"><button class="primary" id="analyzePastTestBtn">Analyze mistakes with AI</button><button class="feedback-btn" id="drillWeakConceptsBtn">Practice weak concepts</button></div><div class="advice-panel hidden" id="pastTestAdvice"><h3>AI analysis</h3><p class="advice-meta" id="pastTestAdviceMeta"></p><div class="advice-body" id="pastTestAdviceBody"></div></div><div id="pastTestQuestions"></div></div></div></div>
+
+  <aside class="ai-panel hidden" id="aiChatPanel" aria-label="BluePrep Assistant">
+    <div class="ai-panel-head"><h2 id="aiChatTitle">BluePrep Assistant</h2><div class="ai-panel-actions"><button class="tool-btn" id="aiDetachBtn" title="Detach assistant into its own window"><svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"></path><path d="M21 9V3h-6"></path><path d="m14 10 7-7"></path></svg></button><button class="close" id="aiChatClose" aria-label="Close assistant">&times;</button></div></div>
+    <div class="ai-panel-body"><p class="mistake-summary ai-chat-context" id="aiChatContext"></p><div class="ai-chat-log" id="aiChatLog"></div><div class="ai-chat-input"><textarea id="aiChatInput" rows="2" placeholder="Ask about your performance, get coaching, or say things like &quot;give me 10 hard questions on quadratic functions&quot; or &quot;drill my weakest skill&quot;..."></textarea><button class="primary" id="aiChatSend">Send</button></div><div class="ai-chat-suggest"><button class="feedback-btn" data-prompt="What are my biggest weaknesses and exactly what should I drill next?">Biggest weaknesses</button><button class="feedback-btn" data-prompt="Drill my weakest skill with real questions now.">Drill weakest skill</button><button class="feedback-btn" data-prompt="Give me a full timed Math test.">Full Math test</button><button class="feedback-btn" data-prompt="Which of my mistakes am I repeating and why?">Repeated mistakes</button></div></div>
+    <div class="ai-panel-resize" id="aiPanelResize" aria-hidden="true"></div>
+  </aside>
 
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
   <script>
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
-    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false, paused: false, unknowns: new Set() };
+    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false, paused: false, unknowns: new Set(), selectedStrands: new Set(), selectedSkills: new Set(), strandOpen: new Set() };
+    const isChatWindow = location.hash === "#ai-chat";
+    const aiChannel = "BroadcastChannel" in window ? new BroadcastChannel("blueprep-ai-chat") : null;
+    function broadcastAiSync(type, payload) {
+      if (aiChannel) aiChannel.postMessage(Object.assign({ type }, payload || {}));
+    }
     const clean = html => window.DOMPurify ? DOMPurify.sanitize(html || "", { USE_PROFILES: { html: true, svg: true, mathMl: true }, ADD_ATTR: ["target", "xlink:href", "alttext"] }) : String(html || "");
     const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
     function renderMarkdown(text) {
@@ -532,23 +745,59 @@
 
     function updateTaxonomy() {
       const taxonomy = currentTaxonomy();
-      const domainSelect = $("#domainFilter");
-      const currentDomain = domainSelect.value;
-      domainSelect.innerHTML = '<option value="all">All domains</option>' + Object.keys(taxonomy).sort().map(domain => `<option>${escapeHtml(domain)}</option>`).join("");
-      if (taxonomy[currentDomain]) domainSelect.value = currentDomain;
-      const selectedDomain = domainSelect.value;
-      const skills = selectedDomain === "all" ? [...new Set(Object.values(taxonomy).flat())] : (taxonomy[selectedDomain] || []);
-      const skillSelect = $("#skillFilter");
-      const currentSkill = skillSelect.value;
-      skillSelect.innerHTML = '<option value="all">All skills</option>' + skills.sort().map(skill => `<option>${escapeHtml(skill)}</option>`).join("");
-      if (skills.includes(currentSkill)) skillSelect.value = currentSkill;
+      const domains = Object.keys(taxonomy).sort();
+      state.selectedStrands = new Set(domains);
+      state.selectedSkills = new Set(domains.flatMap(domain => taxonomy[domain] || []));
+      renderStrandTree();
+    }
+
+    function renderStrandTree() {
+      const taxonomy = currentTaxonomy();
+      const tree = $("#strandTree");
+      if (!tree) return;
+      const domains = Object.keys(taxonomy).sort();
+      if (!domains.length) { tree.innerHTML = ""; return; }
+      if (!state.strandOpen) state.strandOpen = new Set();
+      tree.innerHTML = domains.map(domain => {
+        const skills = [...(taxonomy[domain] || [])].sort();
+        const open = state.strandOpen.has(domain);
+        const strandChecked = state.selectedStrands.has(domain);
+        return `<div class="strand" data-domain="${escapeHtml(domain)}">
+            <div class="strand-head">
+              <button type="button" class="strand-toggle" data-domain="${escapeHtml(domain)}" aria-expanded="${open ? "true" : "false"}" aria-label="Expand ${escapeHtml(domain)}">${open ? "▾" : "▸"}</button>
+              <label class="check strand-check"><input type="checkbox" class="strand-box" data-domain="${escapeHtml(domain)}" ${strandChecked ? "checked" : ""}> <span class="strand-name">${escapeHtml(domain)}</span></label>
+            </div>
+            <div class="strand-skills${open ? "" : " hidden"}">
+              ${skills.map(skill => `<label class="check skill-check"><input type="checkbox" class="skill-box" data-domain="${escapeHtml(domain)}" value="${escapeHtml(skill)}" ${state.selectedSkills.has(skill) ? "checked" : ""}> <span>${escapeHtml(skill)}</span></label>`).join("")}
+            </div>
+          </div>`;
+      }).join("");
+      syncStrandCheckboxes();
+    }
+
+    function syncStrandCheckboxes() {
+      $$(".strand").forEach(strandEl => {
+        const domain = strandEl.dataset.domain;
+        const boxes = [...strandEl.querySelectorAll(".skill-box")];
+        const checked = boxes.filter(box => box.checked).length;
+        const strandBox = strandEl.querySelector(".strand-box");
+        strandBox.checked = checked > 0 && checked === boxes.length;
+        strandBox.indeterminate = checked > 0 && checked < boxes.length;
+        if (checked > 0) state.selectedStrands.add(domain); else state.selectedStrands.delete(domain);
+        boxes.forEach(box => { if (box.checked) state.selectedSkills.add(box.value); else state.selectedSkills.delete(box.value); });
+      });
     }
 
     function queryParams(offset = 0, limit = 50) {
+      const taxonomy = currentTaxonomy();
+      const allDomains = new Set(Object.keys(taxonomy));
+      const allSkills = new Set(Object.values(taxonomy).flat());
+      const domainSelected = [...state.selectedStrands].filter(d => allDomains.has(d));
+      const skillSelected = [...state.selectedSkills].filter(s => allSkills.has(s));
       const params = new URLSearchParams({
         subject: $("#subjectFilter").value,
-        domain: $("#domainFilter").value,
-        skill: $("#skillFilter").value,
+        domain: domainSelected.length === allDomains.size ? "all" : domainSelected.join(","),
+        skill: skillSelected.length === allSkills.size ? "all" : skillSelected.join(","),
         difficulty: $$('input[name="difficulty"]:checked').map(input => input.value).join(","),
         search: $("#search").value.trim(),
         excludeActive: $("#excludeActive").checked,
@@ -1024,12 +1273,13 @@
     function openAiChat(questionId, initialPrompt) {
       state.chatQuestionId = questionId || null;
       if (!state.chatMessages.length) {
-        state.chatMessages = [{ role: "assistant", content: "Hi, I'm your BluePrep assistant. I can see your entire practice history — every question, time spent, answer choices you struck out and when, skills, and tests. Ask me for coaching, or tell me to do something like \"drill my weakest skill\" or \"give me a timed Math test\"." }];
+        state.chatMessages = [{ role: "assistant", content: "Hi, I'm your BluePrep assistant. I can see your entire practice history — every question, time spent, answer choices you struck out and when, skills, tests, and your imported past tests. Ask me for coaching, or tell me to do something like \"drill my weakest skill\" or \"give me a timed Math test\"." }];
       }
       const context = $("#aiChatContext");
       context.textContent = state.chatQuestionId ? "Context: the current question and your history on it are visible to me." : "Context: your full practice history is visible to me.";
       renderAiChat();
-      openModal("aiChatModal");
+      $("#aiChatPanel").classList.remove("hidden");
+      broadcastAiSync("focus");
       if (initialPrompt) {
         const input = $("#aiChatInput");
         input.value = initialPrompt;
@@ -1063,6 +1313,7 @@
       state.chatMessages.push({ role: "user", content: text });
       state.chatSending = true;
       renderAiChat();
+      broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: true });
       try {
         const response = await fetch("/api/ai/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: state.chatMessages.slice(0, -1).slice(-8), questionId: state.chatQuestionId }) });
         const data = await response.json();
@@ -1070,17 +1321,23 @@
         state.chatMessages.push({ role: "assistant", content: data.reply });
         state.chatSending = false;
         renderAiChat();
-        if (data.action && typeof data.action === "object") executeAiAction(data.action);
+        broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: false });
+        if (data.action && typeof data.action === "object") {
+          if (isChatWindow) broadcastAiSync("action", { action: data.action });
+          else executeAiAction(data.action);
+        }
       } catch (error) {
         state.chatSending = false;
         state.chatMessages.push({ role: "assistant", content: `Error: ${error.message}` });
         renderAiChat();
+        broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: false });
       }
     }
 
     async function executeAiAction(action) {
       try {
         if (action.type === "start_practice") {
+          closeAiChat();
           const subject = action.subject && action.subject !== "any" ? action.subject : "";
           const domain = action.domain && action.domain !== "any" ? action.domain : "";
           const skill = action.skill && action.skill !== "any" ? action.skill : "";
@@ -1095,6 +1352,7 @@
           await startSession(chosen, { seconds: action.mode === "test" ? Math.max(300, chosen.length * 90) : 0, timerMode: action.mode === "test" ? "section" : "question", instantFeedback: false, mode: action.mode === "test" ? "test" : "practice" });
           $("#aiChatContext").textContent = "";
         } else if (action.type === "open_mistakes") {
+          closeAiChat();
           closeModals();
           state.mistakeSubject = action.subject && action.subject !== "all" ? action.subject : "all";
           state.mistakeDomain = action.skill || "";
@@ -1103,6 +1361,7 @@
           if (action.questionId) {
             const question = state.session.find(item => item.id === action.questionId) || state.details.get(action.questionId);
             if (question) {
+              closeAiChat();
               closeModals();
               await generateSimilar(question);
             } else {
@@ -1112,16 +1371,24 @@
             throw new Error("No question specified for similar-problem generation.");
           }
         } else if (action.type === "open_sessions") {
+          closeAiChat();
           closeModals();
           openSessions();
         } else if (action.type === "open_analytics") {
+          closeAiChat();
           closeModals();
           openAnalytics();
         }
       } catch (error) {
         state.chatMessages.push({ role: "assistant", content: `Action failed: ${error.message}` });
         renderAiChat();
+        broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: false });
       }
+    }
+
+    function closeAiChat() {
+      $("#aiChatPanel").classList.add("hidden");
+      if (!isChatWindow) $("#aiChatContext").textContent = "";
     }
 
     function formatDateTime(timestamp) {
@@ -1161,6 +1428,176 @@
     $("#sessionsFilter")?.addEventListener("change", () => {
       fetch("/api/sessions").then(response => response.json()).then(data => renderSessionsList(data.items)).catch(() => {});
     });
+
+    async function openPastTests() {
+      openModal("pastTestsModal");
+      $("#pastTestStatus").textContent = "Loading past tests...";
+      $("#pastTestsList").innerHTML = '<div class="empty-list">Loading...</div>';
+      try {
+        const response = await fetch("/api/tests/imported");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load past tests.");
+        renderPastTestsList(data.items);
+      } catch (error) {
+        $("#pastTestStatus").textContent = "Could not load past tests.";
+        $("#pastTestsList").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderPastTestsList(tests) {
+      $("#pastTestStatus").textContent = tests.length ? `${tests.length} past test${tests.length === 1 ? "" : "s"} uploaded. Select one to analyze your mistakes with AI.` : "No past tests uploaded yet. Import an answer-sheet CSV above.";
+      $("#pastTestsList").innerHTML = tests.length ? tests.map(test => {
+        const accuracy = test.total ? Math.round(100 * test.correct / test.total) : 0;
+        const wrong = test.total - test.correct;
+        return `<div class="mistake-item" data-pasttest="${escapeHtml(test.id)}"><span class="mistake-num">${accuracy}%</span><span class="mistake-skill"><strong>${escapeHtml(test.title)}</strong><small>${escapeHtml(formatDateTime(test.createdAt))} · ${test.total} questions · ${wrong} wrong</small></span><span class="mistake-answer ${wrong ? "incorrect" : ""}">${test.correct}/${test.total}</span></div>`;
+      }).join("") : '<div class="empty-list"><strong>No past tests yet.</strong><br>Import the CSV answer sheet from a practice test you took.</div>';
+      $$("[data-pasttest]").forEach(button => button.onclick = () => openPastTestDetail(button.dataset.pasttest));
+    }
+
+    async function openPastTestDetail(testId) {
+      openModal("pastTestDetailModal");
+      $("#pastTestDetailSummary").textContent = "Loading past test...";
+      $("#pastTestQuestions").innerHTML = '<div class="empty-list">Loading...</div>';
+      $("#pastTestAdvice").classList.add("hidden");
+      try {
+        const response = await fetch(`/api/tests/imported/${encodeURIComponent(testId)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load past test.");
+        renderPastTestDetail(data);
+      } catch (error) {
+        $("#pastTestDetailSummary").textContent = "Could not load past test.";
+        $("#pastTestQuestions").innerHTML = `<div class="empty-list">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderPastTestDetail(test) {
+      const wrong = test.questions.filter(item => !item.correct);
+      const correct = test.questions.length - wrong.length;
+      $("#pastTestDetailSummary").textContent = `${escapeHtml(test.title)} · ${test.questions.length} questions · ${correct} correct · ${wrong.length} wrong · ${escapeHtml(formatDateTime(test.createdAt))}`;
+      const bySubject = {};
+      for (const item of test.questions) {
+        const key = `${item.subject} · Module ${item.module}`;
+        (bySubject[key] = bySubject[key] || []).push(item);
+      }
+      const sections = Object.entries(bySubject).map(([key, items]) => {
+        const subWrong = items.filter(item => !item.correct);
+        return `<div class="mistake-group-head"><h3>${escapeHtml(key)}</h3><span class="count">${items.length - subWrong.length}/${items.length} correct</span></div>` +
+          items.map(item => {
+            const ask = item.correct ? "" : `<button class="text-btn" data-askpasttest="${escapeHtml(item.id)}">Ask AI</button>`;
+            return `<div class="review-item"><span>Q${escapeHtml(item.number)} · ${escapeHtml(item.id)}<small>${item.correct ? "Correct" : `Answer ${escapeHtml(item.answer || "—")} → correct ${escapeHtml(item.correctAnswer)}`}</small></span><span class="${item.correct ? "correct" : "incorrect"}">${item.correct ? "✓" : "✗"} ${ask}</span></div>`;
+          }).join("");
+      }).join("");
+      $("#pastTestQuestions").innerHTML = sections || '<div class="empty-list">No questions recorded in this test.</div>';
+      $$("[data-askpasttest]").forEach(button => button.onclick = () => {
+        closeModals();
+        openAiChat(button.dataset.askpasttest, "Explain this question — what concept does it test and why did I get it wrong?");
+      });
+      const analyzeBtn = $("#analyzePastTestBtn");
+      analyzeBtn.disabled = false;
+      analyzeBtn.onclick = () => analyzePastTest(test.id);
+      const drillBtn = $("#drillWeakConceptsBtn");
+      drillBtn.disabled = false;
+      drillBtn.onclick = () => analyzePastTest(test.id, true);
+    }
+
+    async function analyzePastTest(testId, alsoDrill) {
+      const analyzeBtn = $("#analyzePastTestBtn"), drillBtn = $("#drillWeakConceptsBtn");
+      analyzeBtn.disabled = true; analyzeBtn.textContent = "Analyzing...";
+      if (drillBtn) { drillBtn.disabled = true; }
+      $("#pastTestAdvice").classList.remove("hidden");
+      $("#pastTestAdviceMeta").textContent = "Asking the AI to infer the concepts behind each wrong question...";
+      $("#pastTestAdviceBody").innerHTML = '<div class="loading"><span class="spinner"></span> Analyzing your mistakes with AI...</div>';
+      try {
+        const response = await fetch("/api/ai/pasttest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ testId }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "AI analysis failed.");
+        renderPastTestAdvice(data);
+        if (alsoDrill && data.weakConcepts?.length) {
+          const skills = data.weakConcepts.slice(0, 3).map(concept => concept.skill);
+          closeModals();
+          await startSkillDrill(skills);
+        }
+      } catch (error) {
+        $("#pastTestAdviceMeta").textContent = "Could not analyze this past test.";
+        $("#pastTestAdviceBody").innerHTML = `<div class="empty-state"><strong>Something went wrong.</strong><span>${escapeHtml(error.message)}</span></div>`;
+      } finally {
+        analyzeBtn.disabled = false; analyzeBtn.textContent = "Analyze mistakes with AI";
+        if (drillBtn) drillBtn.disabled = false;
+      }
+    }
+
+    function renderPastTestAdvice(data) {
+      $("#pastTestAdviceMeta").textContent = `${data.weakConcepts?.length || 0} weak concept${data.weakConcepts?.length === 1 ? "" : "s"} identified · ${data.nextSteps?.length || 0} next steps`;
+      const chips = (data.weakConcepts || []).map((concept, index) => {
+        const skill = concept.skill || "";
+        return `<span class="weak-concept-chip"><span class="skill-name">${escapeHtml(skill)}</span><span>${concept.count ? `(${concept.count})` : ""}</span><button class="text-btn" data-weakdrill="${escapeHtml(skill)}">Drill</button><button class="text-btn" data-weakgen="${escapeHtml(skill)}">AI question</button></span>`;
+      }).join("");
+      $("#pastTestAdviceBody").innerHTML = `<div class="pasttest-actions">${chips}</div>` + renderMarkdown(data.analysis);
+      $$("[data-weakdrill]").forEach(button => button.onclick = () => startSkillDrill([button.dataset.weakdrill]));
+      $$("[data-weakgen]").forEach(button => button.onclick = () => generateWeakConceptQuestion(button.dataset.weakgen, button));
+      if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#pastTestAdviceBody")]).catch(() => {});
+    }
+
+    async function startSkillDrill(skills) {
+      const chosen = [];
+      const used = new Set();
+      for (const skill of skills) {
+        const params = new URLSearchParams({ subject: "all", domain: "all", skill, difficulty: "Easy,Medium,Hard", all: "true" });
+        try {
+          const response = await fetch(`/api/questions?${params.toString()}`);
+          const data = await response.json();
+          if (response.ok && data.items) {
+            for (const item of data.items) {
+              if (!used.has(item.id)) { used.add(item.id); chosen.push(item); }
+              if (chosen.length >= 10) break;
+            }
+          }
+        } catch {}
+        if (chosen.length >= 10) break;
+      }
+      if (!chosen.length) throw new Error("No questions found in the bank for those skills.");
+      const picked = [...chosen].sort(() => Math.random() - .5).slice(0, Math.min(10, chosen.length));
+      closeModals();
+      await startSession(picked, { seconds: 0, timerMode: "question", instantFeedback: false, mode: "practice" });
+    }
+
+    async function generateWeakConceptQuestion(skill, button) {
+      const subject = guessSubjectForSkill(skill);
+      const domain = guessDomainForSkill(skill);
+      if (button) { button.disabled = true; button.textContent = "Generating..."; }
+      try {
+        const response = await fetch("/api/ai/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject, domain, skill, difficulty: "Medium", type: "mcq" }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to generate a question.");
+        closeModals();
+        await startSession([data], { seconds: 0, timerMode: "question", instantFeedback: false, mode: "practice" });
+      } catch (error) {
+        if (button) { button.disabled = false; button.textContent = "AI question"; }
+        state.chatMessages.push({ role: "assistant", content: `Could not generate a question for "${skill}": ${error.message}` });
+        renderAiChat();
+      }
+    }
+
+    function guessSubjectForSkill(skill) {
+      for (const subject of ["Reading and Writing", "Math"]) {
+        const domains = state.meta?.domains?.[subject];
+        if (!domains) continue;
+        for (const skills of Object.values(domains)) {
+          if (skills.includes(skill)) return subject;
+        }
+      }
+      return "Math";
+    }
+    function guessDomainForSkill(skill) {
+      for (const subject of ["Reading and Writing", "Math"]) {
+        const domains = state.meta?.domains?.[subject];
+        if (!domains) continue;
+        for (const [domain, skills] of Object.entries(domains)) {
+          if (skills.includes(skill)) return domain;
+        }
+      }
+      return "";
+    }
 
     async function openSessionDetail(sessionId) {
       openModal("sessionDetailModal");
@@ -1411,21 +1848,115 @@
       question.completed ? startStoredReview(question, question.submittedAnswer, question.unknown) : startSession([question]);
     });
     $("#subjectFilter").onchange = () => { updateTaxonomy(); loadQuestions(); };
-    $("#domainFilter").onchange = () => { updateTaxonomy(); loadQuestions(); };
-    $("#skillFilter").onchange = () => loadQuestions();
+    $("#strandTree").addEventListener("click", event => {
+      const toggle = event.target.closest(".strand-toggle");
+      if (toggle) {
+        const domain = toggle.dataset.domain;
+        if (state.strandOpen.has(domain)) state.strandOpen.delete(domain); else state.strandOpen.add(domain);
+        renderStrandTree();
+        return;
+      }
+    });
+    $("#strandTree").addEventListener("change", event => {
+      const skillBox = event.target.closest(".skill-box");
+      const strandBox = event.target.closest(".strand-box");
+      if (skillBox) {
+        const domain = skillBox.dataset.domain;
+        const strandEl = skillBox.closest(".strand");
+        const allBoxes = [...strandEl.querySelectorAll(".skill-box")];
+        const checked = [...allBoxes.filter(box => box.checked)];
+        strandEl.querySelector(".strand-box").checked = checked.length === allBoxes.length && checked.length > 0;
+        strandEl.querySelector(".strand-box").indeterminate = checked.length > 0 && checked.length < allBoxes.length;
+        syncStrandCheckboxes();
+        loadQuestions();
+        return;
+      }
+      if (strandBox) {
+        const domain = strandBox.dataset.domain;
+        const strandEl = strandBox.closest(".strand");
+        strandEl.querySelectorAll(".skill-box").forEach(box => box.checked = strandBox.checked);
+        strandBox.indeterminate = false;
+        syncStrandCheckboxes();
+        loadQuestions();
+        return;
+      }
+    });
     $("#search").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadQuestions(), 250); };
     ["#excludeActive", "#excludeCorrect"].forEach(selector => $(selector).onchange = () => loadQuestions());
     $("#newQuestions").onchange = () => loadQuestions();
     $$('input[name="difficulty"]').forEach(input => input.onchange = () => loadQuestions());
-    $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#domainFilter").value = "all"; $("#skillFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
+    $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
     $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession();
     $("#mistakeBtn").onclick = openMistakesPage;
     $("#sessionsBtn").onclick = openSessions;
+    $("#pastTestsBtn").onclick = openPastTests;
+    $("#pastTestsBtnMistakes").onclick = openPastTests;
     $("#mistakesBackBtn").onclick = closeMistakesPage;
     $("#mistakesBackTop").onclick = closeMistakesPage;
     $("#runAllMistakes").onclick = runMistakes;
     $("#aiChatBtn").onclick = () => openAiChat(null);
     $("#aiChatBtnMistakes").onclick = () => openAiChat(null);
+    $("#aiChatClose").onclick = closeAiChat;
+    $("#aiDetachBtn").onclick = () => {
+      const url = `${location.origin}${location.pathname}${location.search}#ai-chat`;
+      const win = window.open(url, "blueprep-ai-chat", "width=520,height=780,resizable=yes,scrollbars=yes");
+      if (win) {
+        setTimeout(() => broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: false }), 300);
+        $("#aiChatPanel").classList.add("hidden");
+      }
+    };
+    const aiResizeHandle = $("#aiPanelResize");
+    let aiResizeDrag = null;
+    aiResizeHandle.addEventListener("pointerdown", event => {
+      aiResizeDrag = { x: event.clientX, width: $("#aiChatPanel").offsetWidth };
+      aiResizeHandle.classList.add("resizing");
+      event.preventDefault();
+    });
+    window.addEventListener("pointermove", event => {
+      if (!aiResizeDrag) return;
+      const width = Math.max(320, Math.min(680, aiResizeDrag.width - (event.clientX - aiResizeDrag.x)));
+      $("#aiChatPanel").style.width = `${width}px`;
+    });
+    window.addEventListener("pointerup", () => { aiResizeDrag = null; aiResizeHandle.classList.remove("resizing"); });
+    $("#pastTestImport").onclick = async () => {
+      const file = $("#pastTestFile").files[0];
+      if (!file) return;
+      const button = $("#pastTestImport");
+      button.disabled = true; button.textContent = "Importing...";
+      $("#pastTestStatus").textContent = "Reading CSV...";
+      try {
+        const csv = await file.text();
+        const response = await fetch("/api/tests/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: file.name.replace(/\.csv$/i, ""), csv }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to import that file.");
+        $("#pastTestStatus").textContent = `Imported "${data.title}" (${data.total} questions, ${data.correct} correct).`;
+        const listResponse = await fetch("/api/tests/imported");
+        const listData = await listResponse.json();
+        renderPastTestsList(listData.items);
+      } catch (error) {
+        $("#pastTestStatus").textContent = `Import failed: ${error.message}`;
+      } finally {
+        button.disabled = false; button.textContent = "Import CSV";
+        $("#pastTestFile").value = "";
+      }
+    };
+    if (aiChannel) aiChannel.addEventListener("message", event => {
+      const data = event.data || {};
+      if (data.type === "state") {
+        state.chatMessages = data.messages || state.chatMessages;
+        if (data.questionId !== undefined) state.chatQuestionId = data.questionId;
+        renderAiChat();
+      } else if (data.type === "request") {
+        if (!isChatWindow) broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: false });
+      } else if (data.type === "focus") {
+        if (isChatWindow) {
+          $("#aiChatPanel").classList.remove("hidden");
+          $("#aiChatInput").focus();
+        }
+      } else if (data.type === "action" && !isChatWindow && data.action) {
+        executeAiAction(data.action);
+      }
+    });
     $("#askAiBtn").onclick = () => { const q = state.session[state.index]; openAiChat(q?.id); };
     $("#aiChatSend").onclick = sendAiChat;
     $("#aiChatInput").addEventListener("keydown", event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendAiChat(); } });
@@ -1486,7 +2017,7 @@
     $$('[data-modal]').forEach(button => button.onclick = () => { if (!button.disabled) openModal(button.dataset.modal); }); $$('[data-close]').forEach(button => button.onclick = closeModals); $$(".modal-bg").forEach(modal => modal.onclick = event => { if (event.target === modal && modal.id !== "resultsModal") closeModals(); });
     $("#backLibrary").onclick = returnToLibrary; $("#resultClose").onclick = returnToLibrary; $("#returnQuestions").onclick = closeModals; $("#confirmSubmit").onclick = () => { closeModals(); finishSession(); };
     $("#exitBtn").onclick = exitSession; $("#analyticsBtn").onclick = openAnalytics;
-    window.addEventListener("keydown", event => { if (event.key === "Escape") { if ($$(".modal-bg").some(modal => !modal.classList.contains("hidden"))) closeModals(); else if (!$("#player").classList.contains("hidden")) exitSession(); } });
+    window.addEventListener("keydown", event => { if (event.key === "Escape") { if (!$("#aiChatPanel").classList.contains("hidden")) { closeAiChat(); return; } if ($$(".modal-bg").some(modal => !modal.classList.contains("hidden"))) closeModals(); else if (!$("#player").classList.contains("hidden")) exitSession(); } });
 
     const calculator = $(".desmos-modal");
     let calculatorDrag = null;
@@ -1542,15 +2073,46 @@
       $("#maximizeCalculator").setAttribute("aria-pressed", String(maximized));
     };
 
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      try { localStorage.setItem("blueprep-theme", theme); } catch {}
+      $$(".theme-toggle").forEach(button => button.setAttribute("aria-pressed", theme === "dark"));
+    }
+    $$(".theme-toggle").forEach(button => button.onclick = () => {
+      const dark = document.documentElement.getAttribute("data-theme") === "dark";
+      applyTheme(dark ? "light" : "dark");
+    });
+
     (async function init() {
       try {
         state.meta = await fetch("/api/meta").then(response => { if (!response.ok) throw new Error("Backend unavailable"); return response.json(); });
-        updateTaxonomy(); await loadQuestions();
-        updateTestBlueprint();
+        if (!isChatWindow) {
+          updateTaxonomy(); await loadQuestions();
+          updateTestBlueprint();
+        }
       } catch (error) {
-        $("#questionList").innerHTML = `<div class="empty-list"><strong>Backend unavailable.</strong><br>Run <code>npm start</code> and open <code>http://localhost:4173</code>.</div>`;
+        if (isChatWindow) {
+          $("#aiChatPanel").classList.remove("hidden");
+          openAiChat(null);
+          $("#aiChatContext").textContent = "Context: your full practice history is visible to me.";
+        } else {
+          $("#questionList").innerHTML = `<div class="empty-list"><strong>Backend unavailable.</strong><br>Run <code>npm start</code> and open <code>http://localhost:4173</code>.</div>`;
+        }
       }
     })();
+    if (isChatWindow) {
+      document.body.classList.add("chat-window");
+      $$("section").forEach(section => section.classList.add("hidden"));
+      $$(".modal-bg").forEach(modal => modal.classList.add("hidden"));
+      if (!state.chatMessages.length) {
+        state.chatMessages = [{ role: "assistant", content: "Hi, I'm your BluePrep assistant. I can see your entire practice history — every question, time spent, answer choices you struck out and when, skills, tests, and your imported past tests. Ask me for coaching, or tell me to do something like \"drill my weakest skill\" or \"give me a timed Math test\"." }];
+      }
+      $("#aiChatPanel").classList.remove("hidden");
+      $("#aiChatPanel").classList.add("window-mode");
+      $("#aiChatPanel").style.width = "";
+      renderAiChat();
+      broadcastAiSync("request");
+    }
   </script>
   <script>window.MathJax = { startup: { typeset: false }, options: { enableMenu: false } };</script>
   <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
