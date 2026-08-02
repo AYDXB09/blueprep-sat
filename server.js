@@ -239,6 +239,28 @@ function stripHtml(html) {
   return text;
 }
 
+const ALLOWED_TAGS = new Set(["p", "br", "div", "span", "strong", "b", "em", "i", "u", "sub", "sup", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "figure", "figcaption", "svg", "g", "rect", "line", "circle", "path", "polygon", "text", "tspan", "defs", "pattern", "math", "mrow", "mi", "mo", "mn", "msup", "msub", "mfrac", "msqrt", "annotation", "semantics"]);
+const ALLOWED_ATTRS = new Set(["alt", "title", "width", "height", "x", "y", "x1", "y1", "x2", "y2", "rx", "ry", "r", "cx", "cy", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "viewbox", "viewBox", "font-size", "font-family", "text-anchor", "transform", "d", "points", "colspan", "rowspan", "align", "xmlns", "role", "aria-label", "alttext", "patternunits", "patterntransform"]);
+
+function sanitizeHtml(html) {
+  let out = String(html || "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]*on[a-z]+\s*=[^ >]*>/gi, "").replace(/javascript\s*:/gi, "");
+  out = out.replace(/<(\/?)([a-zA-Z0-9]+)([^>]*)>/g, (match, closing, tag, attrs) => {
+    const name = tag.toLowerCase();
+    if (!ALLOWED_TAGS.has(name)) return "";
+    let safeAttrs = "";
+    const attrPattern = /([a-zA-Z:-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
+    let attrMatch;
+    while ((attrMatch = attrPattern.exec(attrs)) !== null) {
+      const attrName = attrMatch[1].toLowerCase();
+      if (!ALLOWED_ATTRS.has(attrName) && !ALLOWED_ATTRS.has(attrMatch[1])) continue;
+      safeAttrs += ` ${attrMatch[1]}="${attrMatch[3] || attrMatch[4] || attrMatch[5]}"`;
+    }
+    return `<${closing}${name}${safeAttrs}>`;
+  });
+  out = out.replace(/&(?!amp;|lt;|gt;|quot;|#\d+;|#x[0-9a-fA-F]+;)/g, "&amp;");
+  return out || "<p></p>";
+}
+
 function humanizeMath(text) {
   return String(text || "")
     .replace(/StartFraction\s*/g, "(")
@@ -276,6 +298,7 @@ function questionSummary(question) {
     type: question.type,
     completed: Boolean(progress[question.id]),
     correct: Boolean(progress[question.id]?.correct),
+    unknown: Boolean(progress[question.id]?.unknown),
     submittedAnswer: progress[question.id]?.answer || ""
   };
 }
@@ -299,6 +322,7 @@ function buildPerformanceDigest() {
       difficulty: question.difficulty,
       type: question.type,
       correct: Boolean(record.correct),
+      unknown: Boolean(record.unknown),
       answer: record.answer || "",
       correctAnswer: question.correctAnswer || "",
       time: record.time || 0,
@@ -525,6 +549,7 @@ function handleApi(request, response, url) {
         question,
         answer: record.answer || "",
         correct: Boolean(record.correct),
+        unknown: Boolean(record.unknown),
         time: record.time || 0,
         attempts: record.attempts || 1,
         struck: [],
@@ -539,6 +564,7 @@ function handleApi(request, response, url) {
       }
       if (latest && latest.struck) mistake.struck = latest.struck.filter(letter => /^[A-D]$/.test(String(letter)));
       if (latest && latest.strikeLog) mistake.strikeLog = latest.strikeLog.slice(0, 50);
+      if (latest && latest.unknown) mistake.unknown = true;
     }
     mistakes.sort((a, b) => b.updatedAt - a.updatedAt);
     return json(response, 200, { total: mistakes.length, items: mistakes });
@@ -554,7 +580,7 @@ function handleApi(request, response, url) {
     return readBody(request).then(body => {
       if (!findQuestion(body.id)) return json(response, 404, { error: "Question not found" });
       const previous = progress[body.id] || {};
-      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), time: Math.max(0, Number(body.time) || 0), attempts: (previous.attempts || 0) + 1, updatedAt: Date.now() };
+      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), unknown: Boolean(body.unknown), time: Math.max(0, Number(body.time) || 0), attempts: (previous.attempts || 0) + 1, updatedAt: Date.now() };
       fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
       return json(response, 200, { ok: true });
     }).catch(error => json(response, 400, { error: error.message }));
@@ -572,6 +598,7 @@ function handleApi(request, response, url) {
         skill: question.skill,
         difficulty: question.difficulty,
         correct: Boolean(record.correct),
+        unknown: Boolean(record.unknown),
         answer: record.answer || "",
         time: record.time || 0,
         updatedAt: record.updatedAt || 0
@@ -609,6 +636,7 @@ function handleApi(request, response, url) {
           id: item.id,
           answer: item.answer || "",
           correct: Boolean(item.correct),
+          unknown: Boolean(item.unknown),
           time: item.time || 0,
           struck: item.struck || [],
           strikeLog: item.strikeLog || [],
@@ -631,6 +659,7 @@ function handleApi(request, response, url) {
           id: item.id,
           answer: String(item.answer || ""),
           correct: Boolean(item.correct),
+          unknown: Boolean(item.unknown),
           time: Math.max(0, Number(item.time) || 0),
           struck: Array.isArray(item.struck) ? item.struck.filter(letter => /^[A-D]$/.test(String(letter))) : [],
           strikeLog: Array.isArray(item.strikeLog) ? item.strikeLog.slice(0, 50).map(entry => ({ letter: String(entry.letter || ""), at: Math.max(0, Number(entry.at) || 0) })).filter(entry => /^[A-D]$/.test(entry.letter)) : [],
@@ -702,6 +731,8 @@ function handleApi(request, response, url) {
         `Generate a NEW original question on the same concept as the source below, for subject "${source.subject}", strand "${source.domain}", skill "${source.skill}", difficulty "${source.difficulty}".`,
         "The new question must test the SAME underlying skill and concept but use DIFFERENT numbers, wording, context, or scenario so it is not a copy.",
         "If the source has a passage, data table, or graph, write a fresh equivalent passage/data so the question stands alone.",
+        "If the source question displays data in a table, chart, or graph, the new question MUST also present its data visually. Embed a simple inline HTML table (using <table>, <tr>, <td> tags) inside the stem so the data is readable, and do NOT say \"shown below\" or \"as shown in the graph\" unless you actually include that table.",
+        "The stem may contain HTML for the passage/data table, but keep all other text as plain text (paragraphs separated by blank lines, rendered as-is). Do NOT use markdown like **bold** or # headers.",
         typeHint,
         "",
         "MATH FORMATTING: The student's app renders math with LaTeX. Any math symbols, formulas, equations, exponents, fractions, or variables in the stem, options, or rationale MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). NEVER use unicode math symbols, HTML sub/sup, or plaintext like x^2 without LaTeX. Keep LaTeX short and self-contained.",
@@ -753,7 +784,7 @@ function handleApi(request, response, url) {
         active: false,
         type: question.type,
         stimulus: "",
-        stem: `<p>${stripHtml(generated.stem || "")}</p>`,
+        stem: sanitizeHtml(generated.stem || ""),
         options,
         correctAnswer,
         rationale: `<p>${stripHtml(generated.rationale || "")}</p>`,
