@@ -33,8 +33,10 @@ if (!fs.existsSync(DATA_FILE)) {
   process.exit(1);
 }
 
-const questions = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+let questions = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
 const newQuestions = fs.existsSync(NEW_FILE) ? JSON.parse(fs.readFileSync(NEW_FILE, "utf8")) : [];
+const questionsById = new Set();
+questions = questions.filter(question => (questionsById.has(question.id) ? false : (questionsById.add(question.id), true)));
 questions.forEach(question => {
   question.skill = question.skill.trim();
   if (question.skill.toLowerCase() === "cross-text connections") question.skill = "Cross-Text Connections";
@@ -62,41 +64,9 @@ function saveSessions() {
   fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
 }
 
-const PRACTICE_SIZES = {
-  quarter: { "Reading and Writing": { count: 7, seconds: 8 * 60 }, Math: { count: 6, seconds: 9 * 60 } },
-  half: { "Reading and Writing": { count: 14, seconds: 16 * 60 }, Math: { count: 11, seconds: 17.5 * 60 } },
-  module: { "Reading and Writing": { count: 27, seconds: 32 * 60 }, Math: { count: 22, seconds: 35 * 60 } },
-  section: { "Reading and Writing": { count: 54, seconds: 64 * 60 }, Math: { count: 44, seconds: 70 * 60 } }
-};
-const DIFFICULTY_PROFILES = {
-  balanced: { Easy: 0.25, Medium: 0.50, Hard: 0.25 },
-  higher: { Easy: 0.10, Medium: 0.40, Hard: 0.50 },
-  easy: { Easy: 0.65, Medium: 0.30, Hard: 0.05 },
-  hard: { Easy: 0, Medium: 0, Hard: 1 }
-};
-
-function shuffle(items) {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-const RW_SKILL_ORDER = [
-  "Words in Context",
-  "Text Structure and Purpose",
-  "Cross-Text Connections",
-  "Central Ideas and Details",
-  "Command of Evidence",
-  "Inferences",
-  "Boundaries",
-  "Form, Structure, and Sense",
-  "Transitions",
-  "Rhetorical Synthesis"
-];
-const DIFFICULTY_RANK = { Easy: 0, Medium: 1, Hard: 2 };
+const PRACTICE_SIZES = require("./lib/ordering.js").PRACTICE_SIZES;
+const DIFFICULTY_PROFILES = require("./lib/ordering.js").DIFFICULTY_PROFILES;
+const { shuffle, orderLikeSatSection, interleaveSpr } = require("./lib/ordering.js");
 
 function buildPracticeSet(subject, size, profile, source) {
   const setup = PRACTICE_SIZES[size]?.[subject];
@@ -128,41 +98,6 @@ function buildPracticeSet(subject, size, profile, source) {
   }
   const ordered = orderLikeSatSection(picked, subject);
   return { questions: ordered.map(questionSummary), seconds: Math.round(setup.seconds), count: setup.count, profile, source };
-}
-
-function orderLikeSatSection(questions, subject) {
-  if (subject === "Reading and Writing") {
-    const order = new Map(RW_SKILL_ORDER.map((skill, index) => [skill, index]));
-    return [...questions].sort((a, b) => {
-      const aOrder = order.has(a.skill) ? order.get(a.skill) : RW_SKILL_ORDER.length;
-      const bOrder = order.has(b.skill) ? order.get(b.skill) : RW_SKILL_ORDER.length;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return (DIFFICULTY_RANK[a.difficulty] ?? 2) - (DIFFICULTY_RANK[b.difficulty] ?? 2);
-    });
-  }
-  const bands = { Easy: [], Medium: [], Hard: [] };
-  questions.forEach(question => (bands[question.difficulty] || bands.Hard).push(question));
-  const ordered = [];
-  for (const difficulty of ["Easy", "Medium", "Hard"]) {
-    ordered.push(...interleaveSpr(bands[difficulty]));
-  }
-  return ordered;
-}
-
-function interleaveSpr(band) {
-  if (!band.length) return [];
-  const mcq = shuffle(band.filter(item => item.type !== "spr"));
-  const spr = shuffle(band.filter(item => item.type === "spr"));
-  if (!spr.length) return mcq;
-  const result = [];
-  const stride = Math.max(1, Math.round((mcq.length + spr.length) / (spr.length + 1)));
-  let mcqIndex = 0, sprIndex = 0;
-  for (let i = 0; i < mcq.length + spr.length; i++) {
-    if ((i % stride === stride - 1 || mcqIndex >= mcq.length) && sprIndex < spr.length) result.push(spr[sprIndex++]);
-    else if (mcqIndex < mcq.length) result.push(mcq[mcqIndex++]);
-    else result.push(spr[sprIndex++]);
-  }
-  return result;
 }
 
 function json(response, status, value) {
@@ -1143,6 +1078,8 @@ function handleApi(request, response, url) {
         "",
         "When taking an action, first say in your reply what you are doing and why, then set the action field. Only use exact skill/domain names that exist in the data below. For start_practice, pick a count between 5 and 30. For generate_question, prefer a skill the student is weak at.",
         "",
+        "HIGHLIGHT TOOL: When the student asks you to highlight key parts of the currently loaded question (e.g. \"highlight the evidence\", \"underline the key words\", \"highlight the trap\"), fill the `highlight` field with the exact phrases (verbatim substrings, quoted exactly as they appear in the CURRENT QUESTION CONTEXT above) to wrap in highlight markers. Structure: {\"passage\": [\"phrase\", ...], \"prompt\": [\"phrase\", ...], \"answers\": {\"A\": [\"phrase\"], \"B\": [], \"C\": [], \"D\": []}}. Only include parts that exist and are relevant to the current question. For Math questions the stem is rendered in the passage area, so put math stem phrases under \"passage\". Set `highlight` to null when the student did not ask for highlighting or when no question is loaded.",
+        "",
         "MATH FORMATTING: The app renders LaTeX. Any math in your reply MUST be written as LaTeX inline math between \\( and \\), e.g. \\(x^2 + 3x = 10\\). Never use unicode math symbols or HTML sub/sup. Do NOT use markdown tables (they render badly) -- use short bullet lists instead.",
         "",
         "CURRENT QUESTION CONTEXT (if the student is asking about a specific question):",
@@ -1151,7 +1088,7 @@ function handleApi(request, response, url) {
         "FULL STUDENT DATA:",
         context,
         "",
-        'Respond with ONLY a single valid JSON object, no markdown, exactly this shape: {"reply": "your coaching message", "action": null | one of the action objects above}.',
+        'Respond with ONLY a single valid JSON object, no markdown, exactly this shape: {"reply": "your coaching message", "action": null | one of the action objects above, "highlight": null | the highlight object described above}.',
         "Finish with the closing brace of the JSON object."
       ].filter(Boolean).join("\n");
       const messages = [
@@ -1174,7 +1111,19 @@ function handleApi(request, response, url) {
       const reply = String(result.reply || "").trim();
       const action = result.action && typeof result.action === "object" ? result.action : null;
       if (!reply) return json(response, 502, { error: "The model produced no reply. Try again." });
-      return json(response, 200, { reply, action, digest: buildPerformanceDigest() });
+      const highlight = result.highlight && typeof result.highlight === "object" ? result.highlight : null;
+      if (highlight) {
+        highlight.passage = Array.isArray(highlight.passage) ? highlight.passage.slice(0, 20).map(String).map(item => item.slice(0, 120)) : [];
+        highlight.prompt = Array.isArray(highlight.prompt) ? highlight.prompt.slice(0, 20).map(String).map(item => item.slice(0, 120)) : [];
+        if (highlight.answers && typeof highlight.answers === "object") {
+          const answers = {};
+          for (const [letter, phrases] of Object.entries(highlight.answers)) {
+            if (/^[A-D]$/.test(letter)) answers[letter] = Array.isArray(phrases) ? phrases.slice(0, 10).map(String).map(item => item.slice(0, 120)) : [];
+          }
+          highlight.answers = answers;
+        }
+      }
+      return json(response, 200, { reply, action, highlight, digest: buildPerformanceDigest() });
     }).catch(error => json(response, 502, { error: error.message }));
   }
 

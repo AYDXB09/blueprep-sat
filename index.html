@@ -117,10 +117,13 @@
     .review-answer { margin: 8px 0; font-size: 13px; line-height: 1.4; }
     .review-answer strong { color: var(--navy-text); }
     .rationale { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-family: var(--font-reading); font-size: 14px; line-height: 1.45; }
-    #prompt table, #passageText table, .feedback table { border-collapse: collapse; margin: 10px auto; min-width: 280px; }
-    #prompt table td, #prompt table th, #passageText table td, #passageText table th, .feedback table td, .feedback table th { border: 1px solid #c6cdd3; padding: 6px 12px; text-align: center; font-family: var(--font-reading); font-size: 13px; }
-    #prompt table th, #passageText table th, .feedback table th { background: #f2f4f6; font-weight: 600; }
-    #prompt table, #passageText table { max-width: 100%; overflow-x: auto; display: block; }
+    #prompt table, #passageText table, #answers table, .answer-text table, .feedback table { border-collapse: collapse; margin: 10px auto; min-width: 280px; }
+    #prompt table td, #prompt table th, #passageText table td, #passageText table th, #answers table td, #answers table th, .answer-text table td, .answer-text table th, .feedback table td, .feedback table th { border: 1px solid #c6cdd3; padding: 6px 12px; text-align: center; font-family: var(--font-reading); font-size: 13px; }
+    #prompt table th, #passageText table th, #answers table th, .answer-text table th, .feedback table th { background: #f2f4f6; font-weight: 600; }
+    #prompt table, #passageText table, #answers table, .answer-text table, .feedback table { max-width: 100%; overflow-x: auto; display: block; }
+    #prompt, .passage-inner, .answer-text, .feedback .rationale { max-width: 100%; overflow-wrap: break-word; }
+    .passage-inner, #prompt { min-width: 0; }
+    mjx-container { overflow-x: auto; max-width: 100%; }
 
     /* Player */
     #player { height: 100vh; min-height: 0; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
@@ -561,8 +564,10 @@
 
     html[data-theme="dark"] #prompt table td, html[data-theme="dark"] #prompt table th,
     html[data-theme="dark"] #passageText table td, html[data-theme="dark"] #passageText table th,
+    html[data-theme="dark"] #answers table td, html[data-theme="dark"] #answers table th,
+    html[data-theme="dark"] .answer-text table td, html[data-theme="dark"] .answer-text table th,
     html[data-theme="dark"] .feedback table td, html[data-theme="dark"] .feedback table th { border-color: var(--line); }
-    html[data-theme="dark"] #prompt table th, html[data-theme="dark"] #passageText table th, html[data-theme="dark"] .feedback table th { background: var(--canvas); }
+    html[data-theme="dark"] #prompt table th, html[data-theme="dark"] #passageText table th, html[data-theme="dark"] #answers table th, html[data-theme="dark"] .answer-text table th, html[data-theme="dark"] .feedback table th { background: var(--canvas); }
 
     html[data-theme="dark"] .mistake-row { border-bottom-color: var(--line); }
     html[data-theme="dark"] .mistake-detail { background: #141d28; border-top-color: var(--line); }
@@ -692,7 +697,7 @@
 
   <aside class="ai-panel hidden" id="aiChatPanel" aria-label="BluePrep Assistant">
     <div class="ai-panel-head"><h2 id="aiChatTitle">BluePrep Assistant</h2><div class="ai-panel-actions"><button class="tool-btn" id="aiDetachBtn" title="Detach assistant into its own window"><svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"></path><path d="M21 9V3h-6"></path><path d="m14 10 7-7"></path></svg></button><button class="close" id="aiChatClose" aria-label="Close assistant">&times;</button></div></div>
-    <div class="ai-panel-body"><p class="mistake-summary ai-chat-context" id="aiChatContext"></p><div class="ai-chat-log" id="aiChatLog"></div><div class="ai-chat-input"><textarea id="aiChatInput" rows="2" placeholder="Ask about your performance, get coaching, or say things like &quot;give me 10 hard questions on quadratic functions&quot; or &quot;drill my weakest skill&quot;..."></textarea><button class="primary" id="aiChatSend">Send</button></div><div class="ai-chat-suggest"><button class="feedback-btn" data-prompt="What are my biggest weaknesses and exactly what should I drill next?">Biggest weaknesses</button><button class="feedback-btn" data-prompt="Drill my weakest skill with real questions now.">Drill weakest skill</button><button class="feedback-btn" data-prompt="Give me a full timed Math test.">Full Math test</button><button class="feedback-btn" data-prompt="Which of my mistakes am I repeating and why?">Repeated mistakes</button></div></div>
+    <div class="ai-panel-body"><p class="mistake-summary ai-chat-context" id="aiChatContext"></p><div class="ai-chat-log" id="aiChatLog"></div><div class="ai-chat-input"><textarea id="aiChatInput" rows="2" placeholder="Ask about your performance, get coaching, or say things like &quot;give me 10 hard questions on quadratic functions&quot;, &quot;drill my weakest skill&quot;, or &quot;analyze my past test&quot;..."></textarea><button class="primary" id="aiChatSend">Send</button></div><div class="ai-chat-suggest"><button class="feedback-btn" data-prompt="What are my biggest weaknesses and exactly what should I drill next?">Biggest weaknesses</button><button class="feedback-btn" data-prompt="Drill my weakest skill with real questions now.">Drill weakest skill</button><button class="feedback-btn" data-prompt="Give me a full timed Math test.">Full Math test</button><button class="feedback-btn" data-prompt="Generate a brand-new question on my weakest skill right now.">Quiz on weak skill</button><button class="feedback-btn" data-prompt="Open my past practice tests and analyze the most recent one for mistakes.">Analyze past test</button><button class="feedback-btn" data-prompt="Which of my mistakes am I repeating and why?">Repeated mistakes</button></div></div>
     <div class="ai-panel-resize" id="aiPanelResize" aria-hidden="true"></div>
   </aside>
 
@@ -863,7 +868,7 @@
         return;
       }
       if ($("#shuffleQuestions").checked) questions = [...questions].sort(() => Math.random() - .5);
-      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
+      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.showAnswer = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       if (options.timerMode === "question" || options.timerMode === "none") state.seconds = 0;
       state.timerMode = options.timerMode || "section";
       const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = state.timerMode === "none" ? "none" : ""; pauseBtn.textContent = "Pause"; }
@@ -942,7 +947,7 @@
       $("#questionNumber").textContent = state.index + 1; $("#footNumber").textContent = state.index + 1; $("#footTotal").textContent = state.session.length;
       $("#markBtn").classList.toggle("marked", state.marked.has(question.id));
       $("#markBtn").style.display = state.sessionMode === "review" ? "none" : "";
-      $("#highlightBtn").disabled = isMath; $("#highlightBtn").classList.toggle("active", !isMath && state.highlighting);
+      $("#highlightBtn").classList.toggle("active", state.highlighting);
       $("#calculatorBtn").disabled = !isMath; $$('[data-modal="referenceModal"]').forEach(button => button.disabled = !isMath);
       if (question.type === "spr") {
         const locked = state.revealed.has(question.id) || state.unknowns.has(question.id) || state.sessionMode === "review";
@@ -1048,7 +1053,7 @@
         if (!response.ok) throw new Error(generated.error || "Unable to generate a similar problem.");
         state.details.set(generated.id, generated);
         state.submittedAnswer = ""; state.submittedAnswers = {};
-        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
+        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
         state.sessionMode = "practice"; state.instantFeedback = true;
         state.timerMode = "question";
         const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = ""; pauseBtn.textContent = "Pause"; }
@@ -1337,6 +1342,10 @@
         state.chatSending = false;
         renderAiChat();
         broadcastAiSync("state", { messages: state.chatMessages, questionId: state.chatQuestionId, sending: false });
+        if (data.highlight && typeof data.highlight === "object") {
+          if (isChatWindow) broadcastAiSync("highlight", { questionId: state.chatQuestionId, highlight: data.highlight });
+          else applyAiHighlights(data.highlight, state.chatQuestionId);
+        }
         if (data.action && typeof data.action === "object") {
           if (isChatWindow) broadcastAiSync("action", { action: data.action });
           else executeAiAction(data.action);
@@ -1970,6 +1979,8 @@
           $("#aiChatPanel").classList.remove("hidden");
           $("#aiChatInput").focus();
         }
+      } else if (data.type === "highlight" && !isChatWindow && data.highlight) {
+        applyAiHighlights(data.highlight, data.questionId);
       } else if (data.type === "action" && !isChatWindow && data.action) {
         executeAiAction(data.action);
       }
@@ -2029,8 +2040,86 @@
     $("#pauseTimer").onclick = togglePause;
     $("#hideTimer").onclick = () => { const hidden = $("#timer").textContent === "Time hidden"; hidden ? updateTimer() : $("#timer").textContent = "Time hidden"; $("#hideTimer").textContent = hidden ? "Hide" : "Show"; };
     $("#highlightBtn").setAttribute("aria-pressed", "false");
-    $("#highlightBtn").onclick = () => { if (state.session[state.index]?.subject === "Math") return; state.highlighting = !state.highlighting; $("#highlightBtn").classList.toggle("active", state.highlighting); $("#highlightBtn").setAttribute("aria-pressed", String(state.highlighting)); };
-    $("#passageText").addEventListener("mouseup", () => { if (!state.highlighting || state.session[state.index]?.subject !== "Reading and Writing") return; const selection = window.getSelection(); if (!selection.rangeCount || selection.isCollapsed) return; const range = selection.getRangeAt(0); if (!$("#passageText").contains(range.commonAncestorContainer)) return; const mark = document.createElement("mark"); try { range.surroundContents(mark); selection.removeAllRanges(); state.highlights[state.session[state.index].id] = $("#passageText").innerHTML; } catch {} });
+    $("#highlightBtn").onclick = () => { state.highlighting = !state.highlighting; $("#highlightBtn").classList.toggle("active", state.highlighting); $("#highlightBtn").setAttribute("aria-pressed", String(state.highlighting)); };
+    $("#passageText").addEventListener("mouseup", () => applyNativeHighlight("passage"));
+    $("#prompt").addEventListener("mouseup", () => applyNativeHighlight("prompt"));
+    $$(".question-inner").forEach(inner => inner.addEventListener("mouseup", event => {
+      if (!state.highlighting) return;
+      const wrap = event.target instanceof Element ? event.target.closest(".answer-text") : null;
+      if (wrap) {
+        const letter = wrap.closest("[data-answer]")?.dataset.answer;
+        const html = captureSelectionHighlight(wrap);
+        if (html && letter) {
+          const q = state.session[state.index];
+          state.highlights[q.id] = state.highlights[q.id] || {};
+          state.highlights[q.id].answers = state.highlights[q.id].answers || {};
+          state.highlights[q.id].answers[letter] = html;
+          renderQuestion();
+        }
+      }
+    }));
+    function captureSelectionHighlight(container) {
+      if (!state.highlighting) return "";
+      const selection = window.getSelection();
+      if (!selection.rangeCount || selection.isCollapsed) return "";
+      const range = selection.getRangeAt(0);
+      if (!container.contains(range.commonAncestorContainer)) return "";
+      const mark = document.createElement("mark");
+      try { range.surroundContents(mark); } catch { return ""; }
+      selection.removeAllRanges();
+      return container.innerHTML;
+    }
+    function applyNativeHighlight(key) {
+      const container = key === "passage" ? $("#passageText") : $("#prompt");
+      const q = state.session[state.index];
+      if (!q || !container) return;
+      const html = captureSelectionHighlight(container);
+      if (!html) return;
+      state.highlights[q.id] = state.highlights[q.id] || {};
+      state.highlights[q.id][key] = html;
+    }
+    function markPhrases(container, phrases) {
+      if (!container || !Array.isArray(phrases) || !phrases.length) return 0;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      let marked = 0;
+      for (const raw of phrases) {
+        const phrase = String(raw || "").trim();
+        if (!phrase) continue;
+        for (const node of textNodes) {
+          const idx = node.textContent.indexOf(phrase);
+          if (idx === -1) continue;
+          const rest = node.splitText(idx);
+          const tail = rest.splitText(phrase.length);
+          const mark = document.createElement("mark");
+          rest.parentNode.replaceChild(mark, rest);
+          mark.appendChild(rest);
+          marked++;
+          break;
+        }
+      }
+      return marked;
+    }
+    function applyAiHighlights(highlight, questionId) {
+      if (!highlight || typeof highlight !== "object") return;
+      const q = state.session[state.index];
+      if (!q || (questionId && questionId !== q.id)) return;
+      const hl = state.highlights[q.id] = state.highlights[q.id] || {};
+      if (Array.isArray(highlight.passage)) { markPhrases($("#passageText"), highlight.passage); hl.passage = $("#passageText").innerHTML; }
+      if (Array.isArray(highlight.prompt)) { markPhrases($("#prompt"), highlight.prompt); hl.prompt = $("#prompt").innerHTML; }
+      if (highlight.answers && typeof highlight.answers === "object") {
+        hl.answers = hl.answers || {};
+        for (const [letter, phrases] of Object.entries(highlight.answers)) {
+          const text = document.querySelector(`.answer-wrap [data-answer="${letter}"] .answer-text`);
+          if (!text) continue;
+          markPhrases(text, phrases);
+          hl.answers[letter] = text.innerHTML;
+        }
+      }
+      renderQuestion();
+      if (state.highlighting) { state.highlighting = false; $("#highlightBtn")?.classList.remove("active"); $("#highlightBtn")?.setAttribute("aria-pressed", "false"); }
+    }
     $$('[data-modal]').forEach(button => button.onclick = () => { if (!button.disabled) openModal(button.dataset.modal); }); $$('[data-close]').forEach(button => button.onclick = closeModals); $$(".modal-bg").forEach(modal => modal.onclick = event => { if (event.target === modal && modal.id !== "resultsModal") closeModals(); });
     $("#backLibrary").onclick = returnToLibrary; $("#resultClose").onclick = returnToLibrary; $("#returnQuestions").onclick = closeModals; $("#confirmSubmit").onclick = () => { closeModals(); finishSession(); };
     $("#exitBtn").onclick = exitSession; $("#analyticsBtn").onclick = openAnalytics;

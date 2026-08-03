@@ -5,7 +5,8 @@
   "scripts": {
     "download": "node scripts/download-questions.js",
     "detect": "node scripts/detect-new-questions.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/run.js"
   },
   "engines": {
     "node": ">=20"
