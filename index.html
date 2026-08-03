@@ -145,7 +145,10 @@
     .passage-text { font-family: var(--font-reading); font-size: 18px; line-height: 1.68; }
     .passage-text p { margin: 0 0 18px; }
     mark { background: #ffe68e; padding: 0 1px; }
-    .question-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .question-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .question-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 18px; }
+    .question-tags .tag { font-size: 10px; }
+    .question-tags .tag.qid { font-family: var(--font-mono, monospace); letter-spacing: .04em; text-transform: none; }
     .number-badge { min-width: 36px; height: 30px; display: inline-grid; place-items: center; padding: 0 10px; background: var(--navy); color: #fff; font-weight: 700; }
     .mark-review { border: 0; background: transparent; color: var(--ink); display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .mark-review .icon { fill: transparent; }
@@ -200,6 +203,9 @@
     .spr-help { max-width: 470px; margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .load-more { width: calc(100% - 44px); margin: 16px 22px 90px; border: 1px solid var(--blue); border-radius: 4px; padding: 10px; background: #fff; color: var(--blue); font-weight: 700; cursor: pointer; }
     .filter-note { margin: 7px 0 0 26px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .filter-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .filter-actions .primary { min-width: 210px; padding: 13px 22px; font-size: 14px; }
+    .filter-actions .set-copy { margin: 0; }
     .tool-btn:disabled { opacity: .35; cursor: not-allowed; }
     .reference-modal { width: min(1080px, 96vw); }
     .reference { padding: 16px; background: #e9ecef; text-align: center; }
@@ -621,12 +627,11 @@
             <div class="filter-group"><label>Difficulty</label><label class="check"><input type="checkbox" name="difficulty" value="Easy" checked> Easy</label><label class="check"><input type="checkbox" name="difficulty" value="Medium" checked> Medium</label><label class="check"><input type="checkbox" name="difficulty" value="Hard" checked> Hard</label></div>
             <div class="filter-group"><label>Practice options</label><label class="check"><input id="shuffleQuestions" type="checkbox"> Shuffle questions</label><label class="check"><input id="excludeActive" type="checkbox" checked> Exclude questions in official tests</label><label class="check"><input id="newQuestions" type="checkbox"> New questions only</label><label class="check"><input id="excludeCorrect" type="checkbox" checked> Exclude correctly answered</label></div>
           </div>
+          <div class="filter-actions">
+            <button class="primary" id="startBtn">Start practice</button>
+            <p class="set-copy" id="filterCount">Loading matching questions...</p>
+          </div>
         </aside>
-        <section class="question-panel">
-          <div class="question-head"><div class="head-line"><div><h2>Question pool</h2><p class="set-copy">Questions stay undisclosed here so you can choose by skill without preview spoilers.</p></div><span class="count" id="resultCount"></span></div><div class="search-wrap"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><label class="sr-only" for="search">Search</label><input class="search-input" id="search" placeholder="Filter by skill, domain, or question ID..."></div></div>
-          <div class="question-list" id="questionList"></div>
-          <div class="selection-bar"><span><strong id="selectedCount">0</strong> selected</span><button class="primary" id="startBtn">Start practice</button></div>
-        </section>
       </div>
     </main>
   </section>
@@ -665,7 +670,7 @@
     <div class="timer-strip"><span class="timer" id="timer">25:00</span><button class="hide-time" id="pauseTimer">Pause</button><button class="hide-time" id="hideTimer">Hide</button></div>
     <main class="exam-main">
       <article class="passage"><div class="passage-inner"><p class="passage-label" id="passageLabel">Read the text and answer the question.</p><div class="passage-text" id="passageText"></div></div></article>
-      <section class="question-side"><div class="question-inner"><div class="question-meta"><span class="number-badge" id="questionNumber">1</span><button class="mark-review" id="markBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Mark for Review</button><button class="mark-review" id="askAiBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 1 3 3c1.5.5 2.5 2 2.5 3.5C17.5 12 14 15 12 15s-5.5-3-5.5-6.5C6.5 7 7.5 5.5 9 5a3 3 0 0 1 3-3z"></path><path d="M12 15v4"></path><path d="M8 22h8"></path></svg>Ask AI</button></div><p class="prompt" id="prompt"></p><div class="answers" id="answers"></div><div class="feedback-zone" id="feedbackZone"></div></div></section>
+      <section class="question-side"><div class="question-inner"><div class="question-meta"><span class="number-badge" id="questionNumber">1</span><button class="mark-review" id="markBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Mark for Review</button><button class="mark-review" id="askAiBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 1 3 3c1.5.5 2.5 2 2.5 3.5C17.5 12 14 15 12 15s-5.5-3-5.5-6.5C6.5 7 7.5 5.5 9 5a3 3 0 0 1 3-3z"></path><path d="M12 15v4"></path><path d="M8 22h8"></path></svg>Ask AI</button></div><p class="question-tags" id="questionMeta" aria-live="polite"></p><p class="prompt" id="prompt"></p><div class="answers" id="answers"></div><div class="feedback-zone" id="feedbackZone"></div></div></section>
     </main>
     <footer class="exam-foot"><span class="student">AK &nbsp; SAT Practice</span><button class="q-menu-btn" id="questionMenu">Question <span id="footNumber">1</span> of <span id="footTotal">1</span> ▾</button><div class="nav-btns"><button class="nav-btn secondary" id="backBtn">Back</button><button class="nav-btn" id="nextBtn">Next</button></div></footer>
   </section>
@@ -695,13 +700,13 @@
   <script>
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
-    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false, paused: false, unknowns: new Set(), selectedStrands: new Set(), selectedSkills: new Set(), strandOpen: new Set() };
+    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), showAnswer: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false, paused: false, unknowns: new Set(), selectedStrands: new Set(), selectedSkills: new Set(), strandOpen: new Set() };
     const isChatWindow = location.hash === "#ai-chat";
     const aiChannel = "BroadcastChannel" in window ? new BroadcastChannel("blueprep-ai-chat") : null;
     function broadcastAiSync(type, payload) {
       if (aiChannel) aiChannel.postMessage(Object.assign({ type }, payload || {}));
     }
-    const clean = html => window.DOMPurify ? DOMPurify.sanitize(html || "", { USE_PROFILES: { html: true, svg: true, mathMl: true }, ADD_ATTR: ["target", "xlink:href", "alttext"] }) : String(html || "");
+    const clean = html => window.DOMPurify ? DOMPurify.sanitize(html || "", { USE_PROFILES: { html: true, svg: true, mathMl: true }, ADD_ATTR: ["target", "xlink:href", "alttext"], ADD_TAGS: ["use"] }) : String(html || "");
     const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
     function renderMarkdown(text) {
       const lines = String(text || "").split(/\r?\n/);
@@ -799,7 +804,6 @@
         domain: domainSelected.length === allDomains.size ? "all" : domainSelected.join(","),
         skill: skillSelected.length === allSkills.size ? "all" : skillSelected.join(","),
         difficulty: $$('input[name="difficulty"]:checked').map(input => input.value).join(","),
-        search: $("#search").value.trim(),
         excludeActive: $("#excludeActive").checked,
         excludeCorrect: $("#excludeCorrect").checked,
         newOnly: $("#newQuestions").checked && (state.meta?.newCount > 0),
@@ -809,32 +813,21 @@
       return params;
     }
 
-    async function loadQuestions(append = false) {
-      const requestId = ++state.requestId;
-      const offset = append ? state.items.length : 0;
-      if (!append) $("#questionList").innerHTML = '<div class="empty-list">Loading official questions...</div>';
-      const response = await fetch(`/api/questions?${queryParams(offset)}`);
-      const result = await response.json();
-      if (requestId !== state.requestId) return;
-      state.items = append ? state.items.concat(result.items) : result.items;
-      state.total = result.total;
-      renderLibrary();
-    }
-
-    function renderLibrary() {
-      $("#resultCount").textContent = `${state.total.toLocaleString()} questions`;
-      $("#practiceCount").textContent = `${(state.meta?.completedCount || 0).toLocaleString()} questions`;
-      $("#selectedCount").textContent = state.selected.size;
-      const rows = state.items.map(question => `<div class="q-row"><input type="checkbox" data-id="${question.id}" aria-label="Select ${escapeHtml(question.skill)}" ${state.selected.has(question.id) ? "checked" : ""}><div><h3>${escapeHtml(question.skill)}</h3><div class="tags"><span class="tag">${question.subject === "Reading and Writing" ? "R&W" : "Math"}</span><span class="tag">${escapeHtml(question.domain)}</span><span class="tag ${question.difficulty.toLowerCase()}">${question.difficulty}</span>${!$("#excludeActive").checked && question.active ? '<span class="tag hard">Official test</span>' : ""}${!$("#excludeCorrect").checked && question.correct ? '<span class="tag easy">Correct</span>' : question.completed ? '<span class="tag">Attempted</span>' : ""}</div></div><button class="preview-btn" type="button" data-preview="${question.id}">${question.completed ? "Review" : "Open"}</button></div>`).join("");
-      $("#questionList").innerHTML = rows || ($("#newQuestions").checked ? `<div class="empty-list"><strong>No new questions match these filters.</strong><br>Try broadening your selection, or browse the full main bank.<br><button class="primary" id="useMainBank">Browse main bank</button></div>` : '<div class="empty-list"><strong>No questions match these filters.</strong><br>Try broadening your selection.</div>');
-      $("#questionList").insertAdjacentHTML("beforeend", state.items.length < state.total ? '<button class="load-more" id="loadMore">Load 50 more</button>' : "");
-      $$('[data-id]').forEach(input => input.onchange = () => {
-        const question = state.items.find(item => item.id === input.dataset.id);
-        input.checked ? state.selected.set(question.id, question) : state.selected.delete(question.id);
-        $("#selectedCount").textContent = state.selected.size;
-      });
-      if ($("#loadMore")) $("#loadMore").onclick = () => loadQuestions(true);
-      if ($("#useMainBank")) $("#useMainBank").onclick = () => { $("#newQuestions").checked = false; loadQuestions(); };
+    let countTimer;
+    async function updateFilterCount() {
+      clearTimeout(countTimer);
+      countTimer = setTimeout(async () => {
+        const el = $("#filterCount");
+        if (!el) return;
+        try {
+          const response = await fetch(`/api/questions?${queryParams(0, 1)}`);
+          if (!response.ok) throw new Error("Unable to load questions");
+          const result = await response.json();
+          el.textContent = `${result.total.toLocaleString()} question${result.total === 1 ? "" : "s"} match these filters.`;
+        } catch (error) {
+          el.textContent = "Could not count matching questions.";
+        }
+      }, 150);
     }
 
     async function getDetail(summary) {
@@ -859,10 +852,16 @@
         try {
           questions = await fetchAllFiltered();
         } catch (error) {
-          questions = state.items.slice(0, Math.min(10, state.items.length));
+          const el = $("#filterCount");
+          if (el) el.textContent = `Could not load questions: ${error.message}`;
+          return;
         }
       }
-      if (!questions.length) return;
+      if (!questions.length) {
+        const el = $("#filterCount");
+        if (el) el.textContent = "No questions match these filters. Try broadening your selection.";
+        return;
+      }
       if ($("#shuffleQuestions").checked) questions = [...questions].sort(() => Math.random() - .5);
       state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       if (options.timerMode === "question" || options.timerMode === "none") state.seconds = 0;
@@ -913,6 +912,20 @@
       }
     }
 
+    function questionMetaTags(question, session) {
+      const subject = question.subject === "Math" ? "Math" : "Reading and Writing";
+      const sameSubject = session.filter(item => (item.subject === "Math") === (subject === "Math"));
+      const sameSubjectIndex = sameSubject.findIndex(item => item.id === question.id);
+      const moduleSize = subject === "Math" ? 22 : 27;
+      const module = sameSubject.length > moduleSize ? Math.floor(sameSubjectIndex / moduleSize) + 1 : 1;
+      const topic = [question.domain, question.skill].filter(Boolean).join(": ") || "General";
+      return {
+        section: `${subject} · Module ${module}`,
+        topic,
+        qid: question.questionId || "—"
+      };
+    }
+
     async function renderQuestion() {
       const summary = state.session[state.index];
       $("#answers").innerHTML = '<div class="empty-list">Loading question...</div>';
@@ -920,16 +933,19 @@
       const question = await getDetail(summary);
       if (state.session[state.index].id !== question.id) return;
       const isMath = question.subject === "Math";
+      const meta = questionMetaTags(question, state.session);
+      const hl = state.highlights[question.id] || {};
       $("#moduleName").textContent = question.subject; $("#passageLabel").textContent = isMath ? "" : "Read the text and answer the question.";
-      $("#passageText").innerHTML = state.highlights[question.id] || clean(question.stimulus || (isMath ? question.stem : ""));
-      $("#prompt").innerHTML = clean(isMath && !question.stimulus ? "" : question.stem);
+      $("#questionMeta").innerHTML = `<span class="tag">${escapeHtml(meta.section)}</span><span class="tag">${escapeHtml(meta.topic)}</span><span class="tag qid" title="Official College Board question ID">${escapeHtml(meta.qid)}</span>`;
+      $("#passageText").innerHTML = hl.passage || clean(question.stimulus || (isMath ? question.stem : ""));
+      $("#prompt").innerHTML = hl.prompt || clean(isMath && !question.stimulus ? "" : question.stem);
       $("#questionNumber").textContent = state.index + 1; $("#footNumber").textContent = state.index + 1; $("#footTotal").textContent = state.session.length;
       $("#markBtn").classList.toggle("marked", state.marked.has(question.id));
       $("#markBtn").style.display = state.sessionMode === "review" ? "none" : "";
       $("#highlightBtn").disabled = isMath; $("#highlightBtn").classList.toggle("active", !isMath && state.highlighting);
       $("#calculatorBtn").disabled = !isMath; $$('[data-modal="referenceModal"]').forEach(button => button.disabled = !isMath);
       if (question.type === "spr") {
-        const locked = state.revealed.has(question.id) || state.unknowns.has(question.id);
+        const locked = state.revealed.has(question.id) || state.unknowns.has(question.id) || state.sessionMode === "review";
         $("#answers").innerHTML = `<label class="spr-label" for="sprAnswer">Enter your answer</label><input class="spr-input" id="sprAnswer" inputmode="decimal" autocomplete="off" maxlength="6" pattern="-?[0-9]*(\\.[0-9]*)?|[0-9]+/[0-9]+" aria-describedby="sprHelp sprValidation" value="${escapeHtml(state.answers[question.id] || "")}" ${locked ? "disabled" : ""}><p class="spr-help" id="sprHelp">Enter a fraction or decimal using no more than 5 characters, excluding a leading minus sign.</p><p class="validation" id="sprValidation" role="alert"></p>`;
         $("#sprAnswer").oninput = event => {
           let value = event.target.value.replace(/[^0-9.\/-]/g, "");
@@ -940,14 +956,15 @@
           const submit = $("#submitAnswerBtn"); if (submit) submit.disabled = !value.trim();
         };
       } else {
-        const locked = state.revealed.has(question.id) || state.unknowns.has(question.id);
+        const locked = state.revealed.has(question.id) || state.unknowns.has(question.id) || state.sessionMode === "review";
+        const inReview = state.sessionMode === "review";
         $("#answers").innerHTML = question.options.map((option, index) => {
           const letter = String.fromCharCode(65 + index);
           const struck = state.struck.has(`${question.id}:${letter}`);
-          return `<div class="answer-wrap"><button class="answer ${state.answers[question.id] === letter ? "selected" : ""} ${struck ? "struck" : ""}" data-answer="${letter}" aria-label="${escapeHtml(`${letter}. ${spokenText(option.content)}`)}" ${locked ? "disabled" : ""}><span class="choice-letter">${letter}</span><span class="answer-text">${clean(option.content)}</span></button><button class="strike-btn" data-strike="${letter}" aria-label="Strike out choice ${letter}" ${locked ? "disabled" : ""}>✕</button></div>`;
+          return `<div class="answer-wrap"><button class="answer ${state.answers[question.id] === letter ? "selected" : ""} ${struck ? "struck" : ""}" data-answer="${letter}" aria-label="${escapeHtml(`${letter}. ${spokenText(option.content)}`)}" ${locked ? "disabled" : ""}><span class="choice-letter">${letter}</span><span class="answer-text">${hl.answers?.[letter] || clean(option.content)}</span></button>${inReview ? "" : `<button class="strike-btn" data-strike="${letter}" aria-label="Strike out choice ${letter}" ${locked ? "disabled" : ""}>✕</button>`}</div>`;
         }).join("");
-        $$('[data-answer]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id) || state.unknowns.has(question.id)) return; state.answers[question.id] = button.dataset.answer; renderQuestion(); });
-        $$('[data-strike]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id) || state.unknowns.has(question.id)) return; const letter = button.dataset.strike; const key = `${question.id}:${letter}`; const at = state.frozenElapsed != null ? state.frozenElapsed : elapsedSeconds(); if (state.struck.has(key)) { state.struck.delete(key); state.strikeLog[question.id] = (state.strikeLog[question.id] || []).filter(entry => entry.letter !== letter); } else { state.struck.add(key); (state.strikeLog[question.id] = state.strikeLog[question.id] || []).push({ letter, at }); } renderQuestion(); });
+        $$('[data-answer]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id) || state.unknowns.has(question.id) || state.sessionMode === "review") return; state.answers[question.id] = button.dataset.answer; renderQuestion(); });
+        $$('[data-strike]').forEach(button => button.onclick = () => { if (state.revealed.has(question.id) || state.unknowns.has(question.id) || state.sessionMode === "review") return; const letter = button.dataset.strike; const key = `${question.id}:${letter}`; const at = state.frozenElapsed != null ? state.frozenElapsed : elapsedSeconds(); if (state.struck.has(key)) { state.struck.delete(key); state.strikeLog[question.id] = (state.strikeLog[question.id] || []).filter(entry => entry.letter !== letter); } else { state.struck.add(key); (state.strikeLog[question.id] = state.strikeLog[question.id] || []).push({ letter, at }); } renderQuestion(); });
       }
       $("#backBtn").disabled = state.index === 0;
       renderActionZone(question);
@@ -959,8 +976,8 @@
       zone.innerHTML = "";
       $("#nextBtn").textContent = state.index === state.session.length - 1 ? (state.sessionMode === "review" ? "Done" : "Finish") : "Next";
       if (state.sessionMode === "review") {
-        if (state.revealed.has(question.id)) { revealAnswer(); return; }
-        zone.innerHTML = `<button class="feedback-btn" id="revealAnswerBtn">Reveal answer</button>`;
+        if (state.showAnswer.has(question.id)) { revealAnswer(); return; }
+        zone.innerHTML = `<button class="feedback-btn" id="revealAnswerBtn">Show answer</button><p class="submit-hint">Your recorded answer stays as you submitted it. Reveal the correct answer and rationale whenever you're ready.</p>`;
         $("#revealAnswerBtn").onclick = revealAnswer;
         return;
       }
@@ -978,7 +995,7 @@
     }
 
     function markUnknown(question) {
-      if (state.revealed.has(question.id) || !question) return;
+      if (state.revealed.has(question.id) || state.sessionMode === "review" || !question) return;
       if (state.unknowns.has(question.id)) {
         state.unknowns.delete(question.id);
         renderQuestion();
@@ -1044,18 +1061,16 @@
 
     async function revealAnswer() {
       const question = state.session[state.index];
-      state.revealed.add(question.id);
+      state.showAnswer.add(question.id);
       stopQuestionTimer();
       recordQuestionTime(question);
       const unknown = state.unknowns.has(question.id);
-      const answer = unknown ? "" : state.answers[question.id] || (state.sessionMode === "review" ? (state.submittedAnswers[question.id] !== undefined ? state.submittedAnswers[question.id] : state.submittedAnswer) : "");
+      const stored = state.submittedAnswers[question.id];
+      const answer = unknown ? "" : (stored !== undefined ? stored : state.answers[question.id] || "");
       const correct = answer ? isCorrect(question, answer) : false;
-      if (state.sessionMode === "review") {
-        try {
-          await fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: question.id, answer, correct, unknown, time: state.questionTimes[question.id] || 0 }) });
-        } catch {}
-      }
-      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${unknown ? `<p class="review-answer"><strong>You marked this question as "I don't know".</strong></p>` : answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div><button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
+      const hideToggle = `<button class="feedback-btn" id="hideAnswerBtn">Hide answer</button>`;
+      $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${unknown ? `<p class="review-answer"><strong>You marked this question as "I don't know".</strong></p>` : answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div><div class="feedback-actions">${hideToggle}<button class="feedback-btn" id="similarBtn">Generate a similar problem</button></div>`;
+      if ($("#hideAnswerBtn")) $("#hideAnswerBtn").onclick = () => { state.showAnswer.delete(question.id); renderQuestion(); };
       if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
@@ -1064,7 +1079,7 @@
       const leaving = state.session[state.index];
       if (leaving) recordQuestionTime(leaving);
       state.index += delta; state.questionStart = Date.now(); state.frozenElapsed = state.paused ? 0 : null; await renderQuestion(); document.querySelector(".exam-main").scrollTop = 0; window.scrollTo(0, 0); }
-    function renderGrid() { $("#qGrid").innerHTML = state.session.map((question, index) => `<button class="q-cell ${state.answers[question.id] !== undefined && state.answers[question.id] !== "" ? "answered" : ""} ${state.unknowns.has(question.id) ? "unknown" : ""} ${state.marked.has(question.id) ? "marked" : ""} ${state.index === index ? "current" : ""}" data-jump="${index}">${index + 1}</button>`).join(""); $$('[data-jump]').forEach(button => button.onclick = async () => { state.index = +button.dataset.jump; closeModals(); await renderQuestion(); }); }
+    function renderGrid() { $("#qGrid").innerHTML = state.session.map((question, index) => `<button class="q-cell ${state.answers[question.id] !== undefined && state.answers[question.id] !== "" ? "answered" : ""} ${state.unknowns.has(question.id) ? "unknown" : ""} ${state.marked.has(question.id) ? "marked" : ""} ${state.index === index ? "current" : ""}" data-jump="${index}">${index + 1}</button>`).join(""); $$('[data-jump]').forEach(button => button.onclick = async () => { const leaving = state.session[state.index]; if (leaving) recordQuestionTime(leaving); state.index = +button.dataset.jump; state.questionStart = Date.now(); state.frozenElapsed = null; closeModals(); await renderQuestion(); }); }
     let modalTrigger = null;
     function openModal(id) {
       if (id === "gridModal") renderGrid();
@@ -1104,9 +1119,9 @@
       state.answers = {};
       state.submittedAnswer = submittedAnswer || "";
       state.submittedAnswers = {};
-      state.session = [question]; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
+      state.session = [question]; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       if (unknown) state.unknowns.add(question.id);
-      state.sessionMode = "review"; state.instantFeedback = false;
+      state.sessionMode = "review"; state.instantFeedback = false; state.reviewingStored = true;
       state.timerMode = state.mistakeTimerMode === "none" ? "none" : "question";
       const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = state.timerMode === "none" ? "none" : ""; pauseBtn.textContent = "Pause"; }
       $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
@@ -1231,9 +1246,9 @@
       state.answers = {};
       state.submittedAnswers = {};
       items.forEach(item => { state.submittedAnswers[item.question.id] = item.answer || ""; });
-      state.session = questions; state.index = Math.max(0, Math.min(startIndex, questions.length - 1)); state.marked.clear(); state.revealed = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
+      state.session = questions; state.index = Math.max(0, Math.min(startIndex, questions.length - 1)); state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       items.forEach(item => { if (item.unknown) state.unknowns.add(item.question.id); });
-      state.sessionMode = "review"; state.instantFeedback = false;
+      state.sessionMode = "review"; state.instantFeedback = false; state.reviewingStored = true;
       state.timerMode = $("#mistakeTimerMode").value === "none" ? "none" : "question";
       const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = state.timerMode === "none" ? "none" : ""; pauseBtn.textContent = "Pause"; }
       $("#library").classList.add("hidden"); $("#player").classList.remove("hidden");
@@ -1370,6 +1385,18 @@
           } else {
             throw new Error("No question specified for similar-problem generation.");
           }
+        } else if (action.type === "generate_question") {
+          if (action.skill) {
+            closeAiChat();
+            closeModals();
+            await generateWeakConceptQuestion(action.skill, null, action.subject, action.domain);
+          } else {
+            throw new Error("No skill specified for question generation.");
+          }
+        } else if (action.type === "open_past_tests") {
+          closeAiChat();
+          closeModals();
+          openPastTests();
         } else if (action.type === "open_sessions") {
           closeAiChat();
           closeModals();
@@ -1561,9 +1588,9 @@
       await startSession(picked, { seconds: 0, timerMode: "question", instantFeedback: false, mode: "practice" });
     }
 
-    async function generateWeakConceptQuestion(skill, button) {
-      const subject = guessSubjectForSkill(skill);
-      const domain = guessDomainForSkill(skill);
+    async function generateWeakConceptQuestion(skill, button, subjectOverride, domainOverride) {
+      const subject = subjectOverride || guessSubjectForSkill(skill);
+      const domain = domainOverride || guessDomainForSkill(skill);
       if (button) { button.disabled = true; button.textContent = "Generating..."; }
       try {
         const response = await fetch("/api/ai/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject, domain, skill, difficulty: "Medium", type: "mcq" }) });
@@ -1672,7 +1699,7 @@
         (item.struck || []).forEach(letter => struckKeys.add(`${item.id}:${letter}`));
         if (Array.isArray(item.strikeLog) && item.strikeLog.length) state.strikeLog[item.id] = item.strikeLog.map(entry => ({ letter: entry.letter, at: entry.at }));
       });
-      state.session = questions; state.index = 0; state.marked.clear(); state.revealed = new Set(questions.map(q => q.id)); state.highlighting = false; state.seconds = 0; state.struck = struckKeys; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.paused = false;
+      state.session = questions; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = struckKeys; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.paused = false;
       state.sessionMode = "review"; state.instantFeedback = false; state.reviewingStored = true;
       state.timerMode = "none";
       const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = "none"; pauseBtn.textContent = "Pause"; }
@@ -1801,7 +1828,7 @@
       openModal("resultsModal");
     }
 
-    async function returnToLibrary() { closeModals(); clearInterval(state.timerId); state.paused = false; const pauseBtn = $("#pauseTimer"); if (pauseBtn) pauseBtn.textContent = "Pause"; $("#player").classList.add("hidden"); $("#mistakesPage").classList.add("hidden"); $("#library").classList.remove("hidden"); state.selected.clear(); state.reviewingStored = false; state.meta = await fetch("/api/meta").then(response => response.json()); await loadQuestions(); }
+    async function returnToLibrary() { closeModals(); clearInterval(state.timerId); state.paused = false; const pauseBtn = $("#pauseTimer"); if (pauseBtn) pauseBtn.textContent = "Pause"; $("#player").classList.add("hidden"); $("#mistakesPage").classList.add("hidden"); $("#library").classList.remove("hidden"); state.selected.clear(); state.reviewingStored = false; try { state.meta = await fetch("/api/meta").then(response => response.json()); } catch {} $("#practiceCount").textContent = `${(state.meta?.completedCount || 0).toLocaleString()} questions`; updateFilterCount(); }
 
     async function exitSession() {
       clearInterval(state.timerId);
@@ -1838,16 +1865,7 @@
       returnToLibrary();
     }
 
-    let searchTimer;
-    $("#questionList").addEventListener("click", event => {
-      const button = event.target.closest("[data-preview]");
-      if (!button) return;
-      event.preventDefault(); event.stopPropagation();
-      const question = state.items.find(item => item.id === button.dataset.preview);
-      if (!question) return;
-      question.completed ? startStoredReview(question, question.submittedAnswer, question.unknown) : startSession([question]);
-    });
-    $("#subjectFilter").onchange = () => { updateTaxonomy(); loadQuestions(); };
+    $("#subjectFilter").onchange = () => { updateTaxonomy(); updateFilterCount(); };
     $("#strandTree").addEventListener("click", event => {
       const toggle = event.target.closest(".strand-toggle");
       if (toggle) {
@@ -1868,7 +1886,7 @@
         strandEl.querySelector(".strand-box").checked = checked.length === allBoxes.length && checked.length > 0;
         strandEl.querySelector(".strand-box").indeterminate = checked.length > 0 && checked.length < allBoxes.length;
         syncStrandCheckboxes();
-        loadQuestions();
+        updateFilterCount();
         return;
       }
       if (strandBox) {
@@ -1877,15 +1895,14 @@
         strandEl.querySelectorAll(".skill-box").forEach(box => box.checked = strandBox.checked);
         strandBox.indeterminate = false;
         syncStrandCheckboxes();
-        loadQuestions();
+        updateFilterCount();
         return;
       }
     });
-    $("#search").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadQuestions(), 250); };
-    ["#excludeActive", "#excludeCorrect"].forEach(selector => $(selector).onchange = () => loadQuestions());
-    $("#newQuestions").onchange = () => loadQuestions();
-    $$('input[name="difficulty"]').forEach(input => input.onchange = () => loadQuestions());
-    $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#search").value = ""; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); loadQuestions(); };
+    ["#excludeActive", "#excludeCorrect"].forEach(selector => $(selector).onchange = () => updateFilterCount());
+    $("#newQuestions").onchange = () => updateFilterCount();
+    $$('input[name="difficulty"]').forEach(input => input.onchange = () => updateFilterCount());
+    $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); updateFilterCount(); };
     $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession();
     $("#mistakeBtn").onclick = openMistakesPage;
     $("#sessionsBtn").onclick = openSessions;
@@ -2087,8 +2104,10 @@
       try {
         state.meta = await fetch("/api/meta").then(response => { if (!response.ok) throw new Error("Backend unavailable"); return response.json(); });
         if (!isChatWindow) {
-          updateTaxonomy(); await loadQuestions();
+          updateTaxonomy();
           updateTestBlueprint();
+          $("#practiceCount").textContent = `${(state.meta?.completedCount || 0).toLocaleString()} questions`;
+          updateFilterCount();
         }
       } catch (error) {
         if (isChatWindow) {
@@ -2096,7 +2115,8 @@
           openAiChat(null);
           $("#aiChatContext").textContent = "Context: your full practice history is visible to me.";
         } else {
-          $("#questionList").innerHTML = `<div class="empty-list"><strong>Backend unavailable.</strong><br>Run <code>npm start</code> and open <code>http://localhost:4173</code>.</div>`;
+          const count = $("#filterCount");
+          if (count) count.textContent = "Backend unavailable. Run `npm start` and open http://localhost:4173.";
         }
       }
     })();
