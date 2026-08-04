@@ -152,6 +152,9 @@
     .question-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 18px; }
     .question-tags .tag { font-size: 10px; }
     .question-tags .tag.qid { font-family: var(--font-mono, monospace); letter-spacing: .04em; text-transform: none; }
+    .question-tags .tag.correct { background: #e6f4ec; color: #22734b; }
+    .question-tags .tag.incorrect { background: #fae8e7; color: #a13732; }
+    .question-tags .tag.unknown { background: #fff3d9; color: #8b5e00; }
     .number-badge { min-width: 36px; height: 30px; display: inline-grid; place-items: center; padding: 0 10px; background: var(--navy); color: #fff; font-weight: 700; }
     .mark-review { border: 0; background: transparent; color: var(--ink); display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .mark-review .icon { fill: transparent; }
@@ -181,14 +184,18 @@
     .modal-b { padding: 24px; }
     .grid-key { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 22px; color: var(--muted); font-size: 12px; }
     .key-item { display: flex; align-items: center; gap: 6px; }
-    .key-dot { width: 13px; height: 13px; border: 1px solid #8a949e; }
+    .key-dot { width: 13px; height: 13px; border: 1px solid #8a949e; position: relative; }
     .key-dot.answered { background: var(--blue); border-color: var(--blue); }
     .key-dot.unknown { background: #fff3cd; border-color: #d9b13c; }
+    .key-dot.wrong { border-color: var(--red); }
+    .key-dot.wrong::before { content: ""; position: absolute; top: -1px; left: -1px; right: -1px; height: 4px; background: var(--red); }
     .key-dot.marked { background: var(--red); border-color: var(--red); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
     .q-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
     .q-cell { aspect-ratio: 1; border: 1px solid #86919c; background: #fff; font-weight: 700; cursor: pointer; position: relative; }
     .q-cell.answered { background: var(--blue); color: #fff; border-color: var(--blue); }
     .q-cell.unknown { background: #fff3cd; color: #7a5c00; border-color: #d9b13c; }
+    .q-cell.wrong { border-color: var(--red); }
+    .q-cell.wrong::before { content: ""; position: absolute; top: -1px; left: -1px; right: -1px; height: 5px; background: var(--red); }
     .q-cell.current { outline: 3px solid var(--yellow); outline-offset: 2px; }
     .q-cell.marked::after { content: ""; position: absolute; top: -5px; right: 3px; width: 10px; height: 15px; background: var(--red); clip-path: polygon(0 0,100% 0,100% 100%,50% 72%,0 100%); }
     #calcModal { display: block; padding: 0; background: transparent; pointer-events: none; }
@@ -261,7 +268,7 @@
     .strike-btn:disabled { opacity: .4; cursor: default; }
     .submit-hint { margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 1.4; }
     .analytics-modal { width: min(780px, 96vw); }
-    .analytics-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
+    .analytics-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 12px; margin-bottom: 8px; }
     .analytics-stat { border: 1px solid var(--line); padding: 14px; text-align: center; }
     .analytics-stat strong { display: block; color: var(--navy-text); font-size: 24px; }
     .analytics-stat span { color: var(--muted); font-size: 12px; }
@@ -271,6 +278,25 @@
     .analytics-table td.num, .analytics-table th.num { text-align: right; }
     .analytics-section h3 { margin: 20px 0 6px; color: var(--navy-text); font-size: 15px; }
     .analytics-empty { padding: 34px; text-align: center; color: var(--muted); }
+    .analytics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .analytics-chart { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fff; }
+    .analytics-chart h4 { margin: 0 0 6px; color: var(--navy-text); font-size: 13px; text-align: center; }
+    .analytics-chart canvas { max-height: 260px; }
+    .analytics-radars { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+    .analytics-radars .analytics-chart { padding: 10px; }
+    .analytics-radars .analytics-chart canvas { max-height: 200px; }
+    .analytics-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+    .analytics-toolbar .feedback-btn, .analytics-toolbar .primary { margin: 0; }
+    .analytics-notes { margin-top: 6px; }
+    .note-editor { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
+    .note-editor textarea { width: 100%; min-height: 54px; margin-bottom: 8px; font-size: 13px; }
+    .note-editor .feedback-actions { margin-top: 0; }
+    .note-saved { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; font-style: italic; white-space: pre-wrap; }
+    .note-btn { background: #5b7a9d; }
+    .rank-row { margin: 4px 0 10px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .rank-row strong { color: var(--navy-text); }
+    .rank-bad { color: var(--red); }
+    .analytics-modal { width: min(780px, 96vw); }
     .exit-btn { border: 1px solid rgba(255,255,255,.5); border-radius: 3px; padding: 6px 11px; background: transparent; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
     .exit-btn:hover { background: rgba(255,255,255,.13); }
     .mistake-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
@@ -529,6 +555,9 @@
     html[data-theme="dark"] .tag.easy { background: #10301f; color: #63c98f; }
     html[data-theme="dark"] .tag.medium { background: #352b16; color: #e5b44a; }
     html[data-theme="dark"] .tag.hard { background: #37201e; color: #e8877f; }
+    html[data-theme="dark"] .question-tags .tag.correct { background: #10301f; color: #63c98f; }
+    html[data-theme="dark"] .question-tags .tag.incorrect { background: #37201e; color: #e8877f; }
+    html[data-theme="dark"] .question-tags .tag.unknown { background: #352b16; color: #e5b44a; }
     html[data-theme="dark"] .preview-btn { border-color: var(--line); color: var(--ink); }
     html[data-theme="dark"] .preview-btn:hover { border-color: var(--blue); color: var(--blue); }
     html[data-theme="dark"] .empty-list code, html[data-theme="dark"] .advice-body code { background: #26323f; }
@@ -625,7 +654,7 @@
           <p class="builder-note" id="testBlueprint">Full module: 27 questions in 32 minutes. Difficulty mixes are practice calibrations because College Board does not publish fixed adaptive-module percentages.</p>
         </section>
         <aside class="filters">
-          <div class="filter-top"><div><h2>Build a practice set</h2><p class="set-copy">Pick the strands and substrands you want, then start practice to play every matching question.</p></div><button class="text-btn" id="clearFilters">Reset filters</button></div>
+          <div class="filter-top"><div><h2>Practice</h2><p class="set-copy">Select sections, strands, and difficulty, then start to practice every matching question.</p></div><button class="text-btn" id="clearFilters">Reset filters</button></div>
           <div class="filter-groups">
             <div class="filter-group"><label for="subjectFilter">Section</label><select id="subjectFilter"><option value="all">All sections</option><option value="Reading and Writing">Reading and Writing</option><option value="Math">Math</option></select></div>
             <div class="filter-group strand-group"><label>Strands</label><div class="strand-tree" id="strandTree"></div></div>
@@ -680,7 +709,7 @@
     <footer class="exam-foot"><span class="student">AK &nbsp; SAT Practice</span><button class="q-menu-btn" id="questionMenu">Question <span id="footNumber">1</span> of <span id="footTotal">1</span> ▾</button><div class="nav-btns"><button class="nav-btn secondary" id="backBtn">Back</button><button class="nav-btn" id="nextBtn">Next</button></div></footer>
   </section>
 
-  <div class="modal-bg hidden" id="gridModal" role="dialog" aria-modal="true" aria-labelledby="gridTitle"><div class="modal"><div class="modal-h"><h2 id="gridTitle">Questions</h2><button class="close" data-close aria-label="Close question list">&times;</button></div><div class="modal-b"><div class="grid-key"><span class="key-item"><i class="key-dot answered"></i> Answered</span><span class="key-item"><i class="key-dot unknown"></i> Didn't know</span><span class="key-item"><i class="key-dot"></i> Unanswered</span><span class="key-item"><i class="key-dot marked"></i> For review</span></div><div class="q-grid" id="qGrid"></div></div></div></div>
+  <div class="modal-bg hidden" id="gridModal" role="dialog" aria-modal="true" aria-labelledby="gridTitle"><div class="modal"><div class="modal-h"><h2 id="gridTitle">Questions</h2><button class="close" data-close aria-label="Close question list">&times;</button></div><div class="modal-b"><div class="grid-key"><span class="key-item"><i class="key-dot answered"></i> Answered</span><span class="key-item"><i class="key-dot wrong"></i> Wrong</span><span class="key-item"><i class="key-dot unknown"></i> Didn't know</span><span class="key-item"><i class="key-dot"></i> Unanswered</span><span class="key-item"><i class="key-dot marked"></i> For review</span></div><div class="q-grid" id="qGrid"></div></div></div></div>
   <div class="modal-bg hidden" id="calcModal" role="dialog" aria-modal="false" aria-labelledby="calcTitle"><div class="modal desmos-modal"><div class="modal-h desmos-handle"><h2 id="calcTitle">Desmos Graphing Calculator</h2><div class="window-actions"><button id="maximizeCalculator" aria-label="Maximize calculator" aria-pressed="false">□</button><button class="close" data-close aria-label="Close calculator">&times;</button></div></div><iframe class="desmos-frame" title="Desmos SAT calculator" src="https://www.desmos.com/testing/collegeboard/graphing"></iframe><div class="resize-handle" aria-hidden="true"></div></div></div>
   <div class="modal-bg hidden" id="referenceModal" role="dialog" aria-modal="true" aria-labelledby="referenceTitle"><div class="modal reference-modal"><div class="modal-h"><h2 id="referenceTitle">SAT Reference Sheet</h2><button class="close" data-close aria-label="Close reference sheet">&times;</button></div><div class="modal-b reference"><p class="reference-note">This is the complete official reference sheet available during the SAT Math section.</p><img class="reference-sheet-img" src="https://satquestionbank.org/images/reference_sheet.webp" alt="Official SAT reference sheet with area, circumference, volume, right triangle, angle, and circle formulas"></div></div></div>
   <div class="modal-bg hidden" id="submitModal" role="dialog" aria-modal="true" aria-labelledby="submitTitle"><div class="modal"><div class="modal-h"><h2 id="submitTitle">Submit Your Answers?</h2><button class="close" data-close aria-label="Close submission review">&times;</button></div><div class="modal-b"><p>Once you submit, you cannot return to this practice set.</p><div class="confirm-summary"><div class="confirm-stat"><strong id="unansweredCount">0</strong><span>Unanswered</span></div><div class="confirm-stat"><strong id="unknownCount">0</strong><span>Didn't know</span></div><div class="confirm-stat"><strong id="markedCount">0</strong><span>Marked for Review</span></div></div><div class="confirm-actions"><button class="nav-btn secondary" id="returnQuestions">Return to Questions</button><button class="nav-btn" id="confirmSubmit">Submit Answers</button></div></div></div></div>
@@ -689,7 +718,7 @@
 
   <div class="modal-bg hidden" id="sessionsModal" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle"><div class="modal sessions-modal"><div class="modal-h"><h2 id="sessionsTitle">Practice history</h2><button class="close" data-close aria-label="Close practice history">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionsSummary"></p><div class="session-filter"><label for="sessionsFilter">Show</label><select id="sessionsFilter"><option value="test">Timed tests</option><option value="practice">Practice &amp; review</option><option value="all">Everything</option></select></div><div class="mistake-list" id="sessionsList"></div></div></div></div>
 
-  <div class="modal-bg hidden" id="sessionDetailModal" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle"><div class="modal session-detail-modal"><div class="modal-h"><h2 id="sessionDetailTitle">Session details</h2><button class="close" data-close aria-label="Close session details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionDetailSummary"></p><div class="session-detail-actions"><button class="primary" id="reviewSessionBtn">Review full test</button><p class="submit-hint">Reopen the whole test in the practice player, exactly as you took it, to review every question, your answer, struck choices, and rationale.</p></div><div class="mistake-list" id="sessionDetailList"></div></div></div></div>
+  <div class="modal-bg hidden" id="sessionDetailModal" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle"><div class="modal session-detail-modal"><div class="modal-h"><h2 id="sessionDetailTitle">Session details</h2><button class="close" data-close aria-label="Close session details">&times;</button></div><div class="modal-b"><p class="mistake-summary" id="sessionDetailSummary"></p><div class="session-detail-actions"><button class="primary" id="reviewSessionBtn">Review full test</button><button class="feedback-btn" id="exportSessionCsv">Export CSV</button><p class="submit-hint">Reopen the whole test in the practice player, exactly as you took it, to review every question, your answer, struck choices, and rationale. Export CSV saves every question of this session — your answer, correct answer, time, struck choices, and any explanations.</p></div><div class="mistake-list" id="sessionDetailList"></div></div></div></div>
 
   <div class="modal-bg hidden" id="pastTestsModal" role="dialog" aria-modal="true" aria-labelledby="pastTestsTitle"><div class="modal"><div class="modal-h"><h2 id="pastTestsTitle">Past practice tests</h2><button class="close" data-close aria-label="Close past tests">&times;</button></div><div class="modal-b"><p class="mistake-summary">Upload the answer sheet CSV from a practice test you took (e.g. on Bluebook). The AI will read which questions you got wrong, infer the concepts behind them from the SAT blueprint, explain exactly why you're missing them, and generate practice questions on those weak concepts.</p><div class="pasttest-upload"><input type="file" id="pastTestFile" accept=".csv,text/csv"><button class="primary" id="pastTestImport">Import CSV</button></div><p class="mistake-summary" id="pastTestStatus"></p><div class="mistake-list" id="pastTestsList"></div></div></div></div>
 
@@ -702,10 +731,11 @@
   </aside>
 
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
   <script>
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
-    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), showAnswer: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false, paused: false, unknowns: new Set(), selectedStrands: new Set(), selectedSkills: new Set(), strandOpen: new Set() };
+    const state = { meta: null, items: [], total: 0, offset: 0, selected: new Map(), session: [], details: new Map(), index: 0, answers: {}, marked: new Set(), seconds: 1500, timerId: null, highlighting: false, requestId: 0, sessionMode: "practice", timerMode: "section", instantFeedback: false, revealed: new Set(), showAnswer: new Set(), questionStart: Date.now(), submittedAnswer: "", submittedAnswers: {}, struck: new Set(), strikeLog: {}, frozenElapsed: null, questionTimes: {}, reviewTimes: {}, reviewStatus: {}, highlights: {}, mistakeItems: [], mistakeDifficulty: "all", mistakeTimerMode: "question", mistakeDomain: "", mistakeSubject: "all", chatMessages: [], chatQuestionId: null, chatSending: false, reviewingStored: false, paused: false, unknowns: new Set(), selectedStrands: new Set(), selectedSkills: new Set(), strandOpen: new Set() };
     const isChatWindow = location.hash === "#ai-chat";
     const aiChannel = "BroadcastChannel" in window ? new BroadcastChannel("blueprep-ai-chat") : null;
     function broadcastAiSync(type, payload) {
@@ -868,7 +898,7 @@
         return;
       }
       if ($("#shuffleQuestions").checked) questions = [...questions].sort(() => Math.random() - .5);
-      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.showAnswer = new Set(); state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
+      state.session = questions; state.index = 0; state.answers = {}; state.marked.clear(); state.seconds = options.seconds || Math.max(300, questions.length * 90); state.highlighting = false; state.revealed = new Set(); state.showAnswer = new Set(); state.reviewStatus = {}; state.sessionMode = options.mode || "practice"; state.instantFeedback = Boolean(options.instantFeedback); state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       if (options.timerMode === "question" || options.timerMode === "none") state.seconds = 0;
       state.timerMode = options.timerMode || "section";
       const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = state.timerMode === "none" ? "none" : ""; pauseBtn.textContent = "Pause"; }
@@ -891,6 +921,12 @@
       state.timerId = setInterval(tick, 1000);
     }
     function updateTimer() {
+      if (state.sessionMode === "review") {
+        const current = state.session[state.index];
+        const time = current ? state.reviewTimes[current.id] : 0;
+        $("#timer").textContent = time > 0 ? `${formatTime(time)} spent` : "No time recorded";
+        return;
+      }
       if (state.paused) { $("#timer").textContent = "Paused"; return; }
       if (state.timerMode === "none") { $("#timer").textContent = "Untimed"; return; }
       if (state.timerMode === "question") {
@@ -918,14 +954,8 @@
     }
 
     function questionMetaTags(question, session) {
-      const subject = question.subject === "Math" ? "Math" : "Reading and Writing";
-      const sameSubject = session.filter(item => (item.subject === "Math") === (subject === "Math"));
-      const sameSubjectIndex = sameSubject.findIndex(item => item.id === question.id);
-      const moduleSize = subject === "Math" ? 22 : 27;
-      const module = sameSubject.length > moduleSize ? Math.floor(sameSubjectIndex / moduleSize) + 1 : 1;
       const topic = [question.domain, question.skill].filter(Boolean).join(": ") || "General";
       return {
-        section: `${subject} · Module ${module}`,
         topic,
         qid: question.questionId || "—"
       };
@@ -940,8 +970,15 @@
       const isMath = question.subject === "Math";
       const meta = questionMetaTags(question, state.session);
       const hl = state.highlights[question.id] || {};
+      let statusTag = "";
+      if (state.sessionMode === "review" && state.reviewStatus[question.id]) {
+        const status = state.reviewStatus[question.id];
+        const label = status.unknown ? "Didn't know" : status.correct ? "Correct" : "Incorrect";
+        const cls = status.unknown ? "unknown" : status.correct ? "correct" : "incorrect";
+        statusTag = `<span class="tag ${cls}">${label}</span>`;
+      }
       $("#moduleName").textContent = question.subject; $("#passageLabel").textContent = isMath ? "" : "Read the text and answer the question.";
-      $("#questionMeta").innerHTML = `<span class="tag">${escapeHtml(meta.section)}</span><span class="tag">${escapeHtml(meta.topic)}</span><span class="tag qid" title="Official College Board question ID">${escapeHtml(meta.qid)}</span>`;
+      $("#questionMeta").innerHTML = `${statusTag}<span class="tag">${escapeHtml(meta.topic)}</span><span class="tag qid" title="Official College Board question ID">${escapeHtml(meta.qid)}</span>`;
       $("#passageText").innerHTML = hl.passage || clean(question.stimulus || (isMath ? question.stem : ""));
       $("#prompt").innerHTML = hl.prompt || clean(isMath && !question.stimulus ? "" : question.stem);
       $("#questionNumber").textContent = state.index + 1; $("#footNumber").textContent = state.index + 1; $("#footTotal").textContent = state.session.length;
@@ -973,6 +1010,7 @@
       }
       $("#backBtn").disabled = state.index === 0;
       renderActionZone(question);
+      updateTimer();
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#passageText"), $("#prompt"), $("#answers")]).catch(() => {});
     }
 
@@ -982,7 +1020,7 @@
       $("#nextBtn").textContent = state.index === state.session.length - 1 ? (state.sessionMode === "review" ? "Done" : "Finish") : "Next";
       if (state.sessionMode === "review") {
         if (state.showAnswer.has(question.id)) { revealAnswer(); return; }
-        zone.innerHTML = `<button class="feedback-btn" id="revealAnswerBtn">Show answer</button><p class="submit-hint">Your recorded answer stays as you submitted it. Reveal the correct answer and rationale whenever you're ready.</p>`;
+        zone.innerHTML = `<button class="feedback-btn" id="revealAnswerBtn" aria-pressed="false">Show answer + explanation</button>`;
         $("#revealAnswerBtn").onclick = revealAnswer;
         return;
       }
@@ -1003,16 +1041,19 @@
       if (state.revealed.has(question.id) || state.sessionMode === "review" || !question) return;
       if (state.unknowns.has(question.id)) {
         state.unknowns.delete(question.id);
+        delete state.reviewStatus[question.id];
         renderQuestion();
         return;
       }
       state.unknowns.add(question.id);
+      state.reviewStatus[question.id] = { unknown: true, correct: false };
       state.answers[question.id] = "";
       if (state.instantFeedback) {
         state.revealed.add(question.id);
         stopQuestionTimer();
         recordQuestionTime(question);
         $("#feedbackZone").innerHTML = `<div class="feedback incorrect"><p class="review-answer"><strong>You marked this question as "I don't know".</strong></p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div><button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
+        attachNoteEditor($("#feedbackZone"), question);
         if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
         if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
       } else {
@@ -1036,9 +1077,11 @@
       recordQuestionTime(question);
       const answer = state.answers[question.id];
       const correct = isCorrect(question, answer);
+      state.reviewStatus[question.id] = { unknown: false, correct };
       const similarButton = `<button class="feedback-btn" id="similarBtn">Generate a similar problem</button><p class="submit-hint">AI-generated practice question on the same skill and concept.</p>`;
       $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}"><p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p><p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div>${similarButton}`;
       $$('[data-answer], [data-strike], #sprAnswer').forEach(element => element.disabled = true);
+      if (!correct) attachNoteEditor($("#feedbackZone"), question);
       if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
@@ -1053,7 +1096,7 @@
         if (!response.ok) throw new Error(generated.error || "Unable to generate a similar problem.");
         state.details.set(generated.id, generated);
         state.submittedAnswer = ""; state.submittedAnswers = {};
-        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
+        state.session = [generated]; state.index = 0; state.answers = {}; state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.reviewStatus = {}; state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
         state.sessionMode = "practice"; state.instantFeedback = true;
         state.timerMode = "question";
         const pauseBtn = $("#pauseTimer"); if (pauseBtn) { pauseBtn.style.display = ""; pauseBtn.textContent = "Pause"; }
@@ -1062,6 +1105,57 @@
         button.disabled = false; button.textContent = "Generate a similar problem";
         button.insertAdjacentHTML("afterend", `<p class="submit-hint" style="color:var(--red)">${escapeHtml(error.message)}</p>`);
       }
+    }
+
+    function attachNoteEditor(container, question) {
+      const note = (question && question.note) || "";
+      const btn = document.createElement("button");
+      btn.className = "feedback-btn note-btn";
+      btn.type = "button";
+      btn.textContent = note ? "Edit my explanation" : "Add my explanation";
+      btn.onclick = () => openNoteEditor(question, btn);
+      container.appendChild(btn);
+      if (note) {
+        const saved = document.createElement("span");
+        saved.className = "note-saved";
+        saved.textContent = note;
+        container.appendChild(saved);
+      }
+    }
+
+    function openNoteEditor(question, btn) {
+      const container = btn.parentElement;
+      if (container.querySelector(".note-editor")) return;
+      const editor = document.createElement("div");
+      editor.className = "note-editor";
+      editor.innerHTML = `<p class="submit-hint" style="margin-top:0">Explain in your own words why this answer is right or why you got it wrong. It is saved with the question and included in your exports.</p><textarea id="noteText" placeholder="e.g. I forgot that the median of an even-sized set is the mean of the two middle values...">${escapeHtml((question && question.note) || "")}</textarea><div class="feedback-actions"><button class="feedback-btn" id="noteSave">Save explanation</button><button class="feedback-btn" id="noteCancel">Cancel</button></div>`;
+      container.appendChild(editor);
+      const saveBtn = editor.querySelector("#noteSave");
+      saveBtn.onclick = async () => {
+        const text = editor.querySelector("#noteText").value.trim();
+        saveBtn.disabled = true; saveBtn.textContent = "Saving...";
+        try {
+          const response = await fetch("/api/note", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: question.id, note: text }) });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Save failed.");
+          if (question) question.note = text;
+          editor.remove();
+          container.querySelectorAll(".note-saved").forEach(el => el.remove());
+          if (text) {
+            btn.textContent = "Edit my explanation";
+            const saved = document.createElement("span");
+            saved.className = "note-saved";
+            saved.textContent = text;
+            container.appendChild(saved);
+          } else {
+            btn.textContent = "Add my explanation";
+          }
+        } catch (error) {
+          saveBtn.disabled = false; saveBtn.textContent = "Save explanation";
+          editor.insertAdjacentHTML("beforeend", `<p class="submit-hint" style="color:var(--red)">${escapeHtml(error.message)}</p>`);
+        }
+      };
+      editor.querySelector("#noteCancel").onclick = () => editor.remove();
     }
 
     async function revealAnswer() {
@@ -1073,9 +1167,10 @@
       const stored = state.submittedAnswers[question.id];
       const answer = unknown ? "" : (stored !== undefined ? stored : state.answers[question.id] || "");
       const correct = answer ? isCorrect(question, answer) : false;
-      const hideToggle = `<button class="feedback-btn" id="hideAnswerBtn">Hide answer</button>`;
+      const hideToggle = `<button class="feedback-btn" id="hideAnswerBtn">Hide answer + explanation</button>`;
       $("#feedbackZone").innerHTML = `<div class="feedback ${correct ? "correct" : "incorrect"}">${unknown ? `<p class="review-answer"><strong>You marked this question as "I don't know".</strong></p>` : answer ? `<p class="review-answer"><strong>Your answer:</strong> ${answerDisplay(question, answer)}</p>` : ""}<p class="review-answer"><strong>Correct answer:</strong> ${answerDisplay(question, question.correctAnswer)}</p><div class="rationale">${clean(question.rationale)}</div></div><div class="feedback-actions">${hideToggle}<button class="feedback-btn" id="similarBtn">Generate a similar problem</button></div>`;
       if ($("#hideAnswerBtn")) $("#hideAnswerBtn").onclick = () => { state.showAnswer.delete(question.id); renderQuestion(); };
+      attachNoteEditor($("#feedbackZone"), question);
       if ($("#similarBtn")) $("#similarBtn").onclick = () => generateSimilar(question);
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$("#feedbackZone")]).catch(() => {});
     }
@@ -1084,7 +1179,7 @@
       const leaving = state.session[state.index];
       if (leaving) recordQuestionTime(leaving);
       state.index += delta; state.questionStart = Date.now(); state.frozenElapsed = state.paused ? 0 : null; await renderQuestion(); document.querySelector(".exam-main").scrollTop = 0; window.scrollTo(0, 0); }
-    function renderGrid() { $("#qGrid").innerHTML = state.session.map((question, index) => `<button class="q-cell ${state.answers[question.id] !== undefined && state.answers[question.id] !== "" ? "answered" : ""} ${state.unknowns.has(question.id) ? "unknown" : ""} ${state.marked.has(question.id) ? "marked" : ""} ${state.index === index ? "current" : ""}" data-jump="${index}">${index + 1}</button>`).join(""); $$('[data-jump]').forEach(button => button.onclick = async () => { const leaving = state.session[state.index]; if (leaving) recordQuestionTime(leaving); state.index = +button.dataset.jump; state.questionStart = Date.now(); state.frozenElapsed = null; closeModals(); await renderQuestion(); }); }
+    function renderGrid() { $("#qGrid").innerHTML = state.session.map((question, index) => { const status = state.reviewStatus[question.id]; const wrong = status && !status.correct && !status.unknown; return `<button class="q-cell ${state.answers[question.id] !== undefined && state.answers[question.id] !== "" ? "answered" : ""} ${state.unknowns.has(question.id) ? "unknown" : ""} ${wrong ? "wrong" : ""} ${state.marked.has(question.id) ? "marked" : ""} ${state.index === index ? "current" : ""}" data-jump="${index}" ${wrong ? `aria-label="Question ${index + 1}, answered incorrectly"` : ""}>${index + 1}</button>`; }).join(""); $$('[data-jump]').forEach(button => button.onclick = async () => { const leaving = state.session[state.index]; if (leaving) recordQuestionTime(leaving); state.index = +button.dataset.jump; state.questionStart = Date.now(); state.frozenElapsed = null; closeModals(); await renderQuestion(); }); }
     let modalTrigger = null;
     function openModal(id) {
       if (id === "gridModal") renderGrid();
@@ -1105,12 +1200,17 @@
     function normalizeNumber(value) {
       const text = String(value || "").trim();
       if (text.includes("/")) { const [a, b] = text.split("/").map(Number); return b ? a / b : NaN; }
-      return Number(text);
+      const num = Number(text);
+      return Number.isFinite(num) ? num : NaN;
     }
     function isCorrect(question, answer) {
       if (question.type !== "spr") return answer === question.correctAnswer;
       const expected = normalizeNumber(question.correctAnswer), actual = normalizeNumber(answer);
-      return Number.isFinite(expected) && Number.isFinite(actual) && Math.abs(expected - actual) < 0.001;
+      if (!Number.isFinite(expected) || !Number.isFinite(actual)) return false;
+      // Accept the exact answer or any decimal/fraction form within 0.01. This tolerates a
+      // few hundredths so that a fraction like 44/3 is accepted even when the stored correct
+      // answer was entered as a 2-decimal truncation (e.g. 14.66) rather than the exact value.
+      return Math.abs(expected - actual) <= 0.01;
     }
     function answerDisplay(question, answer) {
       if (!answer) return "No answer";
@@ -1124,6 +1224,8 @@
       state.answers = {};
       state.submittedAnswer = submittedAnswer || "";
       state.submittedAnswers = {};
+      state.reviewTimes = {};
+      state.reviewStatus = { [question.id]: { unknown: !!unknown, correct: false } };
       state.session = [question]; state.index = 0; state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       if (unknown) state.unknowns.add(question.id);
       state.sessionMode = "review"; state.instantFeedback = false; state.reviewingStored = true;
@@ -1164,7 +1266,7 @@
           const yourOption = q.options && item.answer ? q.options[item.answer.charCodeAt(0) - 65] : null;
           const yourDisplay = item.unknown ? "You marked \"I don't know\"" : q.type === "spr" ? escapeHtml(item.answer || "—") : yourOption ? `${escapeHtml(item.answer)}. ${clean(yourOption.content)}` : escapeHtml(item.answer || "—");
           const tags = `<span class="tag">${q.subject === "Math" ? "Math" : "R&W"}</span><span class="tag">${escapeHtml(q.domain)}</span><span class="tag ${q.difficulty.toLowerCase()}">${q.difficulty}</span>`;
-          return `<div class="mistake-row" data-mistake="${escapeHtml(q.id)}"><div class="mistake-row-main"><div class="mistake-row-tags">${tags}</div><div class="mistake-row-meta"><span class="bad">Your answer: ${yourDisplay}</span><span class="good">Correct: ${correctDisplay}</span><span>${item.time ? formatTime(item.time) : "—"} spent</span><span>${item.attempts || 1} attempt${item.attempts > 1 ? "s" : ""}</span>${item.struck && item.struck.length ? `<span class="bad">Struck: ${item.struck.map(escapeHtml).join(", ")}</span>` : ""}</div><div class="mistake-detail"><p><strong>Why it's wrong:</strong></p><div class="rationale">${clean(q.rationale)}</div><p style="margin-top:10px"><strong>Your answer:</strong> ${yourDisplay}</p><p><strong>Correct answer:</strong> ${correctDisplay}</p></div></div><button class="mistake-row-answer" data-mistake-btn="${escapeHtml(q.id)}">Review →</button></div>`;
+          return `<div class="mistake-row" data-mistake="${escapeHtml(q.id)}"><div class="mistake-row-main"><div class="mistake-row-tags">${tags}</div><div class="mistake-row-meta"><span class="bad">Your answer: ${yourDisplay}</span><span class="good">Correct: ${correctDisplay}</span><span>${item.time ? formatTime(item.time) : "—"} spent</span><span>${item.attempts || 1} attempt${item.attempts > 1 ? "s" : ""}</span>${item.struck && item.struck.length ? `<span class="bad">Struck: ${item.struck.map(escapeHtml).join(", ")}</span>` : ""}</div><div class="mistake-detail"><p><strong>Why it's wrong:</strong></p><div class="rationale">${clean(q.rationale)}</div><p style="margin-top:10px"><strong>Your answer:</strong> ${yourDisplay}</p><p><strong>Correct answer:</strong> ${correctDisplay}</p>${item.note ? `<p style="margin-top:10px"><strong>Your explanation:</strong></p><p class="note-saved" style="margin:0">${escapeHtml(item.note)}</p>` : ""}</div></div><button class="mistake-row-answer" data-mistake-btn="${escapeHtml(q.id)}">Review →</button></div>`;
         }).join("")}</div>`;
       }).join("") : '<div class="empty-state"><strong>No mistakes match these filters.</strong><span>Try widening the difficulty or subject filters.</span></div>';
       $$('[data-mistake]').forEach(row => row.onclick = () => {
@@ -1250,7 +1352,13 @@
       $("#mistakesPage").classList.add("hidden");
       state.answers = {};
       state.submittedAnswers = {};
-      items.forEach(item => { state.submittedAnswers[item.question.id] = item.answer || ""; });
+      state.reviewTimes = {};
+      state.reviewStatus = {};
+      items.forEach(item => {
+        state.submittedAnswers[item.question.id] = item.answer || "";
+        state.reviewTimes[item.question.id] = Number(item.time) || 0;
+        state.reviewStatus[item.question.id] = { unknown: !!item.unknown, correct: !!item.correct };
+      });
       state.session = questions; state.index = Math.max(0, Math.min(startIndex, questions.length - 1)); state.marked.clear(); state.revealed = new Set(); state.showAnswer = new Set(); state.highlighting = false; state.seconds = 0; state.struck = new Set(); state.strikeLog = {}; state.frozenElapsed = null; state.questionTimes = {}; state.highlights = {}; state.unknowns = new Set(); state.paused = false;
       items.forEach(item => { if (item.unknown) state.unknowns.add(item.question.id); });
       state.sessionMode = "review"; state.instantFeedback = false; state.reviewingStored = true;
@@ -1661,6 +1769,8 @@
         reviewBtn.disabled = !reviewable.length;
         reviewBtn.onclick = () => startSessionReview(session);
       }
+      const exportSessionBtn = $("#exportSessionCsv");
+      if (exportSessionBtn) exportSessionBtn.onclick = () => exportSessionCsv(session);
       $("#sessionDetailList").innerHTML = questions.length ? questions.map((item, index) => {
         const q = item.question;
         const skill = q?.skill || "Question";
@@ -1671,7 +1781,7 @@
         const strikeTiming = Array.isArray(item.strikeLog) && item.strikeLog.length ? item.strikeLog.map(log => `${log.letter} at ${formatTime(log.at)}`).join(", ") : "";
         const struckLabel = (item.struck || []).length ? `Struck: ${item.struck.map(letter => escapeHtml(letter)).join(", ")}${strikeTiming ? ` (${escapeHtml(strikeTiming)})` : ""}` : "No choices struck";
         const answerText = item.unknown ? "You marked this as \"I don't know\"" : item.answer ? escapeHtml(item.answer) : "Unanswered";
-        const detail = q ? `<details class="review-details" data-session-question="${escapeHtml(item.id)}"><summary>Review question</summary><p class="review-answer"><strong>Your answer:</strong> ${answerText}</p>${item.correct ? "" : `<p class="review-answer"><strong>Correct answer:</strong> ${escapeHtml(q.correctAnswer)}</p>`}<p class="review-answer"><strong>${escapeHtml(struckLabel)}</strong></p></details>` : "";
+        const detail = q ? `<details class="review-details" data-session-question="${escapeHtml(item.id)}"><summary>Review question</summary><p class="review-answer"><strong>Your answer:</strong> ${answerText}</p>${item.correct ? "" : `<p class="review-answer"><strong>Correct answer:</strong> ${escapeHtml(q.correctAnswer)}</p>`}<p class="review-answer"><strong>${escapeHtml(struckLabel)}</strong></p>${item.note ? `<p class="review-answer"><strong>Your explanation:</strong> ${escapeHtml(item.note)}</p>` : ""}</details>` : "";
         return `<div class="review-item"><span>${index + 1}. ${escapeHtml(skill)}<small>${escapeHtml(subject)}${domain ? " · " + escapeHtml(domain) : ""}${difficulty ? " · " + escapeHtml(difficulty) : ""}</small></span><span class="${item.correct ? "correct" : "incorrect"}">${item.correct ? "Correct" : item.unknown ? "Didn't know" : item.answer ? "Incorrect" : "Unanswered"} · ${timeLabel}</span></div>${detail}`;
       }).join("") : '<div class="empty-list"><strong>This session has no recorded questions.</strong></div>';
       $$('[data-session-question]').forEach(details => {
@@ -1688,22 +1798,30 @@
       });
     }
 
-    function startSessionReview(session) {
+    async function startSessionReview(session) {
       const entries = (session.questions || []).filter(item => item.question);
       if (!entries.length) return;
-      const questions = entries.map(item => item.question);
+      const questions = [];
+      for (const entry of entries) {
+        try { const detail = await getDetail({ id: entry.id }); if (detail) questions.push(detail); } catch {}
+      }
+      if (!questions.length) return;
       closeModals();
       $("#library").classList.add("hidden");
       $("#mistakesPage").classList.add("hidden");
       state.answers = {};
       state.submittedAnswers = {};
       state.submittedAnswer = "";
+      state.reviewTimes = {};
+      state.reviewStatus = {};
       const struckKeys = new Set();
       state.strikeLog = {};
       state.unknowns = new Set();
       entries.forEach(item => {
         state.answers[item.id] = item.answer || "";
         state.submittedAnswers[item.id] = item.answer || "";
+        state.reviewTimes[item.id] = Number(item.time) || 0;
+        state.reviewStatus[item.id] = { unknown: !!item.unknown, correct: !!item.correct };
         if (item.unknown) state.unknowns.add(item.id);
         (item.struck || []).forEach(letter => struckKeys.add(`${item.id}:${letter}`));
         if (Array.isArray(item.strikeLog) && item.strikeLog.length) state.strikeLog[item.id] = item.strikeLog.map(entry => ({ letter: entry.letter, at: entry.at }));
@@ -1743,21 +1861,277 @@
       const totalTime = items.reduce((sum, item) => sum + (item.time || 0), 0);
       const accuracy = attempts ? Math.round(100 * correct / attempts) : 0;
       const avgTime = attempts ? Math.round(totalTime / attempts) : 0;
-      let summary = `<div class="analytics-summary"><div class="analytics-stat"><strong>${attempts}</strong><span>Attempts</span></div><div class="analytics-stat"><strong>${accuracy}%</strong><span>Accuracy</span></div><div class="analytics-stat"><strong>${formatTime(avgTime)}</strong><span>Avg time / question</span></div><div class="analytics-stat"><strong>${formatTime(totalTime)}</strong><span>Total time</span></div><div class="analytics-stat"><strong>${unknown}</strong><span>Didn't know</span></div></div>`;
-      if (!attempts) { $("#analyticsBody").innerHTML = summary + '<p class="analytics-empty">No completed questions yet. Finish a practice set to see your analytics.</p>'; return; }
+      const noted = items.filter(item => item.note).length;
+      let summary = `<div class="analytics-summary"><div class="analytics-stat"><strong>${attempts}</strong><span>Attempts</span></div><div class="analytics-stat"><strong>${accuracy}%</strong><span>Accuracy</span></div><div class="analytics-stat"><strong>${formatTime(avgTime)}</strong><span>Avg time / question</span></div><div class="analytics-stat"><strong>${formatTime(totalTime)}</strong><span>Total time</span></div><div class="analytics-stat"><strong>${unknown}</strong><span>Didn't know</span></div><div class="analytics-stat"><strong>${noted}</strong><span>Explanations</span></div></div>`;
+      if (!attempts) { $("#analyticsBody").innerHTML = summary + '<p class="analytics-empty">No completed questions yet. Finish a practice set to see your analytics.</p>' + exportToolbar(items); wireAnalyticsToolbar(items); return; }
+
       const byDifficulty = groupTable(items, "difficulty", "Difficulty");
       const byDomain = groupTable(items, "domain", "Strand (domain)");
       const bySkill = groupTable(items, "skill", "Skill");
       const correlation = correlationRow(items);
-      const csv = buildCsv(items);
-      $("#analyticsBody").innerHTML = summary + `<div class="analytics-section"><h3>By difficulty</h3>${byDifficulty}</div><div class="analytics-section"><h3>By strand</h3>${byDomain}</div><div class="analytics-section"><h3>By skill</h3>${bySkill}</div><div class="analytics-section"><h3>Time vs. accuracy</h3>${correlation}</div><button class="primary" id="exportCsv">Export CSV</button>`;
-      $("#exportCsv").onclick = () => {
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url; link.download = "blueprep-analytics.csv"; link.click();
-        URL.revokeObjectURL(url);
+      const rankedSkills = rankGroups(items, "skill", 6);
+      const rankedDomains = rankGroups(items, "domain", 5);
+      const overall = overallRadar(items);
+      const strandRadars = strandCharts(items);
+      const skillRadars = skillCharts(items);
+      const rankLine = `<div class="rank-row"><strong>Highest skill:</strong> ${rankedSkills.strongName} · ${rankedSkills.strongAcc}% &nbsp; <span class="rank-bad"><strong>Lowest skill:</strong> ${rankedSkills.weakName} · ${rankedSkills.weakAcc}%</span></div><div class="rank-row"><strong>Strongest strand:</strong> ${rankedDomains.strongName} · ${rankedDomains.strongAcc}% &nbsp; <span class="rank-bad"><strong>Weakest strand:</strong> ${rankedDomains.weakName} · ${rankedDomains.weakAcc}%</span></div>`;
+      $("#analyticsBody").innerHTML = summary + rankLine + `<div class="analytics-section"><h3>Your skill map</h3>${overall}</div>` + `<div class="analytics-section"><h3>Accuracy by strand</h3><div class="analytics-grid">${strandRadars}</div></div>` + `<div class="analytics-section"><h3>Accuracy by substrand (skill)</h3><div class="analytics-radars">${skillRadars}</div></div>` + `<div class="analytics-section"><h3>Weakest &amp; strongest</h3><div class="analytics-grid"><div>${groupRankTable(rankedSkills.rows, "Skills by accuracy", true)}</div><div>${groupRankTable(rankedDomains.rows, "Strands by accuracy", false)}</div></div></div>` + `<div class="analytics-section"><h3>By difficulty</h3>${byDifficulty}</div><div class="analytics-section"><h3>By strand</h3>${byDomain}</div><div class="analytics-section"><h3>By skill</h3>${bySkill}</div><div class="analytics-section"><h3>Time vs. accuracy</h3>${correlation}</div>` + exportToolbar(items);
+      initCharts();
+      wireAnalyticsToolbar(items);
+    }
+
+    function wireAnalyticsToolbar(items) {
+      const exportAll = $("#exportCsvAll");
+      if (exportAll) exportAll.onclick = () => exportItemsCsv(items, "blueprep-analytics-all.csv");
+      const digestBtn = $("#exportDigest");
+      if (digestBtn) digestBtn.onclick = () => copyDigest(items, digestBtn);
+      const importInput = $("#importCsvInput");
+      if (importInput) importInput.onchange = () => importAnalyticsCsv(importInput.files[0], $("#importStatus"));
+    }
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], field = "", inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+          if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+          else if (ch === '"') inQuotes = false;
+          else field += ch;
+        } else if (ch === '"') { inQuotes = true; }
+        else if (ch === ",") { row.push(field); field = ""; }
+        else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (ch !== "\r") { field += ch; }
+      }
+      if (field.length || row.length) { row.push(field); rows.push(row); }
+      return rows.filter(r => r.length && r.some(c => String(c).trim() !== ""));
+    }
+
+    async function importAnalyticsCsv(file, statusEl) {
+      if (!file) return;
+      const setStatus = message => { if (statusEl) statusEl.textContent = message; };
+      setStatus("Parsing CSV...");
+      try {
+        const text = await file.text();
+        const rows = parseCsv(text);
+        if (rows.length < 2) { setStatus("CSV looks empty."); return; }
+        const headers = rows[0].map(h => h.trim().toLowerCase());
+        const index = name => headers.indexOf(name);
+        const iId = index("id"), iQuestionId = index("questionid");
+        const iCorrect = index("correct"), iUnknown = index("unknown"), iAnswer = index("answer"), iTime = index("timeseconds"), iNote = index("note"), iUpdated = index("updatedat");
+        const payload = rows.slice(1).map(r => {
+          const obj = {};
+          const col = name => { const i = index(name); return i >= 0 ? r[i] : ""; };
+          obj.id = (iId >= 0 ? col("id") : "") || (iQuestionId >= 0 ? col("questionid") : "");
+          obj.correct = col("correct");
+          obj.unknown = col("unknown");
+          obj.answer = col("answer");
+          obj.time = col("timeseconds") || col("time") || "";
+          obj.attempts = col("attempts");
+          obj.note = col("note");
+          obj.updatedAt = col("updatedat");
+          return obj;
+        }).filter(row => row.id);
+        if (!payload.length) { setStatus("No rows with a question id found."); return; }
+        setStatus(`Importing ${payload.length} rows...`);
+        const response = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rows: payload }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Import failed.");
+        setStatus(`Imported ${data.imported} of ${payload.length} rows. Reloading analytics...`);
+        await openAnalytics();
+      } catch (error) {
+        setStatus(`Import failed: ${error.message}`);
+      }
+    }
+
+    function copyDigest(items, button) {
+      const attempts = items.length;
+      const correct = items.filter(item => item.correct).length;
+      const accuracy = attempts ? Math.round(100 * correct / attempts) : 0;
+      const totalTime = items.reduce((sum, item) => sum + (item.time || 0), 0);
+      const skillStats = groupStats(items, "skill").sort((a, b) => b.acc - a.acc || b.attempts - a.attempts);
+      const domainStats = groupStats(items, "domain").sort((a, b) => b.acc - a.acc);
+      const mathStats = groupStats(items.filter(item => item.subject === "Math"), "domain");
+      const rwStats = groupStats(items.filter(item => item.subject === "Reading and Writing"), "domain");
+      const lines = [];
+      lines.push(`BLUEPREP PRACTICE DIGEST (${new Date().toISOString()})`);
+      lines.push(`Totals: ${attempts} attempts, ${correct} correct, ${accuracy}% accuracy, ${formatTime(totalTime)} total time.`);
+      lines.push("");
+      lines.push("Strongest skills (best accuracy):");
+      skillStats.slice(0, 5).forEach((s, i) => lines.push(`  ${i + 1}. ${s.name} — ${s.acc}% (${s.correct}/${s.attempts})`));
+      lines.push("");
+      lines.push("Weakest skills (need the most work):");
+      skillStats.slice(-5).reverse().forEach((s, i) => lines.push(`  ${i + 1}. ${s.name} — ${s.acc}% (${s.correct}/${s.attempts})`));
+      lines.push("");
+      lines.push("Math strands by accuracy:");
+      mathStats.sort((a, b) => b.acc - a.acc).forEach(d => lines.push(`  ${d.name}: ${d.acc}% (${d.correct}/${d.attempts})`));
+      lines.push("");
+      lines.push("Reading & Writing strands by accuracy:");
+      rwStats.sort((a, b) => b.acc - a.acc).forEach(d => lines.push(`  ${d.name}: ${d.acc}% (${d.correct}/${d.attempts})`));
+      lines.push("");
+      lines.push("Your personal explanations (why you got things wrong):");
+      const noted = items.filter(item => item.note);
+      lines.push(noted.length ? noted.map(item => `  [${item.skill}] ${item.note}`).join("\n") : "  (none yet — use the \"Add my explanation\" button when reviewing a question)");
+      const text = lines.join("\n");
+      navigator.clipboard?.writeText(text).then(() => {
+        if (button) { const original = button.textContent; button.textContent = "Copied!"; setTimeout(() => { button.textContent = original; }, 1500); }
+      }).catch(() => {
+        prompt("Copy this digest to feed to an AI coach:", text);
+      });
+    }
+
+    function exportToolbar(items) {
+      return `<div class="analytics-toolbar"><button class="primary" id="exportCsvAll">Export cumulative CSV</button><button class="feedback-btn" id="exportDigest">Copy digest for AI</button><label class="feedback-btn" style="cursor:pointer">Import CSV<input type="file" id="importCsvInput" accept=".csv,text/csv" hidden></label><span class="submit-hint" id="importStatus" style="margin-top:0;align-self:center"></span></div>`;
+    }
+
+    function csvEsc(value) {
+      const s = value == null ? "" : String(value);
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+
+    function optContent(question, letter) {
+      if (!question || !Array.isArray(question.options)) return "";
+      const index = typeof letter === "string" && letter.length === 1 ? letter.toUpperCase().charCodeAt(0) - 65 : -1;
+      const option = index >= 0 ? question.options[index] : null;
+      return option ? (option.content || "") : "";
+    }
+
+    function buildFullCsv(items) {
+      const header = ["questionId", "code", "id", "subject", "domain", "domainCode", "skill", "skillCode", "difficulty", "scoreBand", "type", "correct", "unknown", "answer", "answerContent", "correctAnswer", "acceptedAnswers", "timeSeconds", "attempts", "struck", "strikeLog", "highlight", "note", "stem", "stimulus", "rationale", "optionA", "optionB", "optionC", "optionD", "updatedAt"];
+      const rows = items.map(item => {
+        const q = item.question || {};
+        const selected = item.answer || "";
+        const accepted = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.join(" ~ ") : "";
+        return [
+          item.questionId || q.questionId || "", csvEsc(q.code || q.questionId || ""), item.id || q.id || "",
+          q.subject || item.subject || "", q.domain || item.domain || "", q.domainCode || item.domainCode || "",
+          q.skill || item.skill || "", q.skillCode || item.skillCode || "", q.difficulty || item.difficulty || "",
+          q.scoreBand ?? item.scoreBand ?? "", q.type || item.type || "",
+          item.correct ? "yes" : "no", item.unknown ? "yes" : "no",
+          csvEsc(selected), csvEsc(optContent(q, selected)), csvEsc(q.correctAnswer ?? item.correctAnswer ?? ""), csvEsc(accepted),
+          item.time || 0, item.attempts || 1,
+          csvEsc(JSON.stringify(item.struck || [])), csvEsc(JSON.stringify(item.strikeLog || [])),
+          csvEsc(item.highlight || ""), csvEsc(item.note || ""),
+          csvEsc(q.stem || ""), csvEsc(q.stimulus || ""), csvEsc(q.rationale || ""),
+          csvEsc(optContent(q, "A")), csvEsc(optContent(q, "B")), csvEsc(optContent(q, "C")), csvEsc(optContent(q, "D")),
+          new Date(item.updatedAt || 0).toISOString()
+        ].join(",");
+      });
+      return [header.join(","), ...rows].join("\n");
+    }
+
+    function buildSessionCsv(session) {
+      const header = ["sessionId", "mode", "subject", "startedAt", "questionId", "code", "id", "questionSubject", "domain", "domainCode", "skill", "skillCode", "difficulty", "scoreBand", "type", "answer", "answerContent", "correct", "unknown", "timeSeconds", "struck", "strikeLog", "highlight", "note", "correctAnswer", "acceptedAnswers", "stem", "stimulus", "rationale", "optionA", "optionB", "optionC", "optionD"];
+      const rows = (session.questions || []).map(item => {
+        const q = item.question || {};
+        const selected = item.answer || "";
+        const accepted = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.join(" ~ ") : "";
+        return [
+          session.id, session.mode, session.subject, new Date(session.createdAt || 0).toISOString(),
+          item.questionId || q.questionId || item.id, csvEsc(q.code || q.questionId || ""), item.id || q.id || "",
+          q.subject || "", q.domain || "", q.domainCode || "", q.skill || "", q.skillCode || "",
+          q.difficulty || "", q.scoreBand ?? "", q.type || "",
+          csvEsc(selected), csvEsc(optContent(q, selected)),
+          item.correct ? "yes" : "no", item.unknown ? "yes" : "no", item.time || 0,
+          csvEsc(JSON.stringify(item.struck || [])), csvEsc(JSON.stringify(item.strikeLog || [])),
+          csvEsc(item.highlight || ""), csvEsc(item.note || ""),
+          csvEsc(q.correctAnswer ?? ""), csvEsc(accepted),
+          csvEsc(q.stem || ""), csvEsc(q.stimulus || ""), csvEsc(q.rationale || ""),
+          csvEsc(optContent(q, "A")), csvEsc(optContent(q, "B")), csvEsc(optContent(q, "C")), csvEsc(optContent(q, "D"))
+        ].join(",");
+      });
+      return [header.join(","), ...rows].join("\n");
+    }
+
+    function downloadCsv(filename, csv) {
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = filename; link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportItemsCsv(items, filename) {
+      downloadCsv(filename, buildFullCsv(items));
+    }
+
+    function exportSessionCsv(session) {
+      downloadCsv(`blueprep-session-${session.id}.csv`, buildSessionCsv(session));
+    }
+
+    function groupStats(items, key) {
+      const groups = {};
+      items.forEach(item => {
+        const value = item[key] || "Unknown";
+        (groups[value] = groups[value] || []).push(item);
+      });
+      return Object.entries(groups).map(([name, group]) => {
+        const correctCount = group.filter(item => item.correct).length;
+        const time = group.reduce((sum, item) => sum + (item.time || 0), 0);
+        return { name, attempts: group.length, correct: correctCount, acc: Math.round(100 * correctCount / group.length), avg: Math.round(time / group.length), time };
+      });
+    }
+
+    function rankGroups(items, key, max) {
+      const stats = groupStats(items, key);
+      stats.sort((a, b) => b.acc - a.acc || b.attempts - a.attempts);
+      const strong = stats.length ? stats[0] : null;
+      const weak = stats.length > 1 ? stats[stats.length - 1] : null;
+      return { rows: stats.slice(0, max), strongName: strong?.name, strongAcc: strong?.acc, weakName: weak?.name, weakAcc: weak?.acc };
+    }
+
+    function groupRankTable(stats, title, showSkill) {
+      if (!stats || !stats.length) return `<div class="analytics-section"><h3>${escapeHtml(title)}</h3><p class="analytics-empty">Not enough data yet.</p></div>`;
+      const rows = stats.map(entry => `<tr><td>${escapeHtml(entry.name)}</td><td class="num">${entry.attempts}</td><td class="num">${entry.acc}%</td><td class="num">${formatTime(entry.avg)}</td></tr>`).join("");
+      return `<div class="analytics-section"><h3>${escapeHtml(title)}</h3><table class="analytics-table"><thead><tr><th>${escapeHtml(showSkill ? "Skill" : "Strand")}</th><th class="num">Attempts</th><th class="num">Accuracy</th><th class="num">Avg time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    function radarOptions() {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { r: { min: 0, max: 100, ticks: { stepSize: 25, backdropColor: "transparent", font: { size: 10 } }, pointLabels: { font: { size: 11 } }, grid: { color: "rgba(0,0,0,.08)" } } },
+        plugins: { legend: { display: false } }
       };
+    }
+
+    function initCharts() {
+      $$(".radar-chart").forEach(canvas => {
+        if (canvas.dataset.inited) return;
+        canvas.dataset.inited = "1";
+        try {
+          const data = JSON.parse(canvas.dataset.data || "null");
+          if (!data || !data.labels || !data.labels.length || !window.Chart) { canvas.closest(".analytics-chart")?.remove(); return; }
+          new Chart(canvas, { type: "radar", data: { labels: data.labels, datasets: [{ label: "Accuracy %", data: data.values, backgroundColor: "rgba(37, 99, 235, .18)", borderColor: "#2563eb", borderWidth: 2, pointBackgroundColor: "#2563eb", pointRadius: 3 }] }, options: radarOptions() });
+        } catch { canvas.closest(".analytics-chart")?.remove(); }
+      });
+    }
+
+    function overallRadar(items) {
+      const skills = groupStats(items, "skill");
+      if (skills.length < 3) return '<p class="analytics-empty">Answer at least 3 skills to see your radar chart.</p>';
+      const radar = JSON.stringify({ labels: skills.map(s => s.name), values: skills.map(s => s.acc) }).replace(/"/g, "&quot;");
+      return `<div class="analytics-chart" style="max-width:380px;margin:0 auto"><h4>Every skill you have attempted</h4><div style="height:280px"><canvas class="radar-chart" data-data="${radar}"></canvas></div></div>`;
+    }
+
+    function strandCharts(items) {
+      return ["Math", "Reading and Writing"].map(subject => {
+        const domains = groupStats(items.filter(item => item.subject === subject), "domain");
+        if (domains.length < 3) return "";
+        const radar = JSON.stringify({ labels: domains.map(d => d.name), values: domains.map(d => d.acc) }).replace(/"/g, "&quot;");
+        return `<div class="analytics-chart"><h4>${subject === "Math" ? "Math" : "Reading &amp; Writing"} strands</h4><div style="height:240px"><canvas class="radar-chart" data-data="${radar}"></canvas></div></div>`;
+      }).join("");
+    }
+
+    function skillCharts(items) {
+      const domains = groupStats(items, "domain");
+      if (!domains.length) return "";
+      return domains.map(domain => {
+        const skills = groupStats(items.filter(item => item.domain === domain.name), "skill");
+        if (skills.length < 3) return "";
+        const radar = JSON.stringify({ labels: skills.map(s => s.name), values: skills.map(s => s.acc) }).replace(/"/g, "&quot;");
+        return `<div class="analytics-chart"><h4>${escapeHtml(domain.name)}</h4><div style="height:190px"><canvas class="radar-chart" data-data="${radar}"></canvas></div></div>`;
+      }).join("");
     }
 
     function groupTable(items, key, title) {
@@ -1790,12 +2164,6 @@
       return `<p>Average time on correct answers: <strong>${formatTime(Math.round(correctMean))}</strong> vs. incorrect answers: <strong>${formatTime(Math.round(incorrectMean))}</strong>. ${insight}</p>`;
     }
 
-    function buildCsv(items) {
-      const header = ["questionId", "subject", "domain", "skill", "difficulty", "correct", "unknown", "answer", "timeSeconds", "updatedAt"];
-      const rows = items.map(item => [item.id, item.subject, item.domain, item.skill, item.difficulty, item.correct ? "yes" : "no", item.unknown ? "yes" : "no", `"${String(item.answer || "").replace(/"/g, '""')}"`, item.time || 0, new Date(item.updatedAt || 0).toISOString()].join(","));
-      return [header.join(","), ...rows].join("\n");
-    }
-
     async function finishSession() {
       clearInterval(state.timerId);
       state.paused = false;
@@ -1808,7 +2176,7 @@
         const answer = unknown ? "" : state.answers[question.id] || "";
         return { question, answer, correct: unknown ? false : isCorrect(question, answer), unknown };
       });
-      await Promise.all(results.map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, unknown: result.unknown, time: state.questionTimes[result.question.id] || 0 }) })));
+      await Promise.all(results.map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, unknown: result.unknown, time: state.questionTimes[result.question.id] || 0, highlight: state.highlights[result.question.id] }) })));
       const subject = state.session[0]?.subject || "";
       const sessionPayload = {
         mode: state.sessionMode === "review" ? "review" : state.sessionMode === "test" ? "test" : "practice",
@@ -1820,7 +2188,8 @@
           unknown: result.unknown,
           time: state.questionTimes[result.question.id] || 0,
           struck: [...state.struck].filter(key => key.startsWith(`${result.question.id}:`)).map(key => key.split(":")[1]),
-          strikeLog: (state.strikeLog[result.question.id] || []).map(entry => ({ letter: entry.letter, at: entry.at }))
+          strikeLog: (state.strikeLog[result.question.id] || []).map(entry => ({ letter: entry.letter, at: entry.at })),
+          highlight: state.highlights[result.question.id]
         }))
       };
       try {
@@ -1853,7 +2222,7 @@
       });
       if ((results.some(result => result.answer) || results.some(result => result.unknown)) && !state.reviewingStored) {
         try {
-          await Promise.all(results.filter(result => result.answer || result.unknown).map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, unknown: result.unknown, time: state.questionTimes[result.question.id] || 0 }) })));
+          await Promise.all(results.filter(result => result.answer || result.unknown).map(result => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: result.question.id, answer: result.answer, correct: result.correct, unknown: result.unknown, time: state.questionTimes[result.question.id] || 0, highlight: state.highlights[result.question.id] }) })));
           const subject = state.session[0]?.subject || "";
           const sessionPayload = {
             mode: state.sessionMode === "review" ? "review" : state.sessionMode === "test" ? "test" : "practice",
@@ -1865,7 +2234,8 @@
               unknown: result.unknown,
               time: state.questionTimes[result.question.id] || 0,
               struck: [...state.struck].filter(key => key.startsWith(`${result.question.id}:`)).map(key => key.split(":")[1]),
-              strikeLog: (state.strikeLog[result.question.id] || []).map(entry => ({ letter: entry.letter, at: entry.at }))
+              strikeLog: (state.strikeLog[result.question.id] || []).map(entry => ({ letter: entry.letter, at: entry.at })),
+              highlight: state.highlights[result.question.id]
             }))
           };
           await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionPayload) });
@@ -1912,7 +2282,7 @@
     $("#newQuestions").onchange = () => updateFilterCount();
     $$('input[name="difficulty"]').forEach(input => input.onchange = () => updateFilterCount());
     $("#clearFilters").onclick = () => { $("#subjectFilter").value = "all"; $("#excludeActive").checked = true; $("#excludeCorrect").checked = true; $("#newQuestions").checked = false; $("#shuffleQuestions").checked = false; $$('input[name="difficulty"]').forEach(input => input.checked = true); updateTaxonomy(); updateFilterCount(); };
-    $("#startBtn").onclick = () => startSession(); $("#resumeBtn").onclick = () => startSession();
+    $("#startBtn").onclick = () => startSession(undefined, { timerMode: "question", instantFeedback: true, mode: "practice" }); $("#resumeBtn").onclick = () => startSession(undefined, { timerMode: "question", instantFeedback: true, mode: "practice" });
     $("#mistakeBtn").onclick = openMistakesPage;
     $("#sessionsBtn").onclick = openSessions;
     $("#pastTestsBtn").onclick = openPastTests;
