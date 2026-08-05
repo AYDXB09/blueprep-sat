@@ -578,12 +578,14 @@ export function Player() {
 
       <div className={`toast${toastShow ? ' show' : ''}`}>{toastMsg}</div>
 
-      <div className="demo-controls">
-        <span>demo:</span>
-        <button onClick={skipToTimesUp}>skip to time&apos;s up</button>
-        <button onClick={finishModule}>finish module (review gate)</button>
-        <button onClick={showBreak}>show break screen</button>
-      </div>
+      {import.meta.env.DEV && (
+        <div className="demo-controls">
+          <span>demo:</span>
+          <button onClick={skipToTimesUp}>skip to time&apos;s up</button>
+          <button onClick={finishModule}>finish module (review gate)</button>
+          <button onClick={showBreak}>show break screen</button>
+        </div>
+      )}
     </div>
   );
 }
