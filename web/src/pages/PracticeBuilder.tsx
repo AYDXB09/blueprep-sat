@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './PracticeBuilder.css';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
@@ -31,6 +31,13 @@ const RW_CHIP_TO_SKILL: Record<string, string> = {
   'Rhetorical Synthesis': 'Rhetorical Synthesis',
   Inferences: 'Inferences',
 };
+// Reverse of MATH_CHIP_TO_DOMAIN — used to pre-select a Math chip when
+// arriving from Progress's "click a weak domain" (Math domains map 1:1 onto
+// chips; R&W's chips are skill-level and don't have a matching domain-level
+// preset, so only the subject gets pre-filled for R&W).
+const MATH_DOMAIN_TO_CHIP: Record<string, string> = Object.fromEntries(
+  Object.entries(MATH_CHIP_TO_DOMAIN).map(([chip, domain]) => [domain, chip])
+);
 
 type Subject = 'math' | 'rw' | 'both';
 type Preset = 'quarter' | 'half' | 'module' | 'section';
@@ -69,6 +76,7 @@ function computeTimeFor(subj: 'math' | 'rw', count: number, preset: Preset | nul
 export function PracticeBuilder() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [currentSubj, setCurrentSubj] = useState<Subject>('both');
@@ -123,6 +131,20 @@ export function PracticeBuilder() {
     setActivePreset(preset);
     setMathCount(PACE.math[preset][0]);
     setRwCount(PACE.rw[preset][0]);
+  }, []);
+
+  // Pre-fill from Progress's "click a weak domain → practice it" (state is
+  // only present when arriving that way, so this only ever runs once, on
+  // whichever mount actually carries it).
+  useEffect(() => {
+    const preset = location.state as { presetSubject?: 'math' | 'rw'; presetDomainLabel?: string } | null;
+    if (!preset?.presetSubject) return;
+    setCurrentSubj(preset.presetSubject);
+    if (preset.presetSubject === 'math' && preset.presetDomainLabel) {
+      const chip = MATH_DOMAIN_TO_CHIP[preset.presetDomainLabel];
+      if (chip) setMathChips(new Set([chip]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [boundariesPool, setBoundariesPool] = useState<number | null>(null);
@@ -424,8 +446,8 @@ export function PracticeBuilder() {
           <div className="toggle-row">
             {/* "New" = never attempted by this user before, in any past session — not a bank-freshness/release-date
                 concept. Distinct from "exclude previously correct": this excludes a question even if the user
-                got it wrong last time. TODO: once real question selection is wired (see createPracticeSession's
-                questionIds TODO), filter via a NOT EXISTS against question_attempts for this user_id/question_id. */}
+                got it wrong last time. Implemented via selectQuestionIds/countMatchingQuestions's newOnlyUserId
+                filter (an anti-join against question_attempts for this user_id/question_id). */}
             <span className="tlabel" title="Questions you haven't attempted before, in any past session — whether you got them right or wrong.">
               New questions only <span aria-hidden="true" style={{ color: 'var(--ink-dim)', cursor: 'help' }}>ⓘ</span>
             </span>

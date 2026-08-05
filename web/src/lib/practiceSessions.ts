@@ -240,6 +240,7 @@ export async function getSessionWithAttempts(sessionId: string): Promise<{
 
 export interface Mistake {
   questionId: string;
+  sourceExternalId: string | null;
   subject: string;
   domain: string;
   skill: string | null;
@@ -261,14 +262,17 @@ export interface MistakeFilters {
 export async function getMistakes(userId: string, filters: MistakeFilters = {}): Promise<Mistake[]> {
   const { data, error } = await supabase
     .from('question_attempts')
-    .select('*, questions(subject, domain, stem_markup, skill)')
+    .select('*, questions(subject, domain, stem_markup, skill, source_external_id)')
     .eq('user_id', userId)
     .not('submitted_at', 'is', null)
     .order('submitted_at', { ascending: false });
   if (error) throw error;
 
-  const rows = (data ?? []) as AttemptWithQuestion[];
-  const latestByQuestion = new Map<string, AttemptWithQuestion>();
+  type MistakeAttemptRow = QuestionAttemptRow & {
+    questions: Pick<QuestionRow, 'subject' | 'domain' | 'stem_markup' | 'skill' | 'source_external_id'> | null;
+  };
+  const rows = (data ?? []) as MistakeAttemptRow[];
+  const latestByQuestion = new Map<string, MistakeAttemptRow>();
   for (const row of rows) {
     if (!latestByQuestion.has(row.question_id)) latestByQuestion.set(row.question_id, row);
   }
@@ -287,6 +291,7 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
     }
     mistakes.push({
       questionId: row.question_id,
+      sourceExternalId: row.questions.source_external_id,
       subject: row.questions.subject,
       domain: row.questions.domain,
       skill: row.questions.skill,
@@ -388,27 +393,24 @@ export async function countMatchingQuestions(filters: QuestionFilters): Promise<
       return count ?? 0;
     }
     // Supabase JS has no NOT IN with a client-built set beyond a reasonable
-    // size limit — fetch matching ids and subtract client-side instead.
-    const { data, error } = await supabase
-      .from('questions')
-      .select('id')
-      .match(buildEqMatch(filters));
+    // size limit — fetch matching ids (with the SAME filters as `query`
+    // above, not just subject/is_active) and subtract client-side instead.
+    let idQuery = supabase.from('questions').select('id');
+    if (filters.subject) idQuery = idQuery.eq('subject', filters.subject);
+    if (filters.domains && filters.domains.length > 0) idQuery = idQuery.in('domain', filters.domains);
+    if (filters.skills && filters.skills.length > 0) idQuery = idQuery.in('skill', filters.skills);
+    if (filters.difficulty && filters.difficulty.length > 0) idQuery = idQuery.in('difficulty', filters.difficulty);
+    if (!filters.includeRetired) idQuery = idQuery.eq('is_active', true);
+
+    const { data, error } = await idQuery;
     if (error) throw error;
-    let ids = (data ?? []).map((r) => r.id);
-    ids = ids.filter((id) => !attempted.has(id));
+    const ids = (data ?? []).map((r) => r.id).filter((id) => !attempted.has(id));
     return ids.length;
   }
 
   const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
-}
-
-function buildEqMatch(filters: QuestionFilters): Record<string, string | boolean> {
-  const match: Record<string, string | boolean> = {};
-  if (filters.subject) match.subject = filters.subject;
-  if (!filters.includeRetired) match.is_active = true;
-  return match;
 }
 
 /**

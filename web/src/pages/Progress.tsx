@@ -208,7 +208,11 @@ export function Progress() {
                   <button
                     key={d.label}
                     className="prog-domain-row"
-                    onClick={() => navigate('/practice/new')}
+                    onClick={() =>
+                      navigate('/practice/new', {
+                        state: { presetSubject: d.subject, presetDomainLabel: d.label },
+                      })
+                    }
                     title="Practice this domain"
                   >
                     <span className={`prog-domain-dot ${d.subject}`} />

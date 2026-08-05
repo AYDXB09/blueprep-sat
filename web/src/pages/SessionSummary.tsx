@@ -86,6 +86,16 @@ export function SessionSummary() {
 
   const missed = useMemo(() => (data ? data.attempts.filter((a) => a.is_correct === false) : []), [data]);
 
+  // `attempt_number` is scoped per (user, question) globally — "the Nth time
+  // this user has ever attempted this question" — NOT this question's
+  // position within this session. The session's own question_ids array is
+  // the real, session-scoped ordering; use that for display/links instead.
+  const questionPositionById = useMemo(() => {
+    const map = new Map<string, number>();
+    if (data) data.session.question_ids.forEach((qid, i) => map.set(qid, i + 1));
+    return map;
+  }, [data]);
+
   const retryMistakes = async () => {
     if (!user || missed.length === 0) return;
     setRetrying(true);
@@ -134,7 +144,11 @@ export function SessionSummary() {
     );
   }
 
-  const { attempts } = data;
+  // Sort by real session position, not the underlying query's attempt_number
+  // ordering (which is scoped per-question globally, not per-session).
+  const attempts = [...data.attempts].sort(
+    (a, b) => (questionPositionById.get(a.question_id) ?? 0) - (questionPositionById.get(b.question_id) ?? 0)
+  );
 
   return (
     <AppShell title="Session Summary">
@@ -182,17 +196,18 @@ export function SessionSummary() {
               const subj = a.questions ? toSubjectShort(a.questions.subject) : 'math';
               const domain = a.questions?.domain ?? '—';
               const time = a.time_taken_seconds ?? 0;
+              const position = questionPositionById.get(a.question_id) ?? '?';
               return a.is_correct ? (
                 <div key={a.id} className="ss-qrow">
-                  <span className="ss-qn mono">Q{a.attempt_number}</span>
+                  <span className="ss-qn mono">Q{position}</span>
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
                   <span className="ss-qdomain">{domain}</span>
                   <span className="ss-qtime mono">{time}s</span>
                   <span className="ss-qresult correct">Correct</span>
                 </div>
               ) : (
-                <Link key={a.id} to={`/practice/${sessionId}/q/${a.attempt_number}`} className="ss-qrow missed">
-                  <span className="ss-qn mono">Q{a.attempt_number}</span>
+                <Link key={a.id} to={`/practice/${sessionId}/q/${position}`} className="ss-qrow missed">
+                  <span className="ss-qn mono">Q{position}</span>
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
                   <span className="ss-qdomain">{domain}</span>
                   <span className="ss-qtime mono">{time}s</span>

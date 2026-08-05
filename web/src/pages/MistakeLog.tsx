@@ -36,6 +36,7 @@ export function MistakeLog() {
   const [retrying, setRetrying] = useState(false);
   const [subjectFilter, setSubjectFilter] = useState<SubjectFilterUi>('all');
   const [domainFilter, setDomainFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -52,16 +53,34 @@ export function MistakeLog() {
     };
   }, [user]);
 
-  const domains = useMemo(() => Array.from(new Set((mistakes ?? []).map((m) => m.domain))), [mistakes]);
+  // Domain options are scoped to the selected subject — picking "Math" should
+  // only ever offer Math domains in the dropdown, not R&W ones alongside them.
+  const domains = useMemo(() => {
+    const bySubject = (mistakes ?? []).filter((m) => subjectFilter === 'all' || toSubjectShort(m.subject) === subjectFilter);
+    return Array.from(new Set(bySubject.map((m) => m.domain))).sort();
+  }, [mistakes, subjectFilter]);
 
+  // If the subject changes and the previously-selected domain no longer
+  // applies (e.g. a Math domain while R&W is now selected), reset it rather
+  // than silently filtering to zero results.
+  useEffect(() => {
+    if (domainFilter !== 'all' && !domains.includes(domainFilter)) setDomainFilter('all');
+  }, [domains, domainFilter]);
+
+  const searchNorm = search.trim().toLowerCase();
   const filtered = useMemo(() => {
     if (!mistakes) return [];
-    return mistakes.filter(
-      (m) =>
-        (subjectFilter === 'all' || toSubjectShort(m.subject) === subjectFilter) &&
-        (domainFilter === 'all' || m.domain === domainFilter)
-    );
-  }, [mistakes, subjectFilter, domainFilter]);
+    return mistakes.filter((m) => {
+      if (subjectFilter !== 'all' && toSubjectShort(m.subject) !== subjectFilter) return false;
+      if (domainFilter !== 'all' && m.domain !== domainFilter) return false;
+      if (searchNorm) {
+        const idMatch = m.sourceExternalId?.toLowerCase().includes(searchNorm);
+        const stemMatch = m.stemPreview.toLowerCase().includes(searchNorm);
+        if (!idMatch && !stemMatch) return false;
+      }
+      return true;
+    });
+  }, [mistakes, subjectFilter, domainFilter, searchNorm]);
 
   const [startingQuestionId, setStartingQuestionId] = useState<string | null>(null);
 
@@ -118,12 +137,32 @@ export function MistakeLog() {
       {error && <p style={{ color: 'var(--red)' }}>{error}</p>}
 
       <div className="ml-filter-bar">
-        <button className={`ml-filter-btn math${subjectFilter === 'math' ? ' active' : ''}`} onClick={() => setSubjectFilter(subjectFilter === 'math' ? 'all' : 'math')}>
-          Math{subjectFilter === 'math' ? ' ✓' : ''}
-        </button>
-        <button className={`ml-filter-btn rw${subjectFilter === 'rw' ? ' active' : ''}`} onClick={() => setSubjectFilter(subjectFilter === 'rw' ? 'all' : 'rw')}>
-          R&amp;W{subjectFilter === 'rw' ? ' ✓' : ''}
-        </button>
+        <div className="ml-seg" role="group" aria-label="Filter by subject">
+          <button
+            type="button"
+            className={`ml-seg-btn math${subjectFilter === 'math' ? ' active' : ''}`}
+            aria-pressed={subjectFilter === 'math'}
+            onClick={() => setSubjectFilter('math')}
+          >
+            Math
+          </button>
+          <button
+            type="button"
+            className={`ml-seg-btn rw${subjectFilter === 'rw' ? ' active' : ''}`}
+            aria-pressed={subjectFilter === 'rw'}
+            onClick={() => setSubjectFilter('rw')}
+          >
+            R&amp;W
+          </button>
+          <button
+            type="button"
+            className={`ml-seg-btn both${subjectFilter === 'all' ? ' active' : ''}`}
+            aria-pressed={subjectFilter === 'all'}
+            onClick={() => setSubjectFilter('all')}
+          >
+            Both
+          </button>
+        </div>
         <select className="ml-domain-select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
           <option value="all">Filter: Domain</option>
           {domains.map((d) => (
@@ -132,6 +171,13 @@ export function MistakeLog() {
             </option>
           ))}
         </select>
+        <input
+          className="ml-search"
+          type="search"
+          placeholder="Search by question ID or text…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <button className="ml-retry-btn" onClick={() => void retryAll()} disabled={filtered.length === 0 || retrying}>
           {retrying ? 'Starting…' : `Retry all (${filtered.length})`}
         </button>
@@ -160,7 +206,10 @@ export function MistakeLog() {
                 >
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
                   <div className="ml-row-mid">
-                    <span className="ml-row-domain">{m.domain}</span>
+                    <span className="ml-row-domain">
+                      {m.domain}
+                      {m.sourceExternalId && <span className="ml-row-cbid mono"> · {m.sourceExternalId}</span>}
+                    </span>
                     <span className="ml-row-stem">{m.stemPreview}</span>
                   </div>
                   <span className="ml-row-miss mono">missed {m.missCount}×</span>
