@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { createPracticeSession, getMistakes, type Mistake, type SubjectFilter } from '../lib/practiceSessions';
+import { fmtDate } from '../lib/format';
 import './MistakeLog.css';
 
 // ---------------------------------------------------------------------------
@@ -164,7 +165,7 @@ export function MistakeLog() {
                   </div>
                   <span className="ml-row-miss mono">missed {m.missCount}×</span>
                   <span className="ml-row-date mono">
-                    {starting ? 'Starting…' : new Date(m.lastAttemptedAt).toLocaleDateString()}
+                    {starting ? 'Starting…' : fmtDate(m.lastAttemptedAt)}
                   </span>
                 </button>
               );

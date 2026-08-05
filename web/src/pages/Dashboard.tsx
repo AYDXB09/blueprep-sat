@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { getAllAttemptsForUser, getRecentSessions, type AttemptWithQuestion } from '../lib/practiceSessions';
+import { fmtDate } from '../lib/format';
 import type { Database } from '../lib/database.types';
 import './Dashboard.css';
 
@@ -58,10 +59,6 @@ function sparklinePoints(values: number[], w: number, h: number): string {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(' ');
-}
-
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function dayKey(iso: string): string {

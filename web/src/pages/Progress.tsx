@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { getAllAttemptsForUser, getRecentSessions, type AttemptWithQuestion } from '../lib/practiceSessions';
+import { fmtDate } from '../lib/format';
 import type { Database } from '../lib/database.types';
 import './Progress.css';
 
@@ -283,7 +284,7 @@ export function Progress() {
                 const pct = scorePctOf(h);
                 return (
                   <tr key={h.id}>
-                    <td className="mono">{h.completed_at ? new Date(h.completed_at).toLocaleDateString() : '—'}</td>
+                    <td className="mono">{fmtDate(h.completed_at)}</td>
                     <td>{modeLabel(h.mode)}</td>
                     <td>
                       <span className={`subj-chip ${subj}`}>{subj === 'both' ? 'Both' : subj === 'math' ? 'Math' : 'R&W'}</span>
