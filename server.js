@@ -584,7 +584,7 @@ function handleApi(request, response, url) {
     const excludeCorrect = url.searchParams.get("excludeCorrect") === "true";
     const newOnly = url.searchParams.get("newOnly") === "true";
     const excludeActive = url.searchParams.get("excludeActive") === "true" || newOnly;
-    const sourcePool = newOnly ? newQuestions : questions;
+    const sourcePool = newOnly ? newQuestions : [...questions, ...newQuestions];
     const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
     const fetchAll = url.searchParams.get("all") === "true";
     const limit = fetchAll ? Infinity : Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 50)));
@@ -622,6 +622,7 @@ function handleApi(request, response, url) {
         time: record.time || 0,
         attempts: record.attempts || 1,
         struck: [],
+        note: record.note || "",
         updatedAt: record.updatedAt || 0
       });
     }
@@ -642,16 +643,54 @@ function handleApi(request, response, url) {
   const match = url.pathname.match(/^\/api\/questions\/([0-9a-f-]+)$/i);
   if (request.method === "GET" && match) {
     const question = findQuestion(match[1]);
-    return question ? json(response, 200, question) : json(response, 404, { error: "Question not found" });
+    if (!question) return json(response, 404, { error: "Question not found" });
+    return json(response, 200, { ...question, note: progress[match[1]]?.note || "" });
   }
 
   if (request.method === "POST" && url.pathname === "/api/progress") {
     return readBody(request).then(body => {
       if (!findQuestion(body.id)) return json(response, 404, { error: "Question not found" });
       const previous = progress[body.id] || {};
-      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), unknown: Boolean(body.unknown), time: Math.max(0, Number(body.time) || 0), attempts: (previous.attempts || 0) + 1, updatedAt: Date.now() };
+      progress[body.id] = { correct: Boolean(body.correct), answer: String(body.answer || ""), unknown: Boolean(body.unknown), time: Math.max(0, Number(body.time) || 0), attempts: (previous.attempts || 0) + 1, note: previous.note || "", highlight: body.highlight ? (typeof body.highlight === "string" ? body.highlight : JSON.stringify(body.highlight)) : (previous.highlight || ""), updatedAt: Date.now() };
       fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
       return json(response, 200, { ok: true });
+    }).catch(error => json(response, 400, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/note") {
+    return readBody(request).then(body => {
+      if (!findQuestion(body.id)) return json(response, 404, { error: "Question not found" });
+      const previous = progress[body.id] || {};
+      const note = typeof body.note === "string" ? body.note.trim().slice(0, 5000) : "";
+      progress[body.id] = { ...previous, note, updatedAt: Date.now() };
+      fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
+      return json(response, 200, { ok: true });
+    }).catch(error => json(response, 400, { error: error.message }));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/import") {
+    return readBody(request).then(body => {
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      let imported = 0;
+      for (const row of rows) {
+        const id = String(row.id || row.questionId || "");
+        if (!id || !findQuestion(id)) continue;
+        const prev = progress[id] || {};
+        const truthy = value => value === true || value === "yes" || value === "true" || value === "1" || value === 1;
+        const importedNote = typeof row.note === "string" && row.note.trim() ? row.note : prev.note || "";
+        progress[id] = {
+          correct: truthy(row.correct),
+          unknown: truthy(row.unknown),
+          answer: typeof row.answer === "string" ? row.answer : prev.answer || "",
+          time: Math.max(0, Number(row.time) || Number(row.timeSeconds) || 0),
+          attempts: Math.max(prev.attempts || 0, Number(row.attempts) || 1),
+          note: importedNote,
+          updatedAt: Number(row.updatedAt) || Date.now()
+        };
+        imported++;
+      }
+      fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
+      return json(response, 200, { ok: true, imported });
     }).catch(error => json(response, 400, { error: error.message }));
   }
 
@@ -660,17 +699,41 @@ function handleApi(request, response, url) {
     for (const [id, record] of Object.entries(progress)) {
       const question = findQuestion(id);
       if (!question) continue;
+      let struck = [], strikeLog = [];
+      for (const session of sessions) {
+        const item = session.questions.find(entry => entry.id === id);
+        if (item && item.struck) struck = item.struck;
+        if (item && item.strikeLog) strikeLog = item.strikeLog;
+      }
+      let highlight = "";
+      if (record.highlight) highlight = typeof record.highlight === "string" ? record.highlight : JSON.stringify(record.highlight);
+      else for (const session of sessions) {
+        const item = session.questions.find(entry => entry.id === id);
+        if (item && item.highlight) { highlight = typeof item.highlight === "string" ? item.highlight : JSON.stringify(item.highlight); break; }
+      }
       items.push({
         id,
+        questionId: question.questionId || "",
         subject: question.subject,
         domain: question.domain,
+        domainCode: question.domainCode || "",
         skill: question.skill,
+        skillCode: question.skillCode || "",
         difficulty: question.difficulty,
+        scoreBand: question.scoreBand ?? "",
+        type: question.type,
         correct: Boolean(record.correct),
         unknown: Boolean(record.unknown),
         answer: record.answer || "",
+        correctAnswer: question.correctAnswer || "",
         time: record.time || 0,
-        updatedAt: record.updatedAt || 0
+        attempts: record.attempts || 1,
+        note: record.note || "",
+        struck,
+        strikeLog,
+        highlight,
+        updatedAt: record.updatedAt || 0,
+        question
       });
     }
     items.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -709,7 +772,9 @@ function handleApi(request, response, url) {
           time: item.time || 0,
           struck: item.struck || [],
           strikeLog: item.strikeLog || [],
-          question: question ? questionSummary(question) : null,
+          highlight: item.highlight || progress[item.id]?.highlight || "",
+          note: item.note || progress[item.id]?.note || "",
+          question: question || null,
           questionId: question?.questionId || item.id
         };
       })
@@ -782,6 +847,7 @@ function handleApi(request, response, url) {
           time: Math.max(0, Number(item.time) || 0),
           struck: Array.isArray(item.struck) ? item.struck.filter(letter => /^[A-D]$/.test(String(letter))) : [],
           strikeLog: Array.isArray(item.strikeLog) ? item.strikeLog.slice(0, 50).map(entry => ({ letter: String(entry.letter || ""), at: Math.max(0, Number(entry.at) || 0) })).filter(entry => /^[A-D]$/.test(entry.letter)) : [],
+          highlight: item.highlight ? (typeof item.highlight === "string" ? item.highlight : JSON.stringify(item.highlight)) : "",
           question: item.question || null
         }))
       };
