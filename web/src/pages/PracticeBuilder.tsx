@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './PracticeBuilder.css';
+import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { createPracticeSession, type SubjectFilter } from '../lib/practiceSessions';
 
@@ -193,12 +194,9 @@ export function PracticeBuilder() {
   ]);
 
   return (
+    <AppShell title="Build a practice set">
     <div className="builder-root">
       <div className="page">
-        <div className="brand">
-          <b>Blue</b>Prep
-        </div>
-        <h1>Build a practice set</h1>
         <p className="sub">Every count and every minute below is computed live — nothing here is a fixed number.</p>
 
         <div className="card">
@@ -364,5 +362,6 @@ export function PracticeBuilder() {
 
       <div className={`toast${toastShow ? ' show' : ''}`}>{toastMsg}</div>
     </div>
+    </AppShell>
   );
 }
