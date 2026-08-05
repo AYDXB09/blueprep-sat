@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { createPracticeSession, getMistakes, type Mistake, type SubjectFilter } from '../lib/practiceSessions';
@@ -10,7 +10,10 @@ import './MistakeLog.css';
 // to the latest attempt per question_id being incorrect, for this user (see
 // getMistakes in practiceSessions.ts). "Retry all" creates a new
 // practice_sessions row with mode='retry_mistakes', question_ids = the
-// currently-filtered mistake list.
+// currently-filtered mistake list. Clicking a single mistake row does the
+// same thing scoped to that one question — there's no standalone
+// "review card" route, so this reuses the real Player instead of linking to
+// a route that doesn't exist.
 // ---------------------------------------------------------------------------
 
 type Subject = 'math' | 'rw';
@@ -59,6 +62,8 @@ export function MistakeLog() {
     );
   }, [mistakes, subjectFilter, domainFilter]);
 
+  const [startingQuestionId, setStartingQuestionId] = useState<string | null>(null);
+
   const retryAll = async () => {
     if (!user || filtered.length === 0) return;
     setRetrying(true);
@@ -79,6 +84,29 @@ export function MistakeLog() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start retry session.');
       setRetrying(false);
+    }
+  };
+
+  const retryOne = async (m: Mistake) => {
+    if (!user || startingQuestionId) return;
+    setStartingQuestionId(m.questionId);
+    setError(null);
+    try {
+      const session = await createPracticeSession({
+        userId: user.id,
+        mode: 'retry_mistakes',
+        questionIds: [m.questionId],
+        requestedCount: 1,
+        timerMode: 'per_question',
+        timerBasis: 'none',
+        feedbackMode: 'immediate',
+        includeRetired: true,
+        subjectFilter: toSubjectFull(toSubjectShort(m.subject)),
+      });
+      navigate(`/practice/${session.id}/q/1`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start retry session.');
+      setStartingQuestionId(null);
     }
   };
 
@@ -120,16 +148,25 @@ export function MistakeLog() {
           <div className="ml-list">
             {filtered.map((m) => {
               const subj = toSubjectShort(m.subject);
+              const starting = startingQuestionId === m.questionId;
               return (
-                <Link key={m.questionId} to={`/practice/retry/q/${m.questionId}`} className="ml-row">
+                <button
+                  key={m.questionId}
+                  type="button"
+                  className="ml-row"
+                  onClick={() => void retryOne(m)}
+                  disabled={startingQuestionId !== null}
+                >
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
                   <div className="ml-row-mid">
                     <span className="ml-row-domain">{m.domain}</span>
                     <span className="ml-row-stem">{m.stemPreview}</span>
                   </div>
                   <span className="ml-row-miss mono">missed {m.missCount}×</span>
-                  <span className="ml-row-date mono">{new Date(m.lastAttemptedAt).toLocaleDateString()}</span>
-                </Link>
+                  <span className="ml-row-date mono">
+                    {starting ? 'Starting…' : new Date(m.lastAttemptedAt).toLocaleDateString()}
+                  </span>
+                </button>
               );
             })}
           </div>
