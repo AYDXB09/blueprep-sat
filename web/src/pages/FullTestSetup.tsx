@@ -41,6 +41,8 @@ export function FullTestSetup() {
         timerBasis: 'official_pace',
         feedbackMode: 'end_of_session',
         includeRetired: true,
+        // R&W Module 1 (32 min) + Math Module 1 (35 min) official blueprint pacing.
+        allottedSeconds: (32 + 35) * 60,
       });
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {

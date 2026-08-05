@@ -146,7 +146,15 @@ export function Player() {
   }, [questionId]);
 
   // ---------------- timers ----------------
-  const [sessionSeconds, setSessionSeconds] = useState(12 * 60 + 4);
+  // A session created untimed (timer_basis='none', e.g. mistake retries —
+  // see MistakeLog's retryOne/retryAll) or with timer_mode='none' has no
+  // session countdown at all; timer_mode='none' also hides the per-question
+  // clock, though qSeconds keeps counting internally either way since it
+  // still feeds time_taken_seconds on submit.
+  const hasSessionCountdown = !!session && session.timer_basis !== 'none' && session.timer_mode !== 'none';
+  const showQuestionTimer = !session || session.timer_mode !== 'none';
+
+  const [sessionSeconds, setSessionSeconds] = useState(0);
   const [overtimeSeconds, setOvertimeSeconds] = useState(0);
   const [qSeconds, setQSeconds] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -154,10 +162,18 @@ export function Player() {
   const [timeUpModalOpen, setTimeUpModalOpen] = useState(false);
   const timesUpShownRef = useRef(false);
 
+  // Seed the countdown from the session's real allotted_seconds once it
+  // loads, instead of a fixed mockup placeholder.
+  useEffect(() => {
+    if (session) setSessionSeconds(session.allotted_seconds ?? 0);
+  }, [session]);
+
   useEffect(() => {
     const id = setInterval(() => {
       if (paused) return;
       setQSeconds((q) => q + 1);
+
+      if (!hasSessionCountdown) return;
 
       if (!isOvertimeRef.current) {
         setSessionSeconds((s) => {
@@ -174,7 +190,7 @@ export function Player() {
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused]);
+  }, [paused, hasSessionCountdown]);
 
   // isOvertime needs a ref so the interval closure (captured once per `paused`
   // change) always sees the latest value without re-creating the interval.
@@ -585,18 +601,27 @@ export function Player() {
         </div>
 
         <div className="timers">
-          <div className="timer-block">
-            <p className="tlabel" style={isOvertime ? { color: 'var(--red)' } : undefined}>
-              {isOvertime ? 'Overtime — session' : 'Time left, session'}
-            </p>
-            <p className={`tval mono${sessionLow ? ' low' : ''}${isOvertime ? ' over' : ''}`}>{sessionDisplay}</p>
-          </div>
+          {hasSessionCountdown ? (
+            <div className="timer-block">
+              <p className="tlabel" style={isOvertime ? { color: 'var(--red)' } : undefined}>
+                {isOvertime ? 'Overtime — session' : 'Time left, session'}
+              </p>
+              <p className={`tval mono${sessionLow ? ' low' : ''}${isOvertime ? ' over' : ''}`}>{sessionDisplay}</p>
+            </div>
+          ) : (
+            <div className="timer-block">
+              <p className="tlabel">Session</p>
+              <p className="tval mono">Untimed</p>
+            </div>
+          )}
+          {showQuestionTimer && (
           <div className="timer-block">
             <p className="tlabel">Time on this question</p>
             <p className="tval mono" id="qTime">
               {fmt(qSeconds)}
             </p>
           </div>
+          )}
           {isMath && (
             <button className="iconbtn wide" title="Reference sheet" aria-label="Open reference sheet" onClick={() => setRefOpen(true)}>
               📐 Reference

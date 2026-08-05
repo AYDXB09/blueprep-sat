@@ -266,7 +266,8 @@ export function PracticeBuilder() {
         includeNewOnly: newOnly,
         subjectFilter,
         sizePreset: activePreset,
-        allottedSeconds: timerBasis === 'custom' ? customMinutes * 60 : null,
+        allottedSeconds:
+          timerBasis === 'custom' ? customMinutes * 60 : timerBasis === 'official' ? Math.round(totalTime * 60) : null,
       });
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {
