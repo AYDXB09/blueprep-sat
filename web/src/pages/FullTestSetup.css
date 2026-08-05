@@ -1,0 +1,121 @@
+.fts-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  max-width: 640px;
+}
+.fts-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+.fts-diagram {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.fts-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 130px;
+}
+.fts-node-title {
+  font-size: 13px;
+  font-weight: 800;
+}
+.fts-node-sub {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.fts-node.tier1 {
+  border-color: var(--math);
+  background: var(--math-wash);
+}
+.fts-node.tier1 .fts-node-title {
+  color: var(--math);
+}
+.fts-node.tier2 {
+  border-color: var(--rw);
+  background: var(--rw-wash);
+}
+.fts-node.tier2 .fts-node-title {
+  color: var(--rw);
+}
+.fts-arrow {
+  font-size: 18px;
+  color: var(--ink-dim);
+}
+.fts-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fts-branch-cond {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  font-style: italic;
+}
+
+.fts-order {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 2;
+}
+
+.fts-warning {
+  max-width: 640px;
+  border: 1.5px solid var(--red);
+  background: var(--red-wash);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.fts-warning-title {
+  font-weight: 800;
+  color: var(--red);
+  margin: 0 0 6px;
+}
+.fts-warning p:last-child {
+  margin: 0;
+  color: var(--ink);
+}
+
+.fts-error {
+  color: var(--red);
+  font-size: 12.5px;
+  margin: 0 0 10px;
+}
+
+.fts-begin-btn {
+  display: block;
+  max-width: 640px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--navy);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.fts-begin-btn:hover {
+  opacity: 0.92;
+}
+.fts-begin-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

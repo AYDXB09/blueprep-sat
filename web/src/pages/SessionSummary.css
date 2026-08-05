@@ -1,0 +1,146 @@
+.ss-session-id {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin: -12px 0 16px;
+}
+
+.ss-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.ss-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.ss-top-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 700px) {
+  .ss-top-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.ss-score-card {
+  text-align: center;
+  background: var(--panel);
+}
+.ss-score-big {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1;
+}
+.ss-score-sub {
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin: 8px 0 0;
+}
+
+.ss-domain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ss-domain-row {
+  display: grid;
+  grid-template-columns: auto 1fr 3fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.ss-domain-label {
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-domain-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.ss-domain-bar {
+  height: 100%;
+}
+.ss-domain-bar.math {
+  background: var(--math);
+}
+.ss-domain-bar.rw {
+  background: var(--rw);
+}
+.ss-domain-frac {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+.ss-qlist {
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.ss-qrow {
+  display: grid;
+  grid-template-columns: 40px auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.ss-qrow:last-child {
+  border-bottom: none;
+}
+.ss-qrow.missed:hover {
+  background: var(--red-wash);
+}
+.ss-qn {
+  color: var(--ink-dim);
+}
+.ss-qdomain {
+  color: var(--ink-dim);
+}
+.ss-qtime {
+  color: var(--ink-dim);
+  font-size: 11px;
+}
+.ss-qresult {
+  font-weight: 700;
+  text-align: right;
+}
+.ss-qresult.correct {
+  color: var(--green);
+}
+.ss-qresult.missed {
+  color: var(--red);
+}
+
+.ss-retry-btn {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--red);
+  background: var(--red-wash);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ss-retry-btn:hover {
+  opacity: 0.85;
+}
