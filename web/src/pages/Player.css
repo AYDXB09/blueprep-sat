@@ -506,6 +506,11 @@ mark.cue-mark {
   padding: 0 1px;
   cursor: pointer;
   border-bottom: 2px dotted currentColor;
+  outline: none; /* tabIndex=0 makes this focusable — without this reset, the
+    browser's default focus ring (drawn on click in some browsers, not just
+    keyboard nav) visually overlaps the dotted underline and reads as the
+    underline having disappeared. :focus-visible below supplies the real
+    feedback instead. */
   transition: background 0.12s ease;
 }
 mark.cue-mark:hover,

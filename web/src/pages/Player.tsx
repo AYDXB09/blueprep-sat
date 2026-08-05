@@ -674,18 +674,6 @@ export function Player() {
     }
   }, [showCues, cues, questionId, question]);
 
-  // Click delegation for the imperatively-inserted <mark class="cue-mark">
-  // spans — they aren't React elements, so they can't carry onClick props.
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      const target = e.target as HTMLElement | null;
-      const markEl = target?.closest('mark.cue-mark') as HTMLElement | null;
-      if (markEl?.dataset.cueId) setActiveCueId(markEl.dataset.cueId);
-    }
-    document.addEventListener('click', onDocClick);
-    return () => document.removeEventListener('click', onDocClick);
-  }, []);
-
   const focusCue = useCallback((cueId: string) => {
     setActiveCueId(cueId);
     const mark = document.querySelector(`mark.cue-mark[data-cue-id="${cueId}"]`);
@@ -695,6 +683,22 @@ export function Player() {
       setTimeout(() => mark.classList.remove('cue-flash'), 900);
     }
   }, []);
+
+  // Click delegation for the imperatively-inserted <mark class="cue-mark">
+  // spans — they aren't React elements, so they can't carry onClick props.
+  // Routed through focusCue (not a bare setActiveCueId) so clicking the
+  // highlighted word itself gives the same visible flash/scroll-into-view
+  // confirmation as clicking its row in the panel below, instead of a
+  // click that produces no visible feedback.
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      const markEl = target?.closest('mark.cue-mark') as HTMLElement | null;
+      if (markEl?.dataset.cueId) focusCue(markEl.dataset.cueId);
+    }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [focusCue]);
 
   // ---------------- derived ----------------
   const sessionLow = !isOvertime && sessionSeconds <= 60 && sessionSeconds > 0;
