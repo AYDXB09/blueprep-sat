@@ -231,7 +231,7 @@ export function SessionSummary() {
                   </span>
                   <span className="ss-qtime mono">{time}s</span>
                   <span className={`ss-qresult${a.is_correct ? ' correct' : ' missed'}`}>
-                    {a.is_correct ? 'Correct — Review →' : 'Review →'}
+                    {a.is_correct ? 'Correct' : 'Incorrect'}
                   </span>
                 </Link>
               );
