@@ -35,10 +35,21 @@ async function request(url, body, attempts = 5) {
 function normalize(summary, detail, subject, liveItems) {
   const answerOptions = detail.answerOptions || [];
   const correctKeys = detail.keys || [];
-  let correctAnswer = Array.isArray(detail.correct_answer) ? detail.correct_answer[0] : detail.correct_answer;
+  // College Board grid-in (spr) questions can have multiple accepted answer forms,
+  // e.g. ["0.1764", "0.1765", "3/17"] for the same value truncated/rounded/as-fraction.
+  // Keep all of them so the client-side grader can accept any valid form, not just the first.
+  const acceptedAnswers = Array.isArray(detail.correct_answer)
+    ? detail.correct_answer.filter(Boolean)
+    : detail.correct_answer
+      ? [detail.correct_answer]
+      : [];
+  let correctAnswer = acceptedAnswers[0];
   if (!correctAnswer && correctKeys.length) {
     const index = answerOptions.findIndex(option => correctKeys.includes(option.id));
-    if (index >= 0) correctAnswer = String.fromCharCode(65 + index);
+    if (index >= 0) {
+      correctAnswer = String.fromCharCode(65 + index);
+      acceptedAnswers.push(correctAnswer);
+    }
   }
   return {
     id: summary.external_id,
@@ -56,6 +67,9 @@ function normalize(summary, detail, subject, liveItems) {
     stem: detail.stem || "",
     options: answerOptions.map(option => ({ id: option.id, content: option.content || "" })),
     correctAnswer: correctAnswer || "",
+    // Full accepted-form list, used by isCorrect() for grid-in grading; falls back to
+    // [correctAnswer] on older cached data that predates this field.
+    acceptedAnswers: acceptedAnswers.length ? acceptedAnswers : correctAnswer ? [correctAnswer] : [],
     rationale: detail.rationale || ""
   };
 }

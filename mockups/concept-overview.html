@@ -1,0 +1,302 @@
+<title>BluePrep — Concept Overview</title>
+<style>
+  :root {
+    --bg: #f4f2e9;
+    --bg-grid: #eae6d6;
+    --card: #fbfaf4;
+    --ink: #1d1b17;
+    --ink-dim: #6b6656;
+    --line: #d9d4c1;
+    --navy: #1f3a5c;
+    --navy-soft: #2e5580;
+    --navy-wash: #e4ecf3;
+    --gold: #a3752e;
+    --gold-soft: #c99a49;
+    --gold-wash: #f4ead3;
+    --shadow: 0 1px 0 rgba(29,27,23,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171b;
+      --bg-grid: #1b1e23;
+      --card: #1c1f24;
+      --ink: #ece8dc;
+      --ink-dim: #938d7a;
+      --line: #33363c;
+      --navy: #8fb7de;
+      --navy-soft: #6ea0cc;
+      --navy-wash: #1e2a35;
+      --gold: #e3b36a;
+      --gold-soft: #c99a49;
+      --gold-wash: #332a1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171b; --bg-grid: #1b1e23; --card: #1c1f24; --ink: #ece8dc; --ink-dim: #938d7a;
+    --line: #33363c; --navy: #8fb7de; --navy-soft: #6ea0cc; --navy-wash: #1e2a35;
+    --gold: #e3b36a; --gold-soft: #c99a49; --gold-wash: #332a1a;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f2e9; --bg-grid: #eae6d6; --card: #fbfaf4; --ink: #1d1b17; --ink-dim: #6b6656;
+    --line: #d9d4c1; --navy: #1f3a5c; --navy-soft: #2e5580; --navy-wash: #e4ecf3;
+    --gold: #a3752e; --gold-soft: #c99a49; --gold-wash: #f4ead3;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sans { font-family: -apple-system, "Neue Haas Grotesk Text Pro", "Helvetica Neue", Arial, sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  .page { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+  /* ---------- header ---------- */
+  .masthead {
+    padding: 64px 0 40px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 56px;
+    position: relative;
+  }
+  .bubble-row { display: flex; gap: 6px; margin-bottom: 22px; }
+  .bubble {
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 1.3px solid var(--ink-dim);
+    opacity: 0.55;
+  }
+  .bubble.filled { background: var(--navy); border-color: var(--navy); opacity: 1; }
+  .bubble.filled.gold { background: var(--gold); border-color: var(--gold); }
+
+  .eyebrow {
+    font-family: -apple-system, sans-serif;
+    font-size: 12px; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--ink-dim); font-weight: 600; margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(34px, 4.4vw, 52px);
+    line-height: 1.08;
+    margin: 0 0 18px;
+    text-wrap: balance;
+    font-weight: 400;
+    max-width: 15ch;
+  }
+  .lede {
+    font-family: -apple-system, sans-serif;
+    font-size: 17px; line-height: 1.6; color: var(--ink-dim);
+    max-width: 62ch; margin: 0;
+  }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- section labels ---------- */
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  @media (max-width: 860px) { .board { grid-template-columns: 1fr; } }
+
+  .col-head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 22px; padding-bottom: 14px; border-bottom: 2px solid;
+  }
+  .col-head.now { border-color: var(--navy); }
+  .col-head.next { border-color: var(--gold); }
+  .col-head .tag {
+    font-family: -apple-system, sans-serif;
+    font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
+    font-weight: 700; padding: 3px 8px; border-radius: 3px;
+  }
+  .col-head.now .tag { background: var(--navy-wash); color: var(--navy); }
+  .col-head.next .tag { background: var(--gold-wash); color: var(--gold); }
+  .col-head h2 { font-size: 20px; font-weight: 400; margin: 0; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .card h3 {
+    font-family: -apple-system, sans-serif;
+    font-size: 14.5px; font-weight: 700; margin: 0 0 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .now .card h3::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--navy); flex: none; }
+  .next .card h3::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex: none; }
+  .card p {
+    font-family: -apple-system, sans-serif;
+    font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); margin: 0;
+  }
+  .card .src {
+    display: block; margin-top: 8px; font-size: 11px; color: var(--ink-dim); opacity: 0.7;
+  }
+
+  .gap-note {
+    font-family: -apple-system, sans-serif;
+    font-size: 12.5px; line-height: 1.55; color: var(--ink-dim);
+    border-left: 2px solid var(--line); padding: 2px 0 2px 14px;
+    margin: 18px 0 12px;
+  }
+
+  /* ---------- roadmap ---------- */
+  .roadmap-head { margin: 80px 0 30px; }
+  .roadmap-head .eyebrow { margin-bottom: 10px; }
+  .roadmap-head h2 { font-size: 26px; font-weight: 400; margin: 0 0 10px; max-width: 30ch; text-wrap: balance; }
+  .roadmap-head p { font-family: -apple-system, sans-serif; font-size: 14.5px; color: var(--ink-dim); max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  .tiers {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+    border-top: 1px solid var(--line);
+    position: relative;
+  }
+  @media (max-width: 860px) { .tiers { grid-template-columns: 1fr; } }
+
+  .tier {
+    padding: 26px 22px 6px;
+    border-right: 1px solid var(--line);
+    position: relative;
+  }
+  .tier:last-child { border-right: none; }
+  .tier::before {
+    content: attr(data-n);
+    position: absolute; top: -13px; left: 22px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--bg);
+    border: 1.5px solid var(--gold);
+    color: var(--gold);
+    font-family: -apple-system, sans-serif; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tier h3 {
+    font-family: -apple-system, sans-serif;
+    font-size: 15px; font-weight: 700; margin: 8px 0 4px;
+  }
+  .tier .stack {
+    font-family: -apple-system, sans-serif;
+    font-size: 11.5px; color: var(--gold-soft); font-weight: 600;
+    letter-spacing: 0.02em; margin-bottom: 10px;
+  }
+  .tier p {
+    font-family: -apple-system, sans-serif;
+    font-size: 13px; line-height: 1.6; color: var(--ink-dim); margin: 0 0 16px;
+  }
+
+  footer {
+    margin-top: 70px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-family: -apple-system, sans-serif; font-size: 12px; color: var(--ink-dim);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="bubble-row" aria-hidden="true">
+      <div class="bubble filled"></div>
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+      <div class="bubble filled gold"></div>
+      <div class="bubble"></div>
+    </div>
+    <p class="eyebrow">blueprep — concept review</p>
+    <h1>What the tool solves now, and where it grows next</h1>
+    <p class="lede">A single-file, single-machine SAT practice player built around a <b>real, official question bank</b>. The core loop already works — this maps what's solid today against what a rebuild would actually add, not just restate.</p>
+  </div>
+
+  <div class="board">
+    <div>
+      <div class="col-head now">
+        <span class="tag">Today</span>
+        <h2>Solved already</h2>
+      </div>
+
+      <div class="now">
+        <div class="card">
+          <h3>Real, current question bank</h3>
+          <p>A downloader pulls live inventory from the source's public question bank API, resumes from a checkpoint if interrupted, and flags questions that also appear in official full-length practice tests.</p>
+          <span class="src mono">scripts/download-questions.js</span>
+        </div>
+        <div class="card">
+          <h3>Bluebook-style test player</h3>
+          <p>Practice sets are assembled on the fly, with the strike-through, highlighter, and instant-feedback interactions the real digital SAT uses — not a generic quiz UI.</p>
+          <span class="src mono">buildPracticeSet · index.html</span>
+        </div>
+        <div class="card">
+          <h3>Mistake log that self-corrects</h3>
+          <p>Wrong answers are logged automatically; a later correct answer on the same question clears it, a repeat wrong answer re-marks it. Review navigation jumps straight to logged mistakes.</p>
+        </div>
+        <div class="card">
+          <h3>K2 AI coaching</h3>
+          <p>An in-session chat can explain a question, generate a similar problem in the same skill, and act on the current test state — including math-aware formatting and data tables.</p>
+          <span class="src mono">callK2 · buildQuestionContext</span>
+        </div>
+        <div class="card">
+          <h3>Score-history import</h3>
+          <p>Past official-test results can be imported via CSV, feeding the same mistake log and analytics as live practice sessions.</p>
+          <span class="src mono">parseTrackerCsv</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head next">
+        <span class="tag">Constraint</span>
+        <h2>What that architecture caps out at</h2>
+      </div>
+
+      <div class="next">
+        <div class="card">
+          <h3>Progress lives in a local JSON file</h3>
+          <p>Answer history and sessions are written to <span class="mono">data/progress.json</span> / <span class="mono">sessions.json</span> on whatever machine ran the server. Nothing syncs, nothing survives a fresh clone.</p>
+        </div>
+        <div class="card">
+          <h3>No accounts, so no "whose attempt is this"</h3>
+          <p>Every user on the box shares one history. There's no login, so multi-student or multi-device use isn't a supported case — it's a single-player local tool by construction.</p>
+        </div>
+        <div class="card">
+          <h3>170KB of markup carrying the whole UI</h3>
+          <p>The player, review pages, mistake log, and AI panel all live in one <span class="mono">index.html</span>. It works, but every new feature adds to a file that can't be split, tested in isolation, or reused as components.</p>
+        </div>
+        <div class="card">
+          <h3>Numbers, no trend</h3>
+          <p>Per-question analytics exist, but there's no view of accuracy or pace over time — no way to see a section score climbing across ten practice sets.</p>
+        </div>
+        <div class="card">
+          <h3>Not deployable as-is</h3>
+          <p><span class="mono">server.js</span> expects a filesystem it can write to. That's fine on a laptop; it rules out putting this behind a public link for anyone else to try.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="roadmap-head">
+    <p class="eyebrow">enhancement path</p>
+    <h2>Three tiers, each unlocked by the one before it</h2>
+    <p>This is a dependency order, not a wish list — componentizing has to happen before accounts make sense to wire in, and accounts have to exist before there's per-user history worth charting.</p>
+  </div>
+
+  <div class="tiers">
+    <div class="tier" data-n="1">
+      <h3>Componentize the player</h3>
+      <div class="stack">React + Vite + TypeScript</div>
+      <p>Port the existing Bluebook-player logic — ordering, scoring, strike/highlight interactions — out of the single HTML file and into components. Same behavior, testable in isolation, ready to hold new state.</p>
+    </div>
+    <div class="tier" data-n="2">
+      <h3>Give it accounts</h3>
+      <div class="stack">Supabase — Postgres + Auth</div>
+      <p>Replace <span class="mono">progress.json</span> with <span class="mono">users</span> / <span class="mono">test_attempts</span> / <span class="mono">question_responses</span> tables. This is the actual "SaaS" step: attempts are tied to a person, and follow them across devices and sessions.</p>
+    </div>
+    <div class="tier" data-n="3">
+      <h3>Show the trend, ship the link</h3>
+      <div class="stack">Recharts · Vercel</div>
+      <p>Score-over-time and section-breakdown charts turn the mistake log into a visible improvement curve. Deploying to Vercel makes it something a reviewer can actually open, not just read about.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>blueprep-sat — local clone, AYDXB09/blueprep-sat</span>
+    <span>concept pass, pre-implementation</span>
+  </footer>
+
+</div>
