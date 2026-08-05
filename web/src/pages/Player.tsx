@@ -1,35 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import './Player.css';
+import { useAuth } from '../lib/AuthContext';
+import {
+  completeSession,
+  getQuestionWithChoices,
+  getSessionWithAttempts,
+  isSprAnswerCorrect,
+  startQuestionAttempt,
+  submitQuestionAttempt,
+  type AttemptWithQuestion,
+  type QuestionWithChoices,
+} from '../lib/practiceSessions';
+import type { Database } from '../lib/database.types';
 
 // ---------------------------------------------------------------------------
-// Ported faithfully from mockups/player.html. UI-only — demo/mock state below
-// stands in for real Supabase-backed session/question data (TODO: wire to
-// practice_sessions / session_modules / question_attempts once the player is
-// connected to the backend).
+// Ported from mockups/player.html, then wired to real Supabase-backed
+// session/question/attempt data. The interactive shell below (timers, pause,
+// highlighter, strikethrough, mark-for-review, nav popover, module gate,
+// break screen, time's-up modal) is unchanged from the mockup port — only the
+// DATA layer (question content, choices, answered/flag state, attempt
+// writes, prev/next navigation) is real.
 // ---------------------------------------------------------------------------
 
-const TOTAL_Q = 22;
-const CURRENT_Q = 6;
-const ANSWERED: number[] = [1, 2, 3, 4, 5, 6, 8, 9];
-const FLAGGED: number[] = [9, 14];
-
-const GATE_ANSWERED: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21];
-const GATE_FLAGGED: number[] = [9, 14];
-const GATE_TOTAL = 22;
-
-type ChoiceLetter = 'A' | 'B' | 'C' | 'D';
-
-interface Choice {
-  letter: ChoiceLetter;
-  text: string;
-}
-
-const CHOICES: Choice[] = [
-  { letter: 'A', text: '6' },
-  { letter: 'B', text: '8' },
-  { letter: 'C', text: '9' },
-  { letter: 'D', text: '12' },
-];
+type PracticeSessionRow = Database['public']['Tables']['practice_sessions']['Row'];
 
 type MainView = 'main' | 'gate' | 'break';
 
@@ -40,6 +34,117 @@ function fmt(total: number): string {
 }
 
 export function Player() {
+  const { sessionId, n: nParam } = useParams<{ sessionId: string; n: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const n = Number(nParam);
+
+  // ---------------- session / question data ----------------
+  const [session, setSession] = useState<PracticeSessionRow | null>(null);
+  const [attempts, setAttempts] = useState<AttemptWithQuestion[]>([]);
+  const [question, setQuestion] = useState<QuestionWithChoices | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const TOTAL_Q = session?.question_ids.length ?? 0;
+  const CURRENT_Q = n;
+  const questionId = session && Number.isFinite(n) ? session.question_ids[n - 1] : undefined;
+
+  // Load the session once (or whenever sessionId changes).
+  useEffect(() => {
+    if (!sessionId) {
+      setErrorMsg('No session specified.');
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setErrorMsg(null);
+    getSessionWithAttempts(sessionId)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result) {
+          setErrorMsg("This session couldn't be found, or you don't have access to it.");
+          setSession(null);
+          return;
+        }
+        setSession(result.session);
+        setAttempts(result.attempts);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to load this session.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  // Load the current question whenever the session or position changes.
+  useEffect(() => {
+    if (!session) return;
+    if (!Number.isFinite(n) || n < 1 || n > session.question_ids.length) {
+      setErrorMsg('No more questions in this session.');
+      setQuestion(null);
+      return;
+    }
+    const qid = session.question_ids[n - 1];
+    let cancelled = false;
+    setQuestion(null);
+    getQuestionWithChoices(qid)
+      .then((q) => {
+        if (cancelled) return;
+        if (!q) {
+          setErrorMsg('This question could not be loaded.');
+          return;
+        }
+        setQuestion(q);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to load this question.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, n]);
+
+  const refetchAttempts = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await getSessionWithAttempts(sessionId);
+    if (result) setAttempts(result.attempts);
+  }, [sessionId]);
+
+  // ---------------- current attempt tracking ----------------
+  const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
+  const attemptStartInFlightRef = useRef(false);
+
+  const ensureAttemptStarted = useCallback(() => {
+    if (currentAttemptId || attemptStartInFlightRef.current || !user || !sessionId || !questionId) return;
+    attemptStartInFlightRef.current = true;
+    startQuestionAttempt({ userId: user.id, sessionId, questionId, attemptNumber: 1 })
+      .then((row) => setCurrentAttemptId(row.id))
+      .catch((err: unknown) => console.warn('startQuestionAttempt failed:', err))
+      .finally(() => {
+        attemptStartInFlightRef.current = false;
+      });
+  }, [currentAttemptId, user, sessionId, questionId]);
+
+  // Reset per-question answer/attempt state whenever the question changes.
+  useEffect(() => {
+    setCurrentAttemptId(null);
+    setSelectedChoiceId(null);
+    setEnteredValue('');
+    setStruck(new Set());
+    setMarkedForReview(false);
+    setQSeconds(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionId]);
+
   // ---------------- timers ----------------
   const [sessionSeconds, setSessionSeconds] = useState(12 * 60 + 4);
   const [overtimeSeconds, setOvertimeSeconds] = useState(0);
@@ -109,23 +214,53 @@ export function Player() {
   const [refOpen, setRefOpen] = useState(false);
 
   // ---------------- choices / strikethrough / mark for review ----------------
-  const [selected, setSelected] = useState<ChoiceLetter>('B');
-  const [struck, setStruck] = useState<Set<ChoiceLetter>>(new Set());
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [enteredValue, setEnteredValue] = useState('');
+  const [struck, setStruck] = useState<Set<string>>(new Set());
   const [strikeMode, setStrikeMode] = useState(false);
   const [markedForReview, setMarkedForReview] = useState(false);
+  // Flagged-for-review state isn't persisted in the schema (no column for it)
+  // — kept as in-memory state per session, keyed by question position.
+  const [flaggedPositions, setFlaggedPositions] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    setFlaggedPositions((prev) => {
+      const next = new Set(prev);
+      if (markedForReview) next.add(CURRENT_Q);
+      else next.delete(CURRENT_Q);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markedForReview]);
 
   const toggleStruck = useCallback(
-    (letter: ChoiceLetter, e: React.MouseEvent) => {
+    (id: string, e: React.MouseEvent) => {
       if (!strikeMode) return;
       e.stopPropagation();
       setStruck((prev) => {
         const next = new Set(prev);
-        if (next.has(letter)) next.delete(letter);
-        else next.add(letter);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
         return next;
       });
     },
     [strikeMode],
+  );
+
+  const selectChoice = useCallback(
+    (id: string) => {
+      setSelectedChoiceId(id);
+      ensureAttemptStarted();
+    },
+    [ensureAttemptStarted],
+  );
+
+  const onEnteredValueChange = useCallback(
+    (value: string) => {
+      setEnteredValue(value);
+      ensureAttemptStarted();
+    },
+    [ensureAttemptStarted],
   );
 
   // ---------------- view state: main / gate / break ----------------
@@ -186,9 +321,87 @@ export function Player() {
   }, []);
   const skipToTimesUp = useCallback(() => setSessionSeconds(3), []);
 
-  // ---------------- prev/next ----------------
-  const goPrev = useCallback(() => toast('Would navigate to Question 5.'), [toast]);
-  const goNext = useCallback(() => toast('Would navigate to Question 7.'), [toast]);
+  // ---------------- answer commit + prev/next navigation ----------------
+  const [navBusy, setNavBusy] = useState(false);
+
+  const isMcqCorrect = useCallback(
+    (choiceId: string | null): boolean => {
+      if (!choiceId || !question) return false;
+      const choice = question.choices.find((c) => c.id === choiceId);
+      return choice?.is_correct ?? false;
+    },
+    [question],
+  );
+
+  /** Writes the current answer to the in-flight attempt, if one was started. */
+  const commitCurrentAnswer = useCallback(async () => {
+    if (!currentAttemptId || !question) return;
+    const isSpr = question.response_type === 'spr';
+    const isCorrect = isSpr ? isSprAnswerCorrect(enteredValue, question.accepted_answers) : isMcqCorrect(selectedChoiceId);
+    try {
+      await submitQuestionAttempt(currentAttemptId, {
+        selectedChoiceId: isSpr ? null : selectedChoiceId,
+        enteredValue: isSpr ? enteredValue : null,
+        isCorrect,
+        timeTakenSeconds: qSeconds,
+      });
+    } catch (err) {
+      console.warn('submitQuestionAttempt failed:', err);
+    }
+  }, [currentAttemptId, question, enteredValue, selectedChoiceId, isMcqCorrect, qSeconds]);
+
+  const finishSession = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await getSessionWithAttempts(sessionId);
+    const finalAttempts = result?.attempts ?? [];
+    const submitted = finalAttempts.filter((a) => a.submitted_at);
+    const correctCount = submitted.filter((a) => a.is_correct === true).length;
+    await completeSession(sessionId, {
+      actualCount: submitted.length,
+      overtimeSeconds,
+      scoreSummary: {
+        total: TOTAL_Q,
+        answered: submitted.length,
+        correct: correctCount,
+      },
+    });
+    navigate(`/sessions/${sessionId}`);
+  }, [sessionId, overtimeSeconds, TOTAL_Q, navigate]);
+
+  const goPrev = useCallback(async () => {
+    if (!sessionId || navBusy || CURRENT_Q <= 1) return;
+    setNavBusy(true);
+    try {
+      await commitCurrentAnswer();
+      await refetchAttempts();
+      navigate(`/practice/${sessionId}/q/${CURRENT_Q - 1}`);
+    } finally {
+      setNavBusy(false);
+    }
+  }, [sessionId, navBusy, CURRENT_Q, commitCurrentAnswer, refetchAttempts, navigate]);
+
+  const goNext = useCallback(async () => {
+    if (!sessionId || navBusy) return;
+    setNavBusy(true);
+    try {
+      await commitCurrentAnswer();
+      if (CURRENT_Q >= TOTAL_Q) {
+        await finishSession();
+      } else {
+        await refetchAttempts();
+        navigate(`/practice/${sessionId}/q/${CURRENT_Q + 1}`);
+      }
+    } finally {
+      setNavBusy(false);
+    }
+  }, [sessionId, navBusy, CURRENT_Q, TOTAL_Q, commitCurrentAnswer, finishSession, refetchAttempts, navigate]);
+
+  // ---------------- exit control ----------------
+  const exitToDashboard = useCallback(() => {
+    if (window.confirm('Leave this session? Your progress is saved and you can resume later.')) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   // ---------------- highlighter (real Selection/Range API, kept imperative
   // via refs — this mirrors the mockup's actual DOM-surgery behavior, which
@@ -264,15 +477,58 @@ export function Player() {
   // ---------------- derived ----------------
   const sessionLow = !isOvertime && sessionSeconds <= 60 && sessionSeconds > 0;
   const sessionDisplay = isOvertime ? `+${fmt(overtimeSeconds)}` : fmt(Math.max(sessionSeconds, 0));
-  const progressPct = Math.round((CURRENT_Q / TOTAL_Q) * 100);
+  const progressPct = TOTAL_Q > 0 ? Math.round((CURRENT_Q / TOTAL_Q) * 100) : 0;
+
+  const answeredPositions = useMemo(() => {
+    if (!session) return new Set<number>();
+    const positions = new Set<number>();
+    for (const a of attempts) {
+      if (!a.submitted_at) continue;
+      const idx = session.question_ids.indexOf(a.question_id);
+      if (idx >= 0) positions.add(idx + 1);
+    }
+    return positions;
+  }, [attempts, session]);
+
+  const isMath = question?.subject === 'Math';
+  const subjectLabel = question ? (isMath ? 'Math' : 'R&W') : '';
+
+  // ---------------- loading / error states ----------------
+  if (loading) {
+    return (
+      <div className="player-root player-status">
+        <p>Loading session…</p>
+      </div>
+    );
+  }
+  if (errorMsg || !session) {
+    return (
+      <div className="player-root player-status">
+        <p>{errorMsg ?? 'This session could not be loaded.'}</p>
+        <button className="btn primary" onClick={() => navigate('/')}>
+          ← Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+  if (!question) {
+    return (
+      <div className="player-root player-status">
+        <p>Loading question…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="player-root">
       <div className="topbar">
+        <button className="iconbtn" title="Exit to Dashboard" aria-label="Exit to Dashboard" onClick={exitToDashboard}>
+          ←
+        </button>
         <div className="brand">
           <b>Blue</b>Prep
         </div>
-        <span className="subj-badge">Math</span>
+        <span className={`subj-badge${isMath ? '' : ' rw'}`}>{subjectLabel}</span>
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progressPct}%` }} />
         </div>
@@ -286,26 +542,30 @@ export function Player() {
               setNavOpen((o) => !o);
             }}
           >
-            Q{CURRENT_Q} of {TOTAL_Q} · Module 1 ▾
+            Q{CURRENT_Q} of {TOTAL_Q} ▾
           </button>
           <div className={`nav-popover${navOpen ? ' open' : ''}`} ref={navRef}>
             <p className="nhead">Jump to question</p>
             <div className="nav-grid">
-              {Array.from({ length: TOTAL_Q }, (_, i) => i + 1).map((n) => {
-                const isAnswered = ANSWERED.includes(n);
-                const isFlagged = FLAGGED.includes(n);
-                const isCurrent = n === CURRENT_Q;
+              {Array.from({ length: TOTAL_Q }, (_, i) => i + 1).map((pos) => {
+                const isAnswered = answeredPositions.has(pos);
+                const isFlagged = flaggedPositions.has(pos);
+                const isCurrent = pos === CURRENT_Q;
                 return (
                   <div
-                    key={n}
+                    key={pos}
                     className={`nav-cell${isAnswered ? ' answered' : ''}${isCurrent ? ' current' : ''}${
                       isFlagged ? ' flagged' : ''
                     }`}
-                    title={`Question ${n}${isAnswered ? ' — answered' : ' — unanswered'}${
+                    title={`Question ${pos}${isAnswered ? ' — answered' : ' — unanswered'}${
                       isFlagged ? ', flagged' : ''
                     }`}
+                    onClick={() => {
+                      setNavOpen(false);
+                      if (sessionId) navigate(`/practice/${sessionId}/q/${pos}`);
+                    }}
                   >
-                    {n}
+                    {pos}
                   </div>
                 );
               })}
@@ -337,12 +597,16 @@ export function Player() {
               {fmt(qSeconds)}
             </p>
           </div>
-          <button className="iconbtn wide" title="Reference sheet" aria-label="Open reference sheet" onClick={() => setRefOpen(true)}>
-            📐 Reference
-          </button>
-          <button className="iconbtn wide" title="Desmos" aria-label="Open Desmos" onClick={() => setCalcOpen((o) => !o)}>
-            Desmos
-          </button>
+          {isMath && (
+            <button className="iconbtn wide" title="Reference sheet" aria-label="Open reference sheet" onClick={() => setRefOpen(true)}>
+              📐 Reference
+            </button>
+          )}
+          {isMath && (
+            <button className="iconbtn wide" title="Desmos" aria-label="Open Desmos" onClick={() => setCalcOpen((o) => !o)}>
+              Desmos
+            </button>
+          )}
           <button className="iconbtn" title="Ask AI" aria-label="Ask AI about this question" onClick={() => toast('Would open the live Ask AI chat for this question.')}>
             ✨
           </button>
@@ -352,72 +616,76 @@ export function Player() {
         </div>
       </div>
 
-      <div className={`calc-panel${calcOpen ? ' open' : ''}`}>
-        <div className="calc-head">
-          <span>Desmos</span>
-          <span className="x" onClick={() => setCalcOpen(false)}>
-            ✕
-          </span>
-        </div>
-        <div className="calc-body">
-          <div className="cicon">📐</div>
-          <p>
-            An embedded Desmos calculator renders here in the real app — this preview&apos;s sandbox blocks loading a
-            third-party embed directly, so it opens in a new tab instead.
-          </p>
-          <a className="btn primary" href="https://www.desmos.com/calculator" target="_blank" rel="noopener noreferrer">
-            Open Desmos ↗
-          </a>
-        </div>
-      </div>
-
-      <div className={`modal-backdrop${refOpen ? ' open' : ''}`}>
-        <div className="modal-card ref-card">
+      {isMath && (
+        <div className={`calc-panel${calcOpen ? ' open' : ''}`}>
           <div className="calc-head">
-            <span>Reference Sheet</span>
-            <span className="x" onClick={() => setRefOpen(false)}>
+            <span>Desmos</span>
+            <span className="x" onClick={() => setCalcOpen(false)}>
               ✕
             </span>
           </div>
-          <div className="ref-body">
-            <div className="ref-grid">
-              <div className="ref-item">
-                <p className="rlabel">Circle</p>
-                <p className="rformula">A = πr² &nbsp; C = 2πr</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Rectangle</p>
-                <p className="rformula">A = lw</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Triangle</p>
-                <p className="rformula">A = ½bh</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Right triangle</p>
-                <p className="rformula">a² + b² = c²</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Rectangular solid</p>
-                <p className="rformula">V = lwh</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Cylinder</p>
-                <p className="rformula">V = πr²h</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Sphere</p>
-                <p className="rformula">V = (4/3)πr³</p>
-              </div>
-              <div className="ref-item">
-                <p className="rlabel">Cone</p>
-                <p className="rformula">V = (1/3)πr²h</p>
-              </div>
-            </div>
-            <p className="ref-note">Sum of angles in a triangle = 180°. A circle has 360°, or 2π radians.</p>
+          <div className="calc-body">
+            <div className="cicon">📐</div>
+            <p>
+              An embedded Desmos calculator renders here in the real app — this preview&apos;s sandbox blocks loading a
+              third-party embed directly, so it opens in a new tab instead.
+            </p>
+            <a className="btn primary" href="https://www.desmos.com/calculator" target="_blank" rel="noopener noreferrer">
+              Open Desmos ↗
+            </a>
           </div>
         </div>
-      </div>
+      )}
+
+      {isMath && (
+        <div className={`modal-backdrop${refOpen ? ' open' : ''}`}>
+          <div className="modal-card ref-card">
+            <div className="calc-head">
+              <span>Reference Sheet</span>
+              <span className="x" onClick={() => setRefOpen(false)}>
+                ✕
+              </span>
+            </div>
+            <div className="ref-body">
+              <div className="ref-grid">
+                <div className="ref-item">
+                  <p className="rlabel">Circle</p>
+                  <p className="rformula">A = πr² &nbsp; C = 2πr</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Rectangle</p>
+                  <p className="rformula">A = lw</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Triangle</p>
+                  <p className="rformula">A = ½bh</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Right triangle</p>
+                  <p className="rformula">a² + b² = c²</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Rectangular solid</p>
+                  <p className="rformula">V = lwh</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Cylinder</p>
+                  <p className="rformula">V = πr²h</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Sphere</p>
+                  <p className="rformula">V = (4/3)πr³</p>
+                </div>
+                <div className="ref-item">
+                  <p className="rlabel">Cone</p>
+                  <p className="rformula">V = (1/3)πr²h</p>
+                </div>
+              </div>
+              <p className="ref-note">Sum of angles in a triangle = 180°. A circle has 360°, or 2π radians.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className={`hl-popover${hlPopoverOpen ? ' open' : ''}`}
@@ -438,45 +706,64 @@ export function Player() {
             <div className="pane left">
               <div className="qmeta">
                 <span className="qnum mono">Question {CURRENT_Q}</span>
-                <span
-                  className="retired-chip"
-                  title="No longer in the source's live rotation — the skill it tests is still current, but you won't see this exact question on a real exam."
-                >
-                  Retired ⓘ
-                </span>
+                {!question.is_active && (
+                  <span
+                    className="retired-chip"
+                    title="No longer in the source's live rotation — the skill it tests is still current, but you won't see this exact question on a real exam."
+                  >
+                    Retired ⓘ
+                  </span>
+                )}
               </div>
               <div className="stimulus serif" ref={stimulusRef} onMouseUp={onStimulusMouseUp}>
-                <p>
-                  A rectangular garden has a length that is 3 feet more than twice its width. If the perimeter of the
-                  garden is 54 feet, what is the width, in feet, of the garden?
-                </p>
-                <p style={{ color: 'var(--ink-dim)', fontSize: '14px' }}>
-                  Let <i>w</i> represent the width, in feet, of the garden. Select any text in this passage to try the
-                  highlighter.
-                </p>
+                {question.stimulus_markup && (
+                  // Trusted first-party content from our own `questions` table, not user input.
+                  <div dangerouslySetInnerHTML={{ __html: question.stimulus_markup }} />
+                )}
+                {/* eslint-disable-next-line react/no-danger */}
+                <div dangerouslySetInnerHTML={{ __html: question.stem_markup }} />
               </div>
             </div>
 
             <div className="pane right">
-              <div className="choices">
-                {CHOICES.map((c) => (
-                  <div
-                    key={c.letter}
-                    className={`choice${selected === c.letter ? ' selected' : ''}${struck.has(c.letter) ? ' struck' : ''}`}
-                    onClick={() => setSelected(c.letter)}
-                  >
-                    <span className="letter" onClick={(e) => toggleStruck(c.letter, e)}>
-                      {c.letter}
-                    </span>
-                    <span className="ctext">{c.text}</span>
-                  </div>
-                ))}
-              </div>
+              {question.response_type === 'spr' ? (
+                <div className="spr-input-wrap">
+                  <label htmlFor="sprInput" className="spr-label">
+                    Enter your answer
+                  </label>
+                  <input
+                    id="sprInput"
+                    className="spr-input mono"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 3/4 or 0.75"
+                    value={enteredValue}
+                    onChange={(e) => onEnteredValueChange(e.target.value)}
+                  />
+                  <p className="spr-hint">Fractions (3/4) and decimals (0.75) are both accepted.</p>
+                </div>
+              ) : (
+                <div className="choices">
+                  {question.choices.map((c) => (
+                    <div
+                      key={c.id}
+                      className={`choice${selectedChoiceId === c.id ? ' selected' : ''}${struck.has(c.id) ? ' struck' : ''}`}
+                      onClick={() => selectChoice(c.id)}
+                    >
+                      <span className="letter" onClick={(e) => toggleStruck(c.id, e)}>
+                        {c.label}
+                      </span>
+                      {/* Trusted first-party content from our own `choices` table, not user input. */}
+                      <span className="ctext" dangerouslySetInnerHTML={{ __html: c.content_markup }} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="bottombar" id="mainBottombar">
-            <button className="btn ghost" onClick={goPrev}>
+            <button className="btn ghost" onClick={goPrev} disabled={navBusy || CURRENT_Q <= 1}>
               ← Prev
             </button>
             <button className={`btn ghost${markedForReview ? ' active' : ''}`} onClick={() => setMarkedForReview((m) => !m)}>
@@ -485,8 +772,8 @@ export function Player() {
             <button className={`btn ghost${strikeMode ? ' active' : ''}`} onClick={() => setStrikeMode((s) => !s)}>
               ✎ Strikethrough tool
             </button>
-            <button className="btn primary" onClick={goNext}>
-              Next →
+            <button className="btn primary" onClick={goNext} disabled={navBusy}>
+              {CURRENT_Q >= TOTAL_Q ? 'Finish →' : 'Next →'}
             </button>
           </div>
         </>
@@ -494,31 +781,31 @@ export function Player() {
 
       {view === 'gate' && (
         <div className="gate-view open">
-          <h2>Review before you submit Module 1</h2>
-          <p className="gsub">You can still go back and change any answer. Once you submit, Module 1 is final.</p>
+          <h2>Review before you submit this module</h2>
+          <p className="gsub">You can still go back and change any answer. Once you submit, this module is final.</p>
           <div className="gate-summary">
             <div className="gstat">
-              <p className="gnum">{GATE_ANSWERED.length}</p>
+              <p className="gnum">{answeredPositions.size}</p>
               <p className="glabel">Answered</p>
             </div>
             <div className="gstat">
-              <p className="gnum warn">{GATE_TOTAL - GATE_ANSWERED.length}</p>
+              <p className="gnum warn">{TOTAL_Q - answeredPositions.size}</p>
               <p className="glabel">Unanswered</p>
             </div>
             <div className="gstat">
-              <p className="gnum">{GATE_FLAGGED.length}</p>
+              <p className="gnum">{flaggedPositions.size}</p>
               <p className="glabel">Flagged</p>
             </div>
           </div>
           <div className="gate-grid">
-            {Array.from({ length: GATE_TOTAL }, (_, i) => i + 1).map((n) => (
+            {Array.from({ length: TOTAL_Q }, (_, i) => i + 1).map((pos) => (
               <div
-                key={n}
-                className={`nav-cell${GATE_ANSWERED.includes(n) ? ' answered' : ''}${
-                  GATE_FLAGGED.includes(n) ? ' flagged' : ''
+                key={pos}
+                className={`nav-cell${answeredPositions.has(pos) ? ' answered' : ''}${
+                  flaggedPositions.has(pos) ? ' flagged' : ''
                 }`}
               >
-                {n}
+                {pos}
               </div>
             ))}
           </div>
@@ -527,7 +814,7 @@ export function Player() {
               ← Back to test
             </button>
             <button className="btn primary" style={{ margin: 0 }} onClick={gateSubmit}>
-              Submit Module 1
+              Submit module
             </button>
           </div>
         </div>

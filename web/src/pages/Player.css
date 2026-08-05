@@ -194,6 +194,48 @@
   margin: 0 0 14px;
 }
 
+.subj-badge.rw {
+  border-color: var(--rw);
+  color: var(--rw);
+  background: var(--rw-wash);
+}
+
+.player-status {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  padding: 40px;
+}
+
+.spr-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 260px;
+}
+.spr-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-dim);
+}
+.spr-input {
+  padding: 12px 14px;
+  font-size: 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.spr-input:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+.spr-hint {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
 .choices {
   display: flex;
   flex-direction: column;

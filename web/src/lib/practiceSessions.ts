@@ -298,6 +298,59 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
   return mistakes;
 }
 
+export type ChoiceRow = Database['public']['Tables']['choices']['Row'];
+
+export interface QuestionWithChoices extends QuestionRow {
+  choices: ChoiceRow[];
+}
+
+/** One question plus its choices (ordered by label), for the Player. */
+export async function getQuestionWithChoices(questionId: string): Promise<QuestionWithChoices | null> {
+  const { data: question, error: questionError } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('id', questionId)
+    .maybeSingle();
+  if (questionError) throw questionError;
+  if (!question) return null;
+
+  const { data: choices, error: choicesError } = await supabase
+    .from('choices')
+    .select('*')
+    .eq('question_id', questionId)
+    .order('label', { ascending: true });
+  if (choicesError) throw choicesError;
+
+  return { ...question, choices: choices ?? [] };
+}
+
+/**
+ * Numeric-equivalence check for grid-in (spr) answers — mirrors V1's
+ * isCorrect()/normalizeNumber() in index.html. Accepts "3/4" style fractions
+ * and tolerates up to 0.01 difference so a truncated-decimal accepted form
+ * still matches an exact fraction entry (and vice versa).
+ */
+function normalizeNumber(value: string): number {
+  const text = String(value || '').trim();
+  if (text.includes('/')) {
+    const [a, b] = text.split('/').map(Number);
+    return b ? a / b : NaN;
+  }
+  const num = Number(text);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+export function isSprAnswerCorrect(enteredValue: string, acceptedAnswers: Json | null): boolean {
+  const actual = normalizeNumber(enteredValue);
+  if (!Number.isFinite(actual)) return false;
+  const accepted = Array.isArray(acceptedAnswers) ? (acceptedAnswers as unknown[]) : [];
+  if (accepted.length === 0) return false;
+  return accepted.some((form) => {
+    const expected = normalizeNumber(String(form));
+    return Number.isFinite(expected) && Math.abs(expected - actual) <= 0.01;
+  });
+}
+
 function stripHtmlPreview(markup: string, maxLen = 100): string {
   const text = markup.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
