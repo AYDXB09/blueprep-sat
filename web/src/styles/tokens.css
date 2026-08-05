@@ -1,0 +1,99 @@
+/* Design tokens — carried over from the validated Player/Builder mockups.
+   Keep this the single source of truth; don't redefine these ad hoc in
+   component files. Respects the light/dark theme split already designed
+   into user_settings.theme ('light' | 'dark' | 'system'). */
+
+:root {
+  --bg: #ffffff;
+  --panel: #f6f7f9;
+  --ink: #14181f;
+  --ink-dim: #5b6472;
+  --line: #dde1e7;
+
+  --navy: #0f4fb0;
+  --navy-wash: #e8f0fc;
+
+  /* Subject accents — used consistently everywhere a subject is shown,
+     from the Ad-hoc Builder's split panels to Progress's domain chart. */
+  --math: #0f8a72;
+  --math-wash: #e1f3ee;
+  --rw: #b8860b;
+  --rw-wash: #f7edd4;
+
+  /* Traps, warnings, retired-question tags, overtime clock — one accent,
+     one meaning, everywhere it appears. */
+  --red: #c23b2c;
+  --red-wash: #fbe9e6;
+
+  --green: #1f8a5c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318;
+    --panel: #181b21;
+    --ink: #e9ebf0;
+    --ink-dim: #8b93a1;
+    --line: #2a2e37;
+
+    --navy: #6fa6ea;
+    --navy-wash: #17263d;
+
+    --math: #4fbfa4;
+    --math-wash: #12261f;
+    --rw: #e0b04f;
+    --rw-wash: #2c2210;
+
+    --red: #e3846f;
+    --red-wash: #2c1712;
+
+    --green: #4fd18c;
+  }
+}
+
+/* Explicit theme override — wins over the OS preference in both directions,
+   for when Settings' theme selector is set to something other than
+   "system". Applied by stamping data-theme on <html> at app startup. */
+:root[data-theme='dark'] {
+  --bg: #111318;
+  --panel: #181b21;
+  --ink: #e9ebf0;
+  --ink-dim: #8b93a1;
+  --line: #2a2e37;
+  --navy: #6fa6ea;
+  --navy-wash: #17263d;
+  --math: #4fbfa4;
+  --math-wash: #12261f;
+  --rw: #e0b04f;
+  --rw-wash: #2c2210;
+  --red: #e3846f;
+  --red-wash: #2c1712;
+  --green: #4fd18c;
+}
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --panel: #f6f7f9;
+  --ink: #14181f;
+  --ink-dim: #5b6472;
+  --line: #dde1e7;
+  --navy: #0f4fb0;
+  --navy-wash: #e8f0fc;
+  --math: #0f8a72;
+  --math-wash: #e1f3ee;
+  --rw: #b8860b;
+  --rw-wash: #f7edd4;
+  --red: #c23b2c;
+  --red-wash: #fbe9e6;
+  --green: #1f8a5c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, 'Neue Haas Grotesk Text Pro', 'Helvetica Neue', Arial, sans-serif;
+}
