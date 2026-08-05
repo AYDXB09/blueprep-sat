@@ -1109,8 +1109,17 @@
     }
     function isCorrect(question, answer) {
       if (question.type !== "spr") return answer === question.correctAnswer;
-      const expected = normalizeNumber(question.correctAnswer), actual = normalizeNumber(answer);
-      return Number.isFinite(expected) && Number.isFinite(actual) && Math.abs(expected - actual) < 0.001;
+      // Grid-in questions can have multiple accepted answer forms (e.g. a truncated decimal
+      // and its exact fraction). Check against all of them, not just the first cached form.
+      const accepted = Array.isArray(question.acceptedAnswers) && question.acceptedAnswers.length
+        ? question.acceptedAnswers
+        : [question.correctAnswer];
+      const actual = normalizeNumber(answer);
+      if (!Number.isFinite(actual)) return false;
+      return accepted.some(form => {
+        const expected = normalizeNumber(form);
+        return Number.isFinite(expected) && Math.abs(expected - actual) < 0.001;
+      });
     }
     function answerDisplay(question, answer) {
       if (!answer) return "No answer";
