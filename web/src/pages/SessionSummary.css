@@ -100,9 +100,13 @@
   font-size: 12.5px;
   color: var(--ink);
   text-decoration: none;
+  cursor: pointer;
 }
 .ss-qrow:last-child {
   border-bottom: none;
+}
+.ss-qrow:hover {
+  background: var(--panel);
 }
 .ss-qrow.missed:hover {
   background: var(--red-wash);

@@ -4,6 +4,7 @@ import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import {
   createPracticeSession,
+  getQuestionIdsWithCues,
   getSessionWithAttempts,
   type AttemptWithQuestion,
 } from '../lib/practiceSessions';
@@ -59,6 +60,7 @@ export function SessionSummary() {
   );
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [cuedQuestionIds, setCuedQuestionIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!sessionId) return;
@@ -74,6 +76,22 @@ export function SessionSummary() {
       cancelled = true;
     };
   }, [sessionId]);
+
+  // Which questions in this session have any cues, for the row indicator.
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    getQuestionIdsWithCues(data.session.question_ids)
+      .then((ids) => {
+        if (!cancelled) setCuedQuestionIds(ids);
+      })
+      .catch(() => {
+        if (!cancelled) setCuedQuestionIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data]);
 
   const domainBreakdown = useMemo(() => (data ? domainBreakdownFrom(data.attempts) : []), [data]);
 
@@ -197,21 +215,24 @@ export function SessionSummary() {
               const domain = a.questions?.domain ?? '—';
               const time = a.time_taken_seconds ?? 0;
               const position = questionPositionById.get(a.question_id) ?? '?';
-              return a.is_correct ? (
-                <div key={a.id} className="ss-qrow">
+              return (
+                <Link
+                  key={a.id}
+                  to={`/practice/${sessionId}/q/${position}`}
+                  className={`ss-qrow${a.is_correct ? '' : ' missed'}`}
+                >
                   <span className="ss-qn mono">Q{position}</span>
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
-                  <span className="ss-qdomain">{domain}</span>
+                  <span className="ss-qdomain">
+                    {domain}
+                    {cuedQuestionIds.has(a.question_id) && (
+                      <span title="Has trap/cue analysis"> 💡</span>
+                    )}
+                  </span>
                   <span className="ss-qtime mono">{time}s</span>
-                  <span className="ss-qresult correct">Correct</span>
-                </div>
-              ) : (
-                <Link key={a.id} to={`/practice/${sessionId}/q/${position}`} className="ss-qrow missed">
-                  <span className="ss-qn mono">Q{position}</span>
-                  <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
-                  <span className="ss-qdomain">{domain}</span>
-                  <span className="ss-qtime mono">{time}s</span>
-                  <span className="ss-qresult missed">Review →</span>
+                  <span className={`ss-qresult${a.is_correct ? ' correct' : ' missed'}`}>
+                    {a.is_correct ? 'Correct — Review →' : 'Review →'}
+                  </span>
                 </Link>
               );
             })}

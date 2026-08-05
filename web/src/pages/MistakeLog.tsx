@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
-import { createPracticeSession, getMistakes, type Mistake, type SubjectFilter } from '../lib/practiceSessions';
+import {
+  createPracticeSession,
+  getMistakes,
+  getQuestionIdsWithCues,
+  type Mistake,
+  type SubjectFilter,
+} from '../lib/practiceSessions';
 import { fmtDate } from '../lib/format';
 import './MistakeLog.css';
 
@@ -37,6 +43,7 @@ export function MistakeLog() {
   const [subjectFilter, setSubjectFilter] = useState<SubjectFilterUi>('all');
   const [domainFilter, setDomainFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [cuedQuestionIds, setCuedQuestionIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -52,6 +59,22 @@ export function MistakeLog() {
       cancelled = true;
     };
   }, [user]);
+
+  // Which mistakes have any cues, for the row indicator.
+  useEffect(() => {
+    if (!mistakes || mistakes.length === 0) return;
+    let cancelled = false;
+    getQuestionIdsWithCues(mistakes.map((m) => m.questionId))
+      .then((ids) => {
+        if (!cancelled) setCuedQuestionIds(ids);
+      })
+      .catch(() => {
+        if (!cancelled) setCuedQuestionIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mistakes]);
 
   // Domain options are scoped to the selected subject — picking "Math" should
   // only ever offer Math domains in the dropdown, not R&W ones alongside them.
@@ -209,6 +232,7 @@ export function MistakeLog() {
                     <span className="ml-row-domain">
                       {m.domain}
                       {m.sourceExternalId && <span className="ml-row-cbid mono"> · {m.sourceExternalId}</span>}
+                      {cuedQuestionIds.has(m.questionId) && <span title="Has trap/cue analysis"> 💡</span>}
                     </span>
                     <span className="ml-row-stem">{m.stemPreview}</span>
                   </div>

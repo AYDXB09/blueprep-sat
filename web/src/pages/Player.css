@@ -185,6 +185,18 @@
   border-radius: 4px;
   cursor: help;
 }
+.cue-available-chip {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--navy);
+  border: 1px solid var(--navy);
+  background: var(--navy-wash);
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: help;
+}
 
 .stimulus {
   font-size: 16.5px;
@@ -541,6 +553,33 @@ mark.cue-assumption {
   color: var(--rw);
 }
 
+.rationale-panel {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--panel);
+}
+.rationale-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  margin: 0 0 10px;
+}
+.rationale-body {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.rationale-body p {
+  margin: 0 0 10px;
+}
+.rationale-body p:last-child {
+  margin-bottom: 0;
+}
+
 .cue-panel {
   margin-top: 22px;
   border: 1px solid var(--line);
@@ -775,6 +814,13 @@ mark.cue-assumption {
   position: absolute;
   top: -6px;
   right: -5px;
+  font-size: 9px;
+}
+.nav-cell.has-cue::before {
+  content: '💡';
+  position: absolute;
+  top: -6px;
+  left: -5px;
   font-size: 9px;
 }
 .nav-legend {

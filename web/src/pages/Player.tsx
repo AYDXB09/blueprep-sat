@@ -5,6 +5,7 @@ import { useAuth } from '../lib/AuthContext';
 import {
   completeSession,
   getCuesForQuestion,
+  getQuestionIdsWithCues,
   getQuestionWithChoices,
   getSessionWithAttempts,
   isSprAnswerCorrect,
@@ -142,6 +143,9 @@ export function Player() {
   const stemMarkupRef = useRef<HTMLDivElement | null>(null);
   const choiceRefsMap = useRef<Map<string, HTMLElement>>(new Map());
   const processedCueKeyRef = useRef<string | null>(null);
+  // Which of this session's questions have cues at all — for the nav grid's
+  // "has cue analysis" indicator, so it's visible before opening a question.
+  const [cuedQuestionIds, setCuedQuestionIds] = useState<Set<string>>(new Set());
 
   const TOTAL_Q = session?.question_ids.length ?? 0;
   const CURRENT_Q = n;
@@ -239,6 +243,29 @@ export function Player() {
       cancelled = true;
     };
   }, [questionId]);
+
+  // Fetch once per session load — which of its questions have any cues,
+  // for the nav grid's indicator.
+  useEffect(() => {
+    if (!session) {
+      setCuedQuestionIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    getQuestionIdsWithCues(session.question_ids)
+      .then((ids) => {
+        if (!cancelled) setCuedQuestionIds(ids);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          console.warn('getQuestionIdsWithCues failed:', err);
+          setCuedQuestionIds(new Set());
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   const refetchAttempts = useCallback(async () => {
     if (!sessionId) return;
@@ -646,8 +673,12 @@ export function Player() {
   // revisiting a question they already have a submitted attempt for.
   const hasAnswered = question?.response_type === 'spr' ? enteredValue.trim() !== '' : !!selectedChoiceId;
   const hasSubmittedAttemptForQuestion = attempts.some((a) => a.question_id === questionId && !!a.submitted_at);
-  const showCues =
-    hasAnswered && cues.length > 0 && (session?.feedback_mode === 'immediate' || hasSubmittedAttemptForQuestion);
+  const canRevealFeedback = hasAnswered && (session?.feedback_mode === 'immediate' || hasSubmittedAttemptForQuestion);
+  const showCues = canRevealFeedback && cues.length > 0;
+  // The real source (e.g. College Board) rationale — shown for every
+  // question once answered, independent of whether it's one of the ones
+  // with authored cues on top.
+  const showRationale = canRevealFeedback && !!question?.source_rationale_markup;
 
   // One-time DOM-mutation pass per question load, once cues become visible.
   // Guarded by processedCueKeyRef so it never re-wraps already-wrapped text
@@ -777,15 +808,16 @@ export function Player() {
                 const isAnswered = answeredPositions.has(pos);
                 const isFlagged = flaggedPositions.has(pos);
                 const isCurrent = pos === CURRENT_Q;
+                const hasCue = !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
                 return (
                   <div
                     key={pos}
                     className={`nav-cell${isAnswered ? ' answered' : ''}${isCurrent ? ' current' : ''}${
                       isFlagged ? ' flagged' : ''
-                    }`}
+                    }${hasCue ? ' has-cue' : ''}`}
                     title={`Question ${pos}${isAnswered ? ' — answered' : ' — unanswered'}${
                       isFlagged ? ', flagged' : ''
-                    }`}
+                    }${hasCue ? ' — has trap/cue analysis' : ''}`}
                     onClick={() => {
                       setNavOpen(false);
                       if (sessionId) navigate(`/practice/${sessionId}/q/${pos}`);
@@ -806,6 +838,7 @@ export function Player() {
                 Unanswered
               </span>
               <span>🔖 Flagged</span>
+              <span>💡 Has cue analysis</span>
             </div>
           </div>
         </div>
@@ -950,6 +983,11 @@ export function Player() {
             <div className="pane left">
               <div className="qmeta">
                 <span className="qnum mono">Question {CURRENT_Q}</span>
+                {cues.length > 0 && (
+                  <span className="cue-available-chip" title="This question has trap/cue analysis — answer it to reveal.">
+                    💡 Has cue analysis
+                  </span>
+                )}
                 {!question.is_active && (
                   <span
                     className="retired-chip"
@@ -1026,6 +1064,15 @@ export function Player() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {showRationale && (
+                <div className="rationale-panel">
+                  <p className="rationale-title">Explanation</p>
+                  {/* Trusted first-party content (the source's own official answer
+                      rationale), not user input. */}
+                  <div className="rationale-body" dangerouslySetInnerHTML={{ __html: question!.source_rationale_markup! }} />
                 </div>
               )}
 

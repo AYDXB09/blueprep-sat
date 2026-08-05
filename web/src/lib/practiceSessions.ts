@@ -378,6 +378,19 @@ export async function getCuesForQuestion(questionId: string): Promise<CueWithCat
   return (data ?? []) as CueWithCategory[];
 }
 
+/**
+ * Which of the given question ids have any cues at all — used to render a
+ * visible "has cue analysis" indicator wherever questions are listed
+ * (Player's nav grid, Session Summary, Mistake Log), since otherwise there's
+ * no way to tell which questions are worth opening before doing so.
+ */
+export async function getQuestionIdsWithCues(questionIds: string[]): Promise<Set<string>> {
+  if (questionIds.length === 0) return new Set();
+  const { data, error } = await supabase.from('cues').select('question_id').in('question_id', questionIds);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.question_id));
+}
+
 function stripHtmlPreview(markup: string, maxLen = 100): string {
   const text = markup.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
