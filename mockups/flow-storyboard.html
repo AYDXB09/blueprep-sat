@@ -1,0 +1,556 @@
+<title>BluePrep — Product Flow Sketches</title>
+<style>
+  :root {
+    --bg: #eef2f8;
+    --grid: #dbe4f1;
+    --paper: #ffffff;
+    --line: #2f5590;
+    --line-soft: #a8bcd8;
+    --line-faint: #d3ddec;
+    --red: #b03a2e;
+    --ink: #1b2836;
+    --ink-dim: #5b6b83;
+    --chip: #e4ecf7;
+    --math: #0f8a72;
+    --math-wash: #e1f3ee;
+    --rw: #b8860b;
+    --rw-wash: #f7edd4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1620; --grid: #182233; --paper: #131b27;
+      --line: #7fa8e0; --line-soft: #3d5074; --line-faint: #263349;
+      --red: #e3846f; --ink: #e7edf7; --ink-dim: #8fa0bd; --chip: #1c2942;
+      --math: #4fbfa4; --math-wash: #12261f; --rw: #e0b04f; --rw-wash: #2c2210;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1620; --grid: #182233; --paper: #131b27;
+    --line: #7fa8e0; --line-soft: #3d5074; --line-faint: #263349;
+    --red: #e3846f; --ink: #e7edf7; --ink-dim: #8fa0bd; --chip: #1c2942;
+    --math: #4fbfa4; --math-wash: #12261f; --rw: #e0b04f; --rw-wash: #2c2210;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef2f8; --grid: #dbe4f1; --paper: #ffffff;
+    --line: #2f5590; --line-soft: #a8bcd8; --line-faint: #d3ddec;
+    --red: #b03a2e; --ink: #1b2836; --ink-dim: #5b6b83; --chip: #e4ecf7;
+    --math: #0f8a72; --math-wash: #e1f3ee; --rw: #b8860b; --rw-wash: #f7edd4;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 26px 26px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 26px 26px,
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .note { font-style: italic; color: var(--red); }
+
+  .page { max-width: 1280px; margin: 0 auto; padding: 48px 32px 100px; }
+
+  .eyebrow { font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; margin: 0 0 12px; }
+  h1 { font-size: clamp(28px, 3.6vw, 38px); line-height: 1.15; margin: 0 0 14px; font-weight: 800; text-wrap: balance; max-width: 22ch; }
+  .lede { font-size: 15px; line-height: 1.6; color: var(--ink-dim); max-width: 66ch; margin: 0 0 40px; }
+
+  /* nav map */
+  .navmap {
+    background: var(--paper); border: 1.5px solid var(--line); border-radius: 10px;
+    padding: 22px 26px 26px; margin-bottom: 56px;
+  }
+  .navmap h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 18px; color: var(--ink-dim); }
+  .navrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .navnode {
+    border: 1.5px solid var(--line); border-radius: 6px; padding: 8px 14px;
+    font-size: 13px; font-weight: 700; background: var(--chip); white-space: nowrap;
+  }
+  .navnode.root { background: var(--line); color: var(--paper); }
+  .navarrow { color: var(--line-soft); font-size: 16px; }
+  .navbranch { margin-left: 34px; margin-top: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .navbranch::before { content: "\21B3"; color: var(--line-soft); margin-right: 2px; }
+
+  .subject-legend { display: flex; gap: 18px; margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line-faint); font-size: 11.5px; color: var(--ink-dim); }
+  .subject-legend span { display: flex; align-items: center; gap: 6px; }
+  .subject-legend .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+
+  .subj-chip {
+    display: inline-block; border-radius: 4px; padding: 2px 7px; font-size: 8.5px; font-weight: 800;
+    letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .subj-chip.math { background: var(--math-wash); color: var(--math); border: 1px solid var(--math); }
+  .subj-chip.rw { background: var(--rw-wash); color: var(--rw); border: 1px solid var(--rw); }
+  .wf-btn.math { border-color: var(--math); color: var(--math); background: var(--math-wash); }
+  .wf-btn.rw { border-color: var(--rw); color: var(--rw); background: var(--rw-wash); }
+
+  /* storyboard */
+  .story { display: flex; flex-direction: column; gap: 10px; }
+  .screen-row { display: grid; grid-template-columns: 340px 1fr; gap: 28px; align-items: start; margin-bottom: 44px; position: relative; }
+  @media (max-width: 800px) { .screen-row { grid-template-columns: 1fr; } }
+
+  .badge {
+    position: absolute; left: -46px; top: 0;
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid var(--line); background: var(--paper); color: var(--line);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;
+  }
+  @media (max-width: 800px) { .badge { position: static; margin-bottom: 8px; } }
+
+  .frame {
+    border: 1.5px solid var(--line); border-radius: 8px; background: var(--paper);
+    overflow: hidden; box-shadow: 2px 2px 0 var(--line-faint);
+  }
+  .frame .chrome {
+    display: flex; align-items: center; gap: 5px; padding: 7px 10px;
+    border-bottom: 1px solid var(--line-faint);
+  }
+  .frame .chrome .dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--line-soft); }
+  .frame .chrome .url { font-size: 9.5px; color: var(--ink-dim); margin-left: 8px; }
+  .frame .canvas { padding: 10px; min-height: 210px; }
+
+  .wf-box { border: 1.3px dashed var(--line-soft); border-radius: 4px; padding: 6px 8px; }
+  .wf-label { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-dim); margin: 0 0 4px; }
+  .wf-line { height: 5px; border-radius: 2px; background: var(--line-faint); margin-bottom: 5px; }
+  .wf-line.short { width: 55%; }
+  .wf-btn {
+    display: inline-block; border: 1.3px solid var(--line); border-radius: 4px;
+    padding: 4px 9px; font-size: 9px; font-weight: 700; color: var(--line);
+  }
+  .wf-grid { display: grid; gap: 6px; }
+
+  .info h3 { font-size: 17px; margin: 0 0 6px; font-weight: 800; }
+  .info .path { font-size: 11px; color: var(--ink-dim); margin: 0 0 12px; }
+  .info p.desc { font-size: 13.5px; line-height: 1.6; color: var(--ink); margin: 0 0 14px; max-width: 60ch; }
+  .info ul.triggers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .info ul.triggers li { font-size: 13px; line-height: 1.5; display: flex; gap: 8px; }
+  .info ul.triggers li .action { font-weight: 700; color: var(--line); white-space: nowrap; }
+  .info ul.triggers li .dest { color: var(--red); font-weight: 700; }
+  .info ul.triggers li::before { content: "\2192"; color: var(--line-soft); }
+
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1.5px solid var(--line-faint); font-size: 12px; color: var(--ink-dim); }
+</style>
+
+<div class="page">
+  <p class="eyebrow">blueprep — product flow sketches</p>
+  <h1>Every screen, and how a student actually moves between them</h1>
+  <p class="lede">Lo-fi on purpose — this is about navigation and data flow, not visual polish. Boxes are layout regions, not final UI. Red labels mark what a click actually does.</p>
+
+  <div class="navmap">
+    <h2>Top-level navigation (persistent sidebar, all screens)</h2>
+    <div class="navrow">
+      <div class="navnode root">Dashboard</div>
+      <span class="navarrow">·</span>
+      <div class="navnode">Practice</div>
+      <span class="navarrow">·</span>
+      <div class="navnode">Progress</div>
+      <span class="navarrow">·</span>
+      <div class="navnode">Mistake Log</div>
+      <span class="navarrow">·</span>
+      <div class="navnode">Settings</div>
+    </div>
+    <div class="navbranch">
+      <span class="mono" style="font-size:11.5px; color:var(--ink-dim);">"Practice" expands to —</span>
+      <div class="navnode">Full Test</div>
+      <div class="navnode">Ad-hoc Set</div>
+      <div class="navnode">Retry Mistakes</div>
+    </div>
+    <div class="subject-legend">
+      <span><span class="sw" style="background:var(--math);"></span>Math — every domain/topic label, everywhere</span>
+      <span><span class="sw" style="background:var(--rw);"></span>Reading &amp; Writing — every domain/topic label, everywhere</span>
+    </div>
+  </div>
+
+  <div class="story">
+
+    <!-- Screen 1 -->
+    <div class="screen-row">
+      <div class="badge">1</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/login</span></div>
+        <div class="canvas" style="display:flex; align-items:center; justify-content:center;">
+          <div class="wf-box" style="width:220px;">
+            <p class="wf-label">BluePrep — logo mark</p>
+            <div class="wf-line short" style="margin: 0 auto 14px;"></div>
+            <div class="wf-line"></div>
+            <div class="wf-line" style="margin-bottom:14px;"></div>
+            <div class="wf-btn" style="display:block; text-align:center; margin-bottom:8px;">Continue with Email</div>
+            <div class="wf-btn" style="display:block; text-align:center; margin-bottom:8px; opacity:0.7;">Continue with Google</div>
+            <p class="wf-label" style="text-align:center; margin-top:10px;">No account? Sign up</p>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Login / Sign Up</h3>
+        <p class="path mono">/login</p>
+        <p class="desc">Supabase Auth handles identity directly — email/password or OAuth. First successful sign-in creates the thin <span class="mono">public.users</span> row keyed to <span class="mono">auth.users.id</span>. Nothing app-specific is asked here; target score and preferences get collected on first Dashboard visit instead, not gating login.</p>
+        <ul class="triggers">
+          <li><span class="action">Successful auth</span><span class="dest">→ Dashboard</span> (new user) or <span class="dest">Dashboard</span> (returning, straight to their data)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 2 -->
+    <div class="screen-row">
+      <div class="badge">2</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/dashboard</span></div>
+        <div class="canvas">
+          <div class="wf-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom:8px;">
+            <div class="wf-box"><p class="wf-label">Score trend</p><div class="wf-line"></div><div class="wf-line short"></div></div>
+            <div class="wf-box"><p class="wf-label">Streak</p><div class="wf-line"></div><div class="wf-line short"></div></div>
+            <div class="wf-box"><p class="wf-label">Weakest skill</p><span class="subj-chip rw" style="margin-bottom:4px; display:inline-block;">R&amp;W</span><div class="wf-line"></div><div class="wf-line short"></div></div>
+          </div>
+          <div class="wf-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:8px;">
+            <div class="wf-box" style="text-align:center;"><p class="wf-label">quick action</p><div class="wf-btn">Start Full Test</div></div>
+            <div class="wf-box" style="text-align:center;"><p class="wf-label">quick action</p><div class="wf-btn">Ad-hoc Practice</div></div>
+          </div>
+          <div class="wf-box">
+            <p class="wf-label">Recent sessions</p>
+            <div class="wf-line"></div><div class="wf-line"></div><div class="wf-line short"></div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Dashboard (Home)</h3>
+        <p class="path mono">/dashboard</p>
+        <p class="desc">The landing page after login. Reads from <span class="mono">question_attempts</span> + <span class="mono">practice_sessions</span> — score trend is a sparkline over completed sessions' <span class="mono">score_summary</span>, weakest skill is the domain with the lowest recent accuracy. Recent sessions list is clickable straight into the Session Summary screen for review, not just a log.</p>
+        <ul class="triggers">
+          <li><span class="action">"Start Full Test"</span><span class="dest">→ Full Test Setup</span></li>
+          <li><span class="action">"Ad-hoc Practice"</span><span class="dest">→ Ad-hoc Builder</span></li>
+          <li><span class="action">Click a recent session row</span><span class="dest">→ Session Summary</span></li>
+          <li><span class="action">Sidebar "Progress"</span><span class="dest">→ Progress &amp; Score Tracking</span></li>
+          <li><span class="action">Sidebar "Mistake Log"</span><span class="dest">→ Mistake Log</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 3 -->
+    <div class="screen-row">
+      <div class="badge">3</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/practice/new</span></div>
+        <div class="canvas">
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Subject</p>
+            <div style="display:flex; gap:6px;"><div class="wf-btn math" style="opacity:.5;">Math</div><div class="wf-btn rw" style="opacity:.5;">R&amp;W</div><div class="wf-btn">Both ✓</div></div>
+          </div>
+
+          <div class="wf-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:8px;">
+            <div class="wf-box" style="background:var(--math-wash); border-color:var(--math);">
+              <p class="wf-label" style="color:var(--math);">Math — sections</p>
+              <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;">
+                <div class="wf-btn math">Algebra ✓</div><div class="wf-btn math" style="opacity:.5;">Geometry</div>
+              </div>
+              <p class="wf-label" style="color:var(--math);">Math — count</p>
+              <div style="display:flex; align-items:center; gap:5px;">
+                <div class="wf-btn math">−</div><div style="border:1px solid var(--math); border-radius:4px; padding:3px 10px;"><span class="mono" style="font-size:10px;">22</span></div><div class="wf-btn math">+</div>
+                <span class="mono" style="font-size:8px; color:var(--ink-dim);">35 min</span>
+              </div>
+            </div>
+            <div class="wf-box" style="background:var(--rw-wash); border-color:var(--rw);">
+              <p class="wf-label" style="color:var(--rw);">R&amp;W — sections</p>
+              <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;">
+                <div class="wf-btn rw">Boundaries ✓</div><div class="wf-btn rw" style="opacity:.5;">Transitions</div>
+              </div>
+              <p class="wf-label" style="color:var(--rw);">R&amp;W — count</p>
+              <div style="display:flex; align-items:center; gap:5px;">
+                <div class="wf-btn rw">−</div><div style="border:1px solid var(--rw); border-radius:4px; padding:3px 10px;"><span class="mono" style="font-size:10px;">15</span></div><div class="wf-btn rw">+</div>
+                <span class="mono" style="font-size:8px; color:var(--ink-dim);">~18 min</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Quick-pick a standard length (jumps both counts to the nearest official size)</p>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <div class="wf-btn" style="opacity:.5;">Quarter</div><div class="wf-btn" style="opacity:.5;">Half</div>
+              <div class="wf-btn">Module</div><div class="wf-btn" style="opacity:.5;">Section</div>
+              <span class="mono" style="font-size:8px; color:var(--ink-dim); align-self:center;">— or use the +/− steppers above for any count, 1–100+ —</span>
+            </div>
+          </div>
+
+          <div class="wf-box" style="margin-bottom:8px; border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent);">
+            <p class="wf-label" style="color:var(--red);">⚠ Pool check</p>
+            <p style="font-size:9.5px; margin:0; color:var(--ink);">Only 11 R&amp;W "Boundaries" questions match your filters (you asked for 15). Start with 11, or widen filters?</p>
+          </div>
+
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Timer</p>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <div class="wf-btn">Official pace (53 min combined) ✓</div>
+              <div class="wf-btn" style="opacity:.5;">Custom time</div>
+              <div class="wf-btn" style="opacity:.5;">Untimed</div>
+            </div>
+          </div>
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Session options (defaults from your Settings, editable here)</p>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <div class="wf-btn" style="opacity:.6;">Timer display: Per-question</div>
+              <div class="wf-btn" style="opacity:.6;">Feedback: Immediate</div>
+              <div class="wf-btn" style="opacity:.6;">Include retired ✓</div>
+              <div class="wf-btn" style="opacity:.4;">New questions only</div>
+            </div>
+          </div>
+          <div class="wf-btn" style="display:block; text-align:center;">Start 37-question set → (53 min)</div>
+          <p class="wf-label" style="text-align:center; margin-top:4px;">— every number here is bound to your selections, never fixed —</p>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Ad-hoc Practice Builder</h3>
+        <p class="path mono">/practice/new</p>
+        <p class="desc">Directly answers "give me a practice test of N questions in Math in these 2 sections" — N is never hardcoded, and shown here in its full "Both" state: <b>Math and R&amp;W get independent counts</b>, each with its own +/− stepper (any value, no upper-bound nagging — a "22" is just as valid as a "21," the stepper doesn't second-guess it). Standard-length quick-picks (Quarter/Half/Module/Section) jump both counts to the nearest official size at once; the +/− steppers work free-form the rest of the time.</p>
+        <p class="desc"><b>Timer</b> sums each subject's own pace rather than blending — Math and R&amp;W genuinely pace differently (95 vs. 71 sec/question), so "53 min combined" here is two real numbers added together, not one averaged guess.</p>
+        <p class="desc">The <b style="color:var(--red);">pool check</b> banner fires before the set is built, not after — with ~3,250 questions in the bank this should be rare, but a narrow filter combination (a less-common domain + "new questions only" + high difficulty, say) can still come up short. Better to say so and offer a choice than silently serve fewer questions than asked for.</p>
+        <ul class="triggers">
+          <li><span class="action">"Start N-question set"</span><span class="dest">→ Practice Player</span> (new session created)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 4 -->
+    <div class="screen-row">
+      <div class="badge">4</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/test/new</span></div>
+        <div class="canvas">
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Full test — module structure (fixed, not user-configured)</p>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <div class="wf-box" style="text-align:center; padding:8px 12px;"><span class="mono" style="font-size:9px;">Module 1</span><br><span class="mono" style="font-size:8px; color:var(--ink-dim);">fixed mix</span></div>
+              <span class="mono" style="font-size:12px; color:var(--ink-dim);">→</span>
+              <div class="wf-box" style="text-align:center; padding:8px 12px; border-color:var(--math); background:var(--math-wash);"><span class="mono" style="font-size:9px; color:var(--math);">Module 2 · Tier 1</span><br><span class="mono" style="font-size:8px; color:var(--ink-dim);">harder pool</span></div>
+              <span class="mono" style="font-size:9px; color:var(--ink-dim);">if M1 score is strong</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px;">
+              <div class="wf-box" style="text-align:center; padding:8px 12px; opacity:0;"><span class="mono" style="font-size:9px;">spacer</span></div>
+              <span class="mono" style="font-size:12px; color:var(--ink-dim);">→</span>
+              <div class="wf-box" style="text-align:center; padding:8px 12px; border-color:var(--rw); background:var(--rw-wash);"><span class="mono" style="font-size:9px; color:var(--rw);">Module 2 · Tier 2</span><br><span class="mono" style="font-size:8px; color:var(--ink-dim);">easier pool</span></div>
+              <span class="mono" style="font-size:9px; color:var(--ink-dim);">if M1 score is weaker</span>
+            </div>
+          </div>
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Section order</p>
+            <div class="wf-line short"></div>
+          </div>
+          <div class="wf-btn" style="display:block; text-align:center;">Begin full test → (Module 1)</div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Full Test Setup</h3>
+        <p class="path mono">/test/new</p>
+        <p class="desc">Not a filter builder like the Ad-hoc screen — a full test's module structure is fixed, matching the real exam format. What <i>is</i> new here: Module 2's difficulty tier isn't chosen by the student, it's routed automatically from Module 1 performance, creating rows in <span class="mono">session_modules</span> as each module completes.</p>
+        <p class="desc" style="color:var(--red);">Honest caveat, shown in-product too, not just here: the real tier-routing threshold isn't publicly documented by the source. BluePrep's cutoff (roughly, Module 1 accuracy above a calibrated threshold → Tier 1) is an approximation, not a reverse-engineered exact match — the existing app already says as much about its difficulty-mix calibrations, and this should say the same rather than imply more precision than it has.</p>
+        <ul class="triggers">
+          <li><span class="action">"Begin full test"</span><span class="dest">→ Practice Player</span> (Module 1 only; Module 2 is chosen after)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 5 -->
+    <div class="screen-row">
+      <div class="badge">5</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/practice/{session}/q/7</span></div>
+        <div class="canvas" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div class="wf-box">
+            <p class="wf-label" style="display:flex; justify-content:space-between;"><span>Stimulus / stem</span><span style="border:1px solid var(--red); color:var(--red); border-radius:3px; padding:1px 4px; font-size:8px;">Retired ⓘ</span></p>
+            <div class="wf-line"></div><div class="wf-line"></div><div class="wf-line short"></div>
+          </div>
+          <div class="wf-box">
+            <p class="wf-label">Choices</p>
+            <div class="wf-line"></div><div class="wf-line"></div><div class="wf-line"></div><div class="wf-line short"></div>
+          </div>
+          <div class="wf-box" style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center;">
+            <span class="mono" style="font-size:9px; color:var(--ink-dim);">⏱ 12:04 remaining · Q7 of 30</span>
+            <div style="display:flex; gap:6px;"><div class="wf-btn" style="opacity:.6;">Mark for Review</div><div class="wf-btn" style="opacity:.6;">⏸ Pause</div><div class="wf-btn">Next →</div></div>
+          </div>
+          <div class="wf-box" style="grid-column: 1 / -1; border-color:var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); text-align:center;">
+            <p class="wf-label" style="color:var(--red); margin-bottom:4px;">⏱ Time's up</p>
+            <p style="font-size:9px; margin:0 0 6px; color:var(--ink);">Submit now, or keep going and let the clock run past your allotted time?</p>
+            <div style="display:flex; gap:6px; justify-content:center;"><div class="wf-btn">Submit now</div><div class="wf-btn" style="opacity:.6;">Keep going</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Practice / Test Player</h3>
+        <p class="path mono">/practice/{session_id}/q/{n}</p>
+        <p class="desc">The Bluebook-style player, reused from the existing app — strike-through, highlighter, and a timer whose display follows this session's <span class="mono">timer_mode</span> (per-question / session-only / none). Every submit writes a <span class="mono">question_attempts</span> row immediately (not batched at the end), so an abandoned session still has partial data.</p>
+        <p class="desc"><b>Pause</b> is always available, regardless of <span class="mono">timer_basis</span> — sets <span class="mono">practice_sessions.paused_at</span>, resume folds the elapsed time into <span class="mono">total_paused_seconds</span> so it never counts against the student. <b>When the clock hits zero</b>, nothing auto-submits — the alert shown here offers a real choice; "keep going" starts accumulating <span class="mono">overtime_seconds</span> instead of silently ending the session.</p>
+        <p class="desc">A question with <span class="mono">is_active = false</span> always shows the "Retired" chip, whether or not this session includes retired questions — the chip is a fact about the question, not a setting. If <span class="mono">feedback_mode = 'immediate'</span>, correctness shows right after submit; if <span class="mono">'end_of_session'</span>, nothing is revealed until Session Summary.</p>
+        <ul class="triggers">
+          <li><span class="action">Finish last question</span><span class="dest">→ Session Summary</span></li>
+          <li><span class="action">Exit mid-session</span><span class="dest">→ Dashboard</span> (session stays open, resumable)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 6 -->
+    <div class="screen-row">
+      <div class="badge">6</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">layout reference — not a real route</span></div>
+        <div class="canvas" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div>
+            <p class="wf-label" style="margin-bottom:4px;">Small question (fits without scrolling)</p>
+            <div class="wf-box" style="min-height:160px;">
+              <div class="wf-line short" style="margin-bottom:8px;"></div>
+              <div class="wf-line"></div><div class="wf-line short"></div>
+              <div style="margin-top:10px; border-top:1px dashed var(--line-faint); padding-top:8px;">
+                <div class="wf-line" style="width:80%;"></div>
+                <div class="wf-line" style="width:75%;"></div>
+                <div class="wf-line" style="width:70%;"></div>
+                <div class="wf-line" style="width:65%;"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="wf-label" style="margin-bottom:4px;">Long question (stimulus scrolls, stem+choices stay put)</p>
+            <div class="wf-box" style="min-height:160px; display:grid; grid-template-rows: 1fr auto; gap:6px; padding:0;">
+              <div style="overflow:hidden; padding:6px 8px; position:relative;">
+                <div class="wf-line"></div><div class="wf-line"></div><div class="wf-line"></div>
+                <div class="wf-line"></div><div class="wf-line short"></div>
+                <div style="position:absolute; bottom:0; left:0; right:0; height:18px; background:linear-gradient(transparent, var(--paper));"></div>
+                <span class="mono" style="position:absolute; right:6px; bottom:2px; font-size:7px; color:var(--ink-dim);">scrolls ↕</span>
+              </div>
+              <div style="border-top:1px dashed var(--line-faint); padding:6px 8px;">
+                <div class="wf-line" style="width:80%;"></div>
+                <div style="display:flex; gap:4px; margin-top:4px;">
+                  <div class="wf-line" style="width:60%;"></div>
+                </div>
+                <div class="wf-line" style="width:75%;"></div>
+                <div class="wf-line" style="width:70%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Question Layout — Small vs. Long</h3>
+        <p class="path mono">layout detail, not a distinct route</p>
+        <p class="desc">Same two-pane player, two real content shapes. A <b>short stimulus</b> (a one-sentence grammar fix, a short grid-in) fits entirely in the pane with no scrolling — nothing about the layout changes, it just doesn't fill the space. A <b>long stimulus</b> (a full R&amp;W passage, a dense multi-part Math word problem with a table) scrolls <i>independently</i> inside its own pane — the stem and answer choices stay fixed and visible, matching how the real Bluebook interface keeps the question you're answering from moving while you reread the passage.</p>
+        <p class="desc">This matters for the trap/cue overlay work from earlier too: cue highlights inside a long, scrolled stimulus need to stay correctly positioned relative to text that isn't fully visible — worth testing against a genuinely long passage early, not just the short examples used in the mockup so far.</p>
+      </div>
+    </div>
+
+    <!-- Screen 7 -->
+    <div class="screen-row">
+      <div class="badge">7</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/sessions/{id}</span></div>
+        <div class="canvas">
+          <div class="wf-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:8px;">
+            <div class="wf-box" style="text-align:center;"><p class="wf-label">score</p><div class="wf-line short" style="margin:0 auto;"></div></div>
+            <div class="wf-box"><p class="wf-label">by domain</p><div class="wf-line"></div><div class="wf-line short"></div></div>
+          </div>
+          <div class="wf-box">
+            <p class="wf-label">Question-by-question</p>
+            <div class="wf-line"></div><div class="wf-line"></div><div class="wf-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Session Summary</h3>
+        <p class="path mono">/sessions/{session_id}</p>
+        <p class="desc">Reads the frozen <span class="mono">score_summary</span> jsonb plus a join across every <span class="mono">question_attempts</span> row with that <span class="mono">session_id</span>. Every missed question links straight into its own review card (the trap/cue overlay from the earlier mockup lives here), and every missed question also gets added to the persistent Mistake Log automatically — this screen doesn't duplicate that logic, it triggers it.</p>
+        <ul class="triggers">
+          <li><span class="action">Click a missed question</span><span class="dest">→ Review card (trap/cue overlay)</span></li>
+          <li><span class="action">"Retry mistakes from this set"</span><span class="dest">→ new session, mode='retry_mistakes'</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 8 -->
+    <div class="screen-row">
+      <div class="badge">8</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/progress</span></div>
+        <div class="canvas">
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Score over time (all sessions)</p>
+            <div class="wf-line"></div><div class="wf-line short"></div>
+          </div>
+          <div class="wf-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:8px;">
+            <div class="wf-box"><p class="wf-label">Accuracy by domain</p><div style="display:flex; gap:4px; margin-bottom:5px;"><span class="subj-chip math">Math</span><span class="subj-chip rw">R&amp;W</span></div><div class="wf-line"></div><div class="wf-line short"></div></div>
+            <div class="wf-box"><p class="wf-label">Pace: rushed / slow-right / slow-wrong</p><div class="wf-line"></div><div class="wf-line short"></div></div>
+          </div>
+          <div class="wf-box">
+            <p class="wf-label">Full session history (table)</p>
+            <div class="wf-line"></div><div class="wf-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Progress &amp; Score Tracking</h3>
+        <p class="path mono">/progress</p>
+        <p class="desc">The long-horizon view Dashboard's sparkline only teases. Aggregates across every <span class="mono">practice_session</span> and <span class="mono">question_attempt</span> the user has — this is where the per-question timing data (rushed-wrong / slow-right / slow-wrong, from the earlier brainstorm) actually gets surfaced, not buried in a single session's summary.</p>
+        <ul class="triggers">
+          <li><span class="action">Click a session row in history</span><span class="dest">→ Session Summary</span></li>
+          <li><span class="action">Click a weak domain</span><span class="dest">→ Ad-hoc Builder</span>, pre-filled to that domain</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 9 -->
+    <div class="screen-row">
+      <div class="badge">9</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/mistakes</span></div>
+        <div class="canvas">
+          <div class="wf-box" style="margin-bottom:8px; display:flex; gap:6px;">
+            <div class="wf-btn math" style="opacity:.6;">Math ✓</div><div class="wf-btn rw" style="opacity:.6;">R&amp;W ✓</div><div class="wf-btn" style="opacity:.6;">Filter: Domain</div><div class="wf-btn">Retry all (12)</div>
+          </div>
+          <div class="wf-box"><p class="wf-label">Mistake rows</p><div class="wf-line"></div><div class="wf-line"></div><div class="wf-line"></div><div class="wf-line short"></div></div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Mistake Log</h3>
+        <p class="path mono">/mistakes</p>
+        <p class="desc">Persistent across every session, not scoped to one — a question only leaves this list once answered correctly, matching the spaced-resurfacing idea from the earlier brainstorm. Query is a join of <span class="mono">question_attempts</span> filtered to the latest attempt per question being incorrect. "Retry all" spins up a new <span class="mono">practice_sessions</span> row with <span class="mono">mode='retry_mistakes'</span> and <span class="mono">question_ids</span> set to exactly this list.</p>
+        <ul class="triggers">
+          <li><span class="action">"Retry all"</span><span class="dest">→ Practice Player</span> (new retry session)</li>
+          <li><span class="action">Click a row</span><span class="dest">→ Review card (trap/cue overlay)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Screen 10 -->
+    <div class="screen-row">
+      <div class="badge">10</div>
+      <div class="frame">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="url mono">blueprep.app/settings</span></div>
+        <div class="canvas">
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Practice defaults</p>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span class="mono" style="font-size:9px;">Timer</span><div class="wf-btn">Per-question ▾</div></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span class="mono" style="font-size:9px;">Feedback timing</span><div class="wf-btn">Immediate ▾</div></div>
+            <div style="display:flex; justify-content:space-between;"><span class="mono" style="font-size:9px;">Include retired questions</span><div class="wf-btn">On ✓</div></div>
+          </div>
+          <div class="wf-box" style="margin-bottom:8px;">
+            <p class="wf-label">Review &amp; coaching</p>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span class="mono" style="font-size:9px;">AI visual cues (traps)</span><div class="wf-btn">On ✓</div></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span class="mono" style="font-size:9px;">Explanation detail</span><div class="wf-btn">Detailed ▾</div></div>
+            <div style="display:flex; justify-content:space-between;"><span class="mono" style="font-size:9px;">Mistake resurface interval</span><div class="wf-btn">3 days ▾</div></div>
+          </div>
+          <div class="wf-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="wf-box"><p class="wf-label">Goal</p><div class="wf-line short"></div></div>
+            <div class="wf-box"><p class="wf-label">Display &amp; account</p><div class="wf-line short"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <h3>Settings</h3>
+        <p class="path mono">/settings</p>
+        <p class="desc">Every control here writes straight to <span class="mono">user_settings</span> — one row per user, real typed columns rather than a jsonb bag, since every value here has a known, small set of valid options. These are <b>defaults</b>, not locks: the Ad-hoc Builder and Full Test Setup screens read from here to pre-fill, but changing a setting mid-account never rewrites an already-created <span class="mono">practice_sessions</span> row.</p>
+        <p class="desc">"Include retired questions" defaults to <b>on</b> — the earlier instinct to silently filter them was wrong. Retired questions are always visibly tagged wherever they appear (see Player screen), and this setting only controls whether they're offered in newly built sessions at all, not whether they're hidden once encountered.</p>
+        <ul class="triggers">
+          <li><span class="action">Change any setting</span><span class="dest">saves immediately</span>, no separate "Save" step</li>
+          <li><span class="action">Sidebar "Account"</span><span class="dest">→ Settings</span> (entry point from anywhere)</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>blueprep-sat — product flow sketches, pre-implementation. Boxes are layout regions, not final visual design.</footer>
+</div>

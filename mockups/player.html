@@ -1,0 +1,677 @@
+<title>BluePrep — Practice Player (working mockup)</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --ink: #14181f;
+    --ink-dim: #5b6472;
+    --line: #dde1e7;
+    --navy: #0f4fb0;
+    --navy-wash: #e8f0fc;
+    --math: #0f8a72;
+    --math-wash: #e1f3ee;
+    --rw: #b8860b;
+    --rw-wash: #f7edd4;
+    --red: #c23b2c;
+    --red-wash: #fbe9e6;
+    --green: #1f8a5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --panel: #181b21; --ink: #e9ebf0; --ink-dim: #8b93a1; --line: #2a2e37;
+      --navy: #6fa6ea; --navy-wash: #17263d;
+      --math: #4fbfa4; --math-wash: #12261f;
+      --rw: #e0b04f; --rw-wash: #2c2210;
+      --red: #e3846f; --red-wash: #2c1712;
+      --green: #4fd18c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111318; --panel: #181b21; --ink: #e9ebf0; --ink-dim: #8b93a1; --line: #2a2e37;
+    --navy: #6fa6ea; --navy-wash: #17263d;
+    --math: #4fbfa4; --math-wash: #12261f;
+    --rw: #e0b04f; --rw-wash: #2c2210;
+    --red: #e3846f; --red-wash: #2c1712;
+    --green: #4fd18c;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --panel: #f6f7f9; --ink: #14181f; --ink-dim: #5b6472; --line: #dde1e7;
+    --navy: #0f4fb0; --navy-wash: #e8f0fc;
+    --math: #0f8a72; --math-wash: #e1f3ee;
+    --rw: #b8860b; --rw-wash: #f7edd4;
+    --red: #c23b2c; --red-wash: #fbe9e6;
+    --green: #1f8a5c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); margin: 0;
+    font-family: -apple-system, "Neue Haas Grotesk Text Pro", "Helvetica Neue", Arial, sans-serif;
+    display: flex; flex-direction: column; min-height: 100vh;
+  }
+  .serif { font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 18px; padding: 10px 20px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: none;
+  }
+  .brand { font-weight: 800; font-size: 14px; letter-spacing: -0.01em; }
+  .brand b { color: var(--navy); }
+  .subj-badge {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 5px; border: 1px solid var(--math); color: var(--math); background: var(--math-wash);
+  }
+  .progress-track {
+    flex: 1; max-width: 260px; height: 5px; background: var(--line); border-radius: 3px; overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: var(--navy); width: 27%; border-radius: 3px; }
+  .progress-label { font-size: 11.5px; color: var(--ink-dim); white-space: nowrap; }
+  #jumpBtn {
+    background: var(--panel); border: 1.5px solid var(--line); color: var(--ink);
+    cursor: pointer; padding: 5px 11px; border-radius: 20px; white-space: nowrap;
+  }
+  #jumpBtn:hover { border-color: var(--navy); background: var(--navy-wash); color: var(--navy); }
+
+  .timers { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .timer-block { text-align: right; }
+  .timer-block .tlabel { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); margin: 0 0 1px; }
+  .timer-block .tval { font-size: 15px; font-weight: 800; }
+  #sessionTime.low { color: var(--red); }
+  #sessionTime.over { color: var(--red); }
+  #qTime { color: var(--ink-dim); font-weight: 700; }
+
+  .iconbtn {
+    width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-dim);
+    font-size: 13px;
+  }
+  .iconbtn:hover { background: var(--panel); color: var(--ink); }
+  .iconbtn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+  /* ---------- content ---------- */
+  .content { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+  .pane { overflow-y: auto; padding: 28px 34px; }
+  .pane.left { border-right: 1px solid var(--line); }
+  @media (max-width: 860px) { .content { grid-template-columns: 1fr; } .pane.left { border-right: none; border-bottom: 1px solid var(--line); } }
+
+  .qmeta { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .qnum { font-size: 11.5px; color: var(--ink-dim); font-weight: 700; }
+  .retired-chip {
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+    color: var(--red); border: 1px solid var(--red); background: var(--red-wash);
+    padding: 2px 7px; border-radius: 4px; cursor: help;
+  }
+
+  .stimulus { font-size: 16.5px; line-height: 1.75; }
+  .stimulus p { margin: 0 0 14px; }
+
+  .choices { display: flex; flex-direction: column; gap: 10px; }
+  .choice {
+    display: flex; gap: 12px; align-items: flex-start; padding: 13px 15px;
+    border: 1.5px solid var(--line); border-radius: 9px; cursor: pointer; font-size: 15px; line-height: 1.5;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .choice:hover { border-color: var(--navy); background: var(--navy-wash); }
+  .choice.selected { border-color: var(--navy); background: var(--navy-wash); }
+  .choice .letter {
+    width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--ink-dim); color: var(--ink-dim);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex: none;
+  }
+  .choice.selected .letter { border-color: var(--navy); color: var(--navy); background: var(--bg); }
+  .choice.struck { opacity: 0.45; }
+  .choice.struck .ctext { text-decoration: line-through; }
+
+  /* ---------- bottom bar ---------- */
+  .bottombar {
+    display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+    border-top: 1px solid var(--line); background: var(--panel); flex: none;
+    overflow-x: auto;
+  }
+  .bottombar .btn { flex: none; white-space: nowrap; }
+  .btn {
+    border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent;
+  }
+  .btn.ghost { border-color: var(--line); background: var(--bg); color: var(--ink); }
+  .btn.ghost:hover { background: var(--panel); }
+  .btn.ghost.active { border-color: var(--navy); color: var(--navy); background: var(--navy-wash); }
+  .btn.primary { background: var(--navy); color: #fff; margin-left: auto; }
+  .btn.primary:hover { opacity: 0.92; }
+
+  /* ---------- pause overlay ---------- */
+  .pause-overlay {
+    position: fixed; inset: 0; background: rgba(10,14,20,0.55); backdrop-filter: blur(2px);
+    display: none; align-items: center; justify-content: center; z-index: 40;
+  }
+  .pause-overlay.open { display: flex; }
+  .pause-card {
+    background: var(--bg); border-radius: 14px; padding: 34px 40px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25); max-width: 320px;
+  }
+  .pause-card .picon { font-size: 30px; margin-bottom: 10px; }
+  .pause-card h2 { font-size: 18px; margin: 0 0 6px; }
+  .pause-card p { font-size: 13px; color: var(--ink-dim); margin: 0 0 20px; line-height: 1.5; }
+
+  /* ---------- time's up modal ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(10,14,20,0.5);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    background: var(--bg); border-radius: 14px; padding: 30px 32px; max-width: 360px; width: 90%;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.3); border-top: 4px solid var(--red);
+  }
+  .modal-card .micon { font-size: 26px; margin-bottom: 8px; }
+  .modal-card h2 { font-size: 17px; margin: 0 0 8px; }
+  .modal-card p { font-size: 13.5px; color: var(--ink-dim); line-height: 1.55; margin: 0 0 22px; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions .btn { flex: 1; text-align: center; }
+
+  /* ---------- highlighter ---------- */
+  mark.hl { background: #ffe066; color: inherit; border-radius: 2px; padding: 0 1px; }
+  @media (prefers-color-scheme: dark) { mark.hl { background: #7a6318; } }
+  :root[data-theme="dark"] mark.hl { background: #7a6318; }
+  :root[data-theme="light"] mark.hl { background: #ffe066; }
+
+  .hl-popover {
+    position: absolute; display: none; z-index: 60; background: var(--ink); color: var(--bg);
+    border-radius: 7px; padding: 5px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); gap: 4px;
+  }
+  .hl-popover.open { display: flex; }
+  .hl-popover button {
+    background: transparent; border: none; color: inherit; font-size: 11.5px; font-weight: 700;
+    padding: 5px 9px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .hl-popover button:hover { background: rgba(255,255,255,0.15); }
+
+  /* ---------- calculator ---------- */
+  .calc-panel {
+    position: fixed; top: 70px; right: 20px; width: 300px; z-index: 45;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 16px 50px rgba(0,0,0,0.2); display: none; overflow: hidden;
+  }
+  .calc-panel.open { display: block; }
+  .calc-head {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
+    border-bottom: 1px solid var(--line); background: var(--panel); font-size: 12.5px; font-weight: 800;
+  }
+  .calc-head .x { cursor: pointer; color: var(--ink-dim); font-size: 15px; }
+  .calc-body { padding: 20px 16px; text-align: center; }
+  .calc-body .cicon { font-size: 26px; margin-bottom: 6px; }
+  .calc-body p { font-size: 12px; color: var(--ink-dim); line-height: 1.5; margin: 0 0 14px; }
+  .calc-body a.btn { display: inline-block; text-decoration: none; }
+
+  /* ---------- question navigator ---------- */
+  .nav-popover {
+    position: absolute; top: 46px; left: 50%; transform: translateX(-50%); z-index: 55;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 16px 50px rgba(0,0,0,0.2); padding: 14px; width: 300px; display: none;
+  }
+  .nav-popover.open { display: block; }
+  .nav-popover .nhead { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-dim); margin: 0 0 10px; }
+  .nav-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .nav-cell {
+    position: relative; height: 32px; border-radius: 6px; border: 1.5px solid var(--line); background: var(--bg);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--ink);
+  }
+  .nav-cell:hover { border-color: var(--navy); }
+  .nav-cell.answered { background: var(--navy-wash); border-color: var(--navy); color: var(--navy); }
+  .nav-cell.current { border-color: var(--navy); border-width: 2px; }
+  .nav-cell.flagged::after {
+    content: "🔖"; position: absolute; top: -6px; right: -5px; font-size: 9px;
+  }
+  .nav-legend { display: flex; gap: 12px; margin-top: 10px; font-size: 10px; color: var(--ink-dim); }
+  .nav-legend span { display: flex; align-items: center; gap: 4px; }
+  .nav-legend .sw { width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid var(--line); }
+  .nav-legend .sw.a { background: var(--navy-wash); border-color: var(--navy); }
+
+  .demo-controls {
+    position: fixed; bottom: 14px; right: 14px; z-index: 30;
+    background: var(--panel); border: 1px dashed var(--ink-dim); border-radius: 8px;
+    padding: 8px 10px; font-size: 10.5px; color: var(--ink-dim); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; max-width: 260px;
+  }
+  .demo-controls button {
+    font-size: 10px; padding: 3px 8px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; color: var(--ink);
+  }
+
+  /* ---------- reference sheet ---------- */
+  .ref-body { padding: 22px 26px; max-height: 60vh; overflow-y: auto; }
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+  .ref-item { text-align: center; }
+  .ref-item .rlabel { font-size: 10.5px; color: var(--ink-dim); margin: 0 0 4px; }
+  .ref-item .rformula { font-size: 15px; font-weight: 700; font-family: Georgia, serif; }
+  .ref-note { font-size: 11px; color: var(--ink-dim); text-align: center; margin: 16px 0 0; border-top: 1px dashed var(--line); padding-top: 12px; }
+
+  /* ---------- module submission gate ---------- */
+  .gate-view { display: none; padding: 30px 40px; }
+  .gate-view.open { display: block; }
+  .gate-view h2 { font-size: 19px; margin: 0 0 6px; }
+  .gate-view .gsub { font-size: 13px; color: var(--ink-dim); margin: 0 0 20px; }
+  .gate-summary { display: flex; gap: 20px; margin-bottom: 20px; }
+  .gate-summary .gstat { text-align: center; }
+  .gate-summary .gnum { font-size: 22px; font-weight: 800; }
+  .gate-summary .glabel { font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+  .gate-summary .gnum.warn { color: var(--red); }
+  .gate-grid { display: grid; grid-template-columns: repeat(11, 1fr); gap: 6px; max-width: 480px; margin-bottom: 22px; }
+
+  /* ---------- break screen ---------- */
+  .break-view { display: none; flex: 1; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
+  .break-view.open { display: flex; }
+  .break-view .bicon { font-size: 34px; margin-bottom: 10px; }
+  .break-view h2 { font-size: 22px; margin: 0 0 6px; }
+  .break-view p { font-size: 13.5px; color: var(--ink-dim); max-width: 340px; line-height: 1.55; margin: 0 0 4px; }
+  .break-view .btime { font-size: 40px; font-weight: 800; margin: 18px 0; }
+  .break-caveat { font-size: 10.5px; color: var(--red); max-width: 340px; margin: 0 0 20px; }
+
+  .toast {
+    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%) translateY(10px);
+    background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; z-index: 80; opacity: 0; pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease; max-width: 320px; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+
+<div class="topbar">
+  <div class="brand"><b>Blue</b>Prep</div>
+  <span class="subj-badge">Math</span>
+  <div class="progress-track"><div class="progress-fill"></div></div>
+  <div style="position:relative;">
+    <button class="progress-label mono" id="jumpBtn">Q6 of 22 · Module 1 ▾</button>
+    <div class="nav-popover" id="navPopover">
+      <p class="nhead">Jump to question</p>
+      <div class="nav-grid" id="navGrid"></div>
+      <div class="nav-legend">
+        <span><span class="sw a"></span>Answered</span>
+        <span><span class="sw"></span>Unanswered</span>
+        <span>🔖 Flagged</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timers">
+    <div class="timer-block">
+      <p class="tlabel" id="sessionLabel">Time left, session</p>
+      <p class="tval mono" id="sessionTime">12:04</p>
+    </div>
+    <div class="timer-block">
+      <p class="tlabel">Time on this question</p>
+      <p class="tval mono" id="qTime">0:00</p>
+    </div>
+    <button class="iconbtn" id="refBtn" title="Reference sheet" aria-label="Open reference sheet" style="width:auto; padding:0 10px; font-size:11px; font-weight:800;">📐 Reference</button>
+    <button class="iconbtn" id="calcBtn" title="Desmos" aria-label="Open Desmos" style="width:auto; padding:0 10px; font-size:11px; font-weight:800;">Desmos</button>
+    <button class="iconbtn" id="askAiBtn" title="Ask AI" aria-label="Ask AI about this question">✨</button>
+    <button class="iconbtn" id="pauseBtn" title="Pause" aria-label="Pause session">⏸</button>
+  </div>
+</div>
+
+<div class="calc-panel" id="calcPanel">
+  <div class="calc-head"><span>Desmos</span><span class="x" id="calcClose">✕</span></div>
+  <div class="calc-body">
+    <div class="cicon">📐</div>
+    <p>An embedded Desmos calculator renders here in the real app — this preview's sandbox blocks loading a third-party embed directly, so it opens in a new tab instead.</p>
+    <a class="btn primary" href="https://www.desmos.com/calculator" target="_blank" rel="noopener">Open Desmos ↗</a>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="refModal">
+  <div class="modal-card" style="max-width:480px; border-top-color:var(--navy); padding:0;">
+    <div class="calc-head"><span>Reference Sheet</span><span class="x" id="refClose">✕</span></div>
+    <div class="ref-body">
+      <div class="ref-grid">
+        <div class="ref-item"><p class="rlabel">Circle</p><p class="rformula">A = πr² &nbsp; C = 2πr</p></div>
+        <div class="ref-item"><p class="rlabel">Rectangle</p><p class="rformula">A = lw</p></div>
+        <div class="ref-item"><p class="rlabel">Triangle</p><p class="rformula">A = ½bh</p></div>
+        <div class="ref-item"><p class="rlabel">Right triangle</p><p class="rformula">a² + b² = c²</p></div>
+        <div class="ref-item"><p class="rlabel">Rectangular solid</p><p class="rformula">V = lwh</p></div>
+        <div class="ref-item"><p class="rlabel">Cylinder</p><p class="rformula">V = πr²h</p></div>
+        <div class="ref-item"><p class="rlabel">Sphere</p><p class="rformula">V = (4/3)πr³</p></div>
+        <div class="ref-item"><p class="rlabel">Cone</p><p class="rformula">V = (1/3)πr²h</p></div>
+      </div>
+      <p class="ref-note">Sum of angles in a triangle = 180°. A circle has 360°, or 2π radians.</p>
+    </div>
+  </div>
+</div>
+
+<div class="hl-popover" id="hlPopover">
+  <button id="hlAdd">Highlight</button>
+  <button id="hlRemove" style="display:none;">Remove highlight</button>
+</div>
+
+<div class="content" id="mainContent">
+  <div class="pane left">
+    <div class="qmeta">
+      <span class="qnum mono">Question 6</span>
+      <span class="retired-chip" title="No longer in the source's live rotation — the skill it tests is still current, but you won't see this exact question on a real exam.">Retired ⓘ</span>
+    </div>
+    <div class="stimulus serif" id="stimulusText">
+      <p>A rectangular garden has a length that is 3 feet more than twice its width. If the perimeter of the garden is 54 feet, what is the width, in feet, of the garden?</p>
+      <p style="color:var(--ink-dim); font-size:14px;">Let <i>w</i> represent the width, in feet, of the garden. Select any text in this passage to try the highlighter.</p>
+    </div>
+  </div>
+
+  <div class="pane right">
+    <div class="choices" id="choices">
+      <div class="choice" data-letter="A"><span class="letter">A</span><span class="ctext">6</span></div>
+      <div class="choice selected" data-letter="B"><span class="letter">B</span><span class="ctext">8</span></div>
+      <div class="choice" data-letter="C"><span class="letter">C</span><span class="ctext">9</span></div>
+      <div class="choice" data-letter="D"><span class="letter">D</span><span class="ctext">12</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="gate-view" id="gateView">
+  <h2>Review before you submit Module 1</h2>
+  <p class="gsub">You can still go back and change any answer. Once you submit, Module 1 is final.</p>
+  <div class="gate-summary">
+    <div class="gstat"><p class="gnum">19</p><p class="glabel">Answered</p></div>
+    <div class="gstat"><p class="gnum warn">3</p><p class="glabel">Unanswered</p></div>
+    <div class="gstat"><p class="gnum">2</p><p class="glabel">Flagged</p></div>
+  </div>
+  <div class="gate-grid" id="gateGrid"></div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn ghost" id="gateBackBtn">← Back to test</button>
+    <button class="btn primary" id="gateSubmitBtn" style="margin:0;">Submit Module 1</button>
+  </div>
+</div>
+
+<div class="break-view" id="breakView">
+  <div class="bicon">☕</div>
+  <h2>Break</h2>
+  <p>Reading &amp; Writing is complete. Math starts after this break.</p>
+  <p class="btime mono" id="breakClock">10:00</p>
+  <button class="btn primary" id="continueNowBtn">Continue now →</button>
+  <p class="break-caveat">10-minute figure is from general knowledge of the real exam's break structure, not verified against an official source in this session — confirm before treating as fact.</p>
+</div>
+
+<div class="bottombar" id="mainBottombar">
+  <button class="btn ghost" id="prevBtn">← Prev</button>
+  <button class="btn ghost" id="markBtn">🔖 Mark for Review</button>
+  <button class="btn ghost" id="strikeBtn">✎ Strikethrough tool</button>
+  <button class="btn primary" id="nextBtn">Next →</button>
+</div>
+
+<div class="pause-overlay" id="pauseOverlay">
+  <div class="pause-card">
+    <div class="picon">⏸</div>
+    <h2>Paused</h2>
+    <p>Both timers are frozen. Nothing here counts against you while paused.</p>
+    <button class="btn primary" id="resumeBtn" style="margin:0; width:100%;">Resume</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="timeUpModal">
+  <div class="modal-card">
+    <div class="micon">⏱</div>
+    <h2>Time's up</h2>
+    <p>Submit now, or keep going and let the clock run past your allotted time? Nothing auto-submits — it's your call.</p>
+    <div class="modal-actions">
+      <button class="btn primary" id="submitNowBtn" style="margin:0;">Submit now</button>
+      <button class="btn ghost" id="keepGoingBtn">Keep going</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="demo-controls">
+  <span>demo:</span>
+  <button id="skipToEndBtn">skip to time's up</button>
+  <button id="finishModuleBtn">finish module (review gate)</button>
+  <button id="showBreakBtn">show break screen</button>
+</div>
+
+<script>
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2200);
+  }
+
+  var sessionSeconds = 12 * 60 + 4;   // counts DOWN while >= 0 and not overtime
+  var overtimeSeconds = 0;             // counts UP once the clock hits zero and student chooses "keep going"
+  var qSeconds = 0;                    // counts UP, per question
+  var paused = false;
+  var isOvertime = false;
+  var timesUpShown = false;
+
+  var sessionEl = document.getElementById('sessionTime');
+  var sessionLabel = document.getElementById('sessionLabel');
+  var qEl = document.getElementById('qTime');
+
+  function fmt(total) {
+    var m = Math.floor(total / 60), s = total % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function tick() {
+    if (paused) return;
+    qSeconds++;
+    qEl.textContent = fmt(qSeconds);
+
+    if (!isOvertime) {
+      sessionSeconds--;
+      if (sessionSeconds <= 60 && sessionSeconds > 0) sessionEl.classList.add('low');
+      sessionEl.textContent = fmt(Math.max(sessionSeconds, 0));
+      if (sessionSeconds <= 0 && !timesUpShown) {
+        timesUpShown = true;
+        document.getElementById('timeUpModal').classList.add('open');
+      }
+    } else {
+      // "Keep going": the session clock itself switches direction and counts UP from zero —
+      // overtime is added straight to session time, not tracked as a separate number.
+      overtimeSeconds++;
+      sessionEl.textContent = '+' + fmt(overtimeSeconds);
+    }
+  }
+  setInterval(tick, 1000);
+
+  document.getElementById('pauseBtn').addEventListener('click', function () {
+    paused = true;
+    document.getElementById('pauseOverlay').classList.add('open');
+  });
+  document.getElementById('resumeBtn').addEventListener('click', function () {
+    paused = false;
+    document.getElementById('pauseOverlay').classList.remove('open');
+  });
+
+  document.getElementById('submitNowBtn').addEventListener('click', function () {
+    document.getElementById('timeUpModal').classList.remove('open');
+    paused = true;
+    toast('Session submitted — would go to Session Summary.');
+  });
+  document.getElementById('keepGoingBtn').addEventListener('click', function () {
+    document.getElementById('timeUpModal').classList.remove('open');
+    isOvertime = true;
+    sessionLabel.textContent = 'Overtime — session';
+    sessionLabel.style.color = 'var(--red)';
+    sessionEl.classList.add('over');
+    sessionEl.textContent = '+0:00';
+  });
+
+  document.getElementById('skipToEndBtn').addEventListener('click', function () {
+    sessionSeconds = 3;
+  });
+
+  /* ---------- question navigator ---------- */
+  var TOTAL_Q = 22, CURRENT_Q = 6;
+  var answered = [1,2,3,4,5,6,8,9];
+  var flagged = [9, 14];
+  var navGrid = document.getElementById('navGrid');
+  for (var i = 1; i <= TOTAL_Q; i++) {
+    var cell = document.createElement('div');
+    cell.className = 'nav-cell' + (answered.indexOf(i) > -1 ? ' answered' : '') + (i === CURRENT_Q ? ' current' : '') + (flagged.indexOf(i) > -1 ? ' flagged' : '');
+    cell.textContent = i;
+    cell.title = 'Question ' + i + (answered.indexOf(i) > -1 ? ' — answered' : ' — unanswered') + (flagged.indexOf(i) > -1 ? ', flagged' : '');
+    navGrid.appendChild(cell);
+  }
+  var jumpBtn = document.getElementById('jumpBtn');
+  var navPopover = document.getElementById('navPopover');
+  jumpBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    navPopover.classList.toggle('open');
+  });
+  document.addEventListener('click', function (e) {
+    if (!navPopover.contains(e.target) && e.target !== jumpBtn) navPopover.classList.remove('open');
+  });
+
+  /* ---------- calculator ---------- */
+  var calcBtn = document.getElementById('calcBtn');
+  var calcPanel = document.getElementById('calcPanel');
+  calcBtn.addEventListener('click', function () { calcPanel.classList.toggle('open'); });
+  document.getElementById('calcClose').addEventListener('click', function () { calcPanel.classList.remove('open'); });
+
+  /* ---------- reference sheet (Math only) ---------- */
+  document.getElementById('refBtn').addEventListener('click', function () {
+    document.getElementById('refModal').classList.add('open');
+  });
+  document.getElementById('refClose').addEventListener('click', function () {
+    document.getElementById('refModal').classList.remove('open');
+  });
+
+  /* ---------- ask ai (live, in-player — not review-only) ---------- */
+  document.getElementById('askAiBtn').addEventListener('click', function () {
+    toast('Would open the live Ask AI chat for this question.');
+  });
+
+  /* ---------- prev/next ---------- */
+  document.getElementById('prevBtn').addEventListener('click', function () {
+    toast('Would navigate to Question 5.');
+  });
+  document.getElementById('nextBtn').addEventListener('click', function () {
+    toast('Would navigate to Question 7.');
+  });
+
+  /* ---------- module submission gate ---------- */
+  var mainContent = document.getElementById('mainContent');
+  var mainBottombar = document.getElementById('mainBottombar');
+  var gateView = document.getElementById('gateView');
+  var breakView = document.getElementById('breakView');
+  var gateAnswered = [1,2,3,4,5,6,7,8,10,11,12,13,15,16,17,18,19,20,21];
+  var gateFlagged = [9, 14];
+  var gateGrid = document.getElementById('gateGrid');
+  for (var g = 1; g <= 22; g++) {
+    var gcell = document.createElement('div');
+    gcell.className = 'nav-cell' + (gateAnswered.indexOf(g) > -1 ? ' answered' : '') + (gateFlagged.indexOf(g) > -1 ? ' flagged' : '');
+    gcell.textContent = g;
+    gateGrid.appendChild(gcell);
+  }
+  document.getElementById('finishModuleBtn').addEventListener('click', function () {
+    mainContent.style.display = 'none';
+    mainBottombar.style.display = 'none';
+    gateView.classList.add('open');
+  });
+  document.getElementById('gateBackBtn').addEventListener('click', function () {
+    gateView.classList.remove('open');
+    mainContent.style.display = 'grid';
+    mainBottombar.style.display = 'flex';
+  });
+  document.getElementById('gateSubmitBtn').addEventListener('click', function () {
+    gateView.classList.remove('open');
+    breakView.classList.add('open');
+    startBreakCountdown();
+  });
+
+  /* ---------- break screen ---------- */
+  var breakSeconds = 10 * 60;
+  var breakTimerId = null;
+  function startBreakCountdown() {
+    var clockEl = document.getElementById('breakClock');
+    clearInterval(breakTimerId);
+    breakTimerId = setInterval(function () {
+      breakSeconds--;
+      clockEl.textContent = fmt(Math.max(breakSeconds, 0));
+      if (breakSeconds <= 0) clearInterval(breakTimerId);
+    }, 1000);
+  }
+  document.getElementById('continueNowBtn').addEventListener('click', function () {
+    clearInterval(breakTimerId);
+    breakView.classList.remove('open');
+    mainContent.style.display = 'grid';
+    mainBottombar.style.display = 'flex';
+    toast('Would begin Math Module 1.');
+  });
+  document.getElementById('showBreakBtn').addEventListener('click', function () {
+    mainContent.style.display = 'none';
+    mainBottombar.style.display = 'none';
+    breakView.classList.add('open');
+    startBreakCountdown();
+  });
+
+  /* ---------- highlighter (real text selection, like the Bluebook tool) ---------- */
+  var stimulus = document.getElementById('stimulusText');
+  var hlPopover = document.getElementById('hlPopover');
+  var hlAdd = document.getElementById('hlAdd');
+  var hlRemove = document.getElementById('hlRemove');
+  var activeRange = null;
+
+  stimulus.addEventListener('mouseup', function () {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim() === '') { hlPopover.classList.remove('open'); return; }
+    var range = sel.getRangeAt(0);
+    if (!stimulus.contains(range.commonAncestorContainer)) return;
+    activeRange = range;
+
+    var rect = range.getBoundingClientRect();
+    hlPopover.style.top = (window.scrollY + rect.top - 42) + 'px';
+    hlPopover.style.left = (window.scrollX + rect.left + rect.width / 2 - 40) + 'px';
+
+    var parentMark = range.commonAncestorContainer.parentElement ? range.commonAncestorContainer.parentElement.closest('mark.hl') : null;
+    hlAdd.style.display = parentMark ? 'none' : 'inline-block';
+    hlRemove.style.display = parentMark ? 'inline-block' : 'none';
+    hlPopover.classList.add('open');
+  });
+
+  hlAdd.addEventListener('click', function () {
+    if (!activeRange) return;
+    var mark = document.createElement('mark');
+    mark.className = 'hl';
+    try { activeRange.surroundContents(mark); } catch (e) { /* selection spans multiple elements — fine for this demo */ }
+    hlPopover.classList.remove('open');
+    window.getSelection().removeAllRanges();
+  });
+  hlRemove.addEventListener('click', function () {
+    var el = activeRange && activeRange.commonAncestorContainer.parentElement;
+    var mark = el ? el.closest('mark.hl') : null;
+    if (mark) {
+      var parent = mark.parentNode;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+    }
+    hlPopover.classList.remove('open');
+    window.getSelection().removeAllRanges();
+  });
+  document.addEventListener('mousedown', function (e) {
+    if (!hlPopover.contains(e.target)) hlPopover.classList.remove('open');
+  });
+
+  document.querySelectorAll('.choice').forEach(function (el) {
+    el.addEventListener('click', function () {
+      document.querySelectorAll('.choice').forEach(function (c) { c.classList.remove('selected'); });
+      el.classList.add('selected');
+    });
+  });
+
+  var strikeMode = false;
+  document.getElementById('strikeBtn').addEventListener('click', function () {
+    strikeMode = !strikeMode;
+    this.classList.toggle('active', strikeMode);
+  });
+  document.querySelectorAll('.choice .letter').forEach(function (letterEl) {
+    letterEl.addEventListener('click', function (e) {
+      if (!strikeMode) return;
+      e.stopPropagation();
+      letterEl.closest('.choice').classList.toggle('struck');
+    });
+  });
+
+  document.getElementById('markBtn').addEventListener('click', function () {
+    this.classList.toggle('active');
+  });
+</script>

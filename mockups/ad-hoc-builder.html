@@ -1,0 +1,407 @@
+<title>BluePrep — Ad-hoc Practice Builder (working mockup)</title>
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f6f7f9; --ink: #14181f; --ink-dim: #5b6472; --line: #dde1e7;
+    --navy: #0f4fb0; --navy-wash: #e8f0fc;
+    --math: #0f8a72; --math-wash: #e1f3ee;
+    --rw: #b8860b; --rw-wash: #f7edd4;
+    --red: #c23b2c; --red-wash: #fbe9e6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --panel: #181b21; --ink: #e9ebf0; --ink-dim: #8b93a1; --line: #2a2e37;
+      --navy: #6fa6ea; --navy-wash: #17263d;
+      --math: #4fbfa4; --math-wash: #12261f;
+      --rw: #e0b04f; --rw-wash: #2c2210;
+      --red: #e3846f; --red-wash: #2c1712;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111318; --panel: #181b21; --ink: #e9ebf0; --ink-dim: #8b93a1; --line: #2a2e37;
+    --navy: #6fa6ea; --navy-wash: #17263d; --math: #4fbfa4; --math-wash: #12261f;
+    --rw: #e0b04f; --rw-wash: #2c2210; --red: #e3846f; --red-wash: #2c1712;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --panel: #f6f7f9; --ink: #14181f; --ink-dim: #5b6472; --line: #dde1e7;
+    --navy: #0f4fb0; --navy-wash: #e8f0fc; --math: #0f8a72; --math-wash: #e1f3ee;
+    --rw: #b8860b; --rw-wash: #f7edd4; --red: #c23b2c; --red-wash: #fbe9e6;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .page { max-width: 640px; margin: 0 auto; padding: 40px 24px 100px; }
+  .brand { font-weight: 800; font-size: 14px; margin-bottom: 22px; }
+  .brand b { color: var(--navy); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { font-size: 13.5px; color: var(--ink-dim); margin: 0 0 28px; }
+
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); margin: 0 0 12px; }
+
+  .seg { display: flex; gap: 8px; }
+  .seg-btn {
+    flex: 1; text-align: center; padding: 10px; border-radius: 8px; border: 1.5px solid var(--line);
+    background: var(--bg); color: var(--ink-dim); font-weight: 700; font-size: 13.5px; cursor: pointer;
+  }
+  .seg-btn.active.math { border-color: var(--math); color: var(--math); background: var(--math-wash); }
+  .seg-btn.active.rw { border-color: var(--rw); color: var(--rw); background: var(--rw-wash); }
+  .seg-btn.active.both { border-color: var(--navy); color: var(--navy); background: var(--navy-wash); }
+
+  .subject-block { border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .subject-block.math { background: var(--math-wash); border: 1px solid var(--math); }
+  .subject-block.rw { background: var(--rw-wash); border: 1px solid var(--rw); }
+  .subject-block h3 { font-size: 12px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .subject-block.math h3 { color: var(--math); }
+  .subject-block.rw h3 { color: var(--rw); }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    padding: 6px 12px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--bg);
+    font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink-dim);
+  }
+  .chip.on.math { border-color: var(--math); color: var(--math); background: rgba(15,138,114,0.1); }
+  .chip.on.rw { border-color: var(--rw); color: var(--rw); background: rgba(184,134,11,0.1); }
+
+  .stepper { display: flex; align-items: center; gap: 8px; }
+  .stepper button {
+    width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid var(--line); background: var(--bg);
+    font-size: 16px; font-weight: 700; cursor: pointer; color: var(--ink);
+  }
+  .stepper input {
+    width: 56px; text-align: center; font-size: 15px; font-weight: 800; padding: 6px 4px;
+    border: 1.5px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink);
+  }
+  .stepper input:focus { outline: 2px solid var(--navy); outline-offset: 1px; border-color: var(--navy); }
+  .stepper .est { font-size: 11px; color: var(--ink-dim); margin-left: 4px; }
+
+  .quickpicks { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .qp {
+    padding: 5px 11px; border-radius: 7px; border: 1.5px solid var(--line); background: var(--bg);
+    font-size: 11.5px; font-weight: 700; cursor: pointer; color: var(--ink);
+  }
+  .qp:hover { border-color: var(--navy); }
+  .qp.active { border-color: var(--navy); color: var(--navy); background: var(--navy-wash); }
+
+  .warn-banner {
+    display: none; border: 1.5px solid var(--red); background: var(--red-wash); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 14px; font-size: 13px;
+  }
+  .warn-banner.show { display: block; }
+  .warn-banner .wtitle { font-weight: 800; color: var(--red); margin: 0 0 4px; }
+  .warn-banner .wactions { display: flex; gap: 8px; margin-top: 10px; }
+  .warn-banner .wbtn {
+    font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 6px; border: 1.5px solid var(--red);
+    background: var(--bg); color: var(--red); cursor: pointer;
+  }
+
+  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-row .tlabel { display: flex; align-items: center; gap: 8px; }
+  .switch { position: relative; width: 38px; height: 22px; border-radius: 11px; background: var(--line); border: none; cursor: pointer; flex: none; }
+  .switch.on { background: var(--navy); }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s ease; }
+  .switch.on::after { left: 18px; }
+
+  .timer-opts { display: flex; gap: 8px; }
+  .timer-opt {
+    flex: 1; padding: 10px 8px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--bg);
+    text-align: center; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--ink-dim);
+  }
+  .timer-opt.active { border-color: var(--navy); color: var(--navy); background: var(--navy-wash); }
+  .custom-time-input { display: none; margin-top: 10px; align-items: center; gap: 8px; justify-content: center; }
+  .custom-time-input.show { display: flex; }
+  .custom-time-input input { width: 60px; text-align: center; padding: 6px; border: 1.5px solid var(--line); border-radius: 7px; font-weight: 700; background: var(--bg); color: var(--ink); }
+
+  .start-bar { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--line); padding: 16px 0 0; margin-top: 10px; }
+  .start-btn {
+    display: block; width: 100%; padding: 14px; border-radius: 10px; border: none; background: var(--navy);
+    color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; text-align: center;
+  }
+  .start-btn:hover { opacity: 0.92; }
+  .start-note { text-align: center; font-size: 10.5px; color: var(--ink-dim); margin-top: 6px; }
+
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(10px);
+    background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+    opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; max-width: 320px; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+
+<div class="page">
+  <div class="brand"><b>Blue</b>Prep</div>
+  <h1>Build a practice set</h1>
+  <p class="sub">Every count and every minute below is computed live — nothing here is a fixed number.</p>
+
+  <div class="card">
+    <h2>Subject</h2>
+    <div class="seg">
+      <div class="seg-btn math" data-subj="math">Math</div>
+      <div class="seg-btn rw" data-subj="rw">Reading &amp; Writing</div>
+      <div class="seg-btn both active" data-subj="both">Both</div>
+    </div>
+  </div>
+
+  <div id="mathBlock" class="subject-block math">
+    <h3>Math</h3>
+    <div class="chips" id="mathChips">
+      <div class="chip on math" data-chip="Algebra">Algebra</div>
+      <div class="chip math" data-chip="Advanced Math">Advanced Math</div>
+      <div class="chip on math" data-chip="Geometry">Geometry &amp; Trig</div>
+      <div class="chip math" data-chip="Data Analysis">Data Analysis</div>
+    </div>
+    <div class="stepper">
+      <button data-step="-1" data-target="mathCount">−</button>
+      <input type="number" id="mathCount" value="22" min="1" max="100">
+      <button data-step="1" data-target="mathCount">+</button>
+      <span class="est mono" id="mathTime">35 min</span>
+    </div>
+  </div>
+
+  <div id="rwBlock" class="subject-block rw">
+    <h3>Reading &amp; Writing</h3>
+    <div class="chips" id="rwChips">
+      <div class="chip on rw" data-chip="Boundaries">Boundaries</div>
+      <div class="chip rw" data-chip="Transitions">Transitions</div>
+      <div class="chip rw" data-chip="Rhetorical Synthesis">Rhetorical Synthesis</div>
+      <div class="chip rw" data-chip="Inferences">Inferences</div>
+    </div>
+    <div class="stepper">
+      <button data-step="-1" data-target="rwCount">−</button>
+      <input type="number" id="rwCount" value="15" min="1" max="100">
+      <button data-step="1" data-target="rwCount">+</button>
+      <span class="est mono" id="rwTime">~18 min, estimated</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Quick-pick a standard length</h2>
+    <div class="quickpicks">
+      <div class="qp" data-preset="quarter">Quarter</div>
+      <div class="qp" data-preset="half">Half</div>
+      <div class="qp active" data-preset="module">Module</div>
+      <div class="qp" data-preset="section">Section</div>
+    </div>
+  </div>
+
+  <div class="warn-banner" id="poolWarning">
+    <p class="wtitle">⚠ Pool check</p>
+    <p id="poolWarningText">Only 11 R&amp;W "Boundaries" questions match your filters (you asked for 15).</p>
+    <div class="wactions">
+      <button class="wbtn" id="startWithFewerBtn">Start with 11</button>
+      <button class="wbtn" id="widenFiltersBtn">Widen filters</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Timer</h2>
+    <div class="timer-opts">
+      <div class="timer-opt active" data-timer="official">Official pace</div>
+      <div class="timer-opt" data-timer="custom">Custom time</div>
+      <div class="timer-opt" data-timer="none">Untimed</div>
+    </div>
+    <div class="custom-time-input" id="customTimeRow">
+      <input type="number" id="customMinutes" value="45" min="1"> <span class="mono" style="font-size:12px;">minutes total</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Session options</h2>
+    <div class="toggle-row">
+      <span class="tlabel">Per-question timer display</span>
+      <button class="switch on" data-toggle="qTimerDisplay"></button>
+    </div>
+    <div class="toggle-row">
+      <span class="tlabel">Immediate feedback (vs. end of session)</span>
+      <button class="switch on" data-toggle="feedback"></button>
+    </div>
+    <div class="toggle-row">
+      <span class="tlabel">Include retired questions</span>
+      <button class="switch on" data-toggle="retired"></button>
+    </div>
+    <div class="toggle-row">
+      <span class="tlabel">New questions only</span>
+      <button class="switch" data-toggle="newOnly"></button>
+    </div>
+  </div>
+
+  <div class="start-bar">
+    <button class="start-btn" id="startBtn">Start 37-question set → (53 min)</button>
+    <p class="start-note">Math and R&amp;W time sum separately — they pace differently, so this is never a blended average.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2200);
+  }
+
+  // Real College Board blueprint pacing (index.html:1997-1998), plus per-question
+  // rate for custom counts (interpolated from the nearest tier, labeled "estimated").
+  var PACE = {
+    math: { quarter: [6, 9], half: [11, 17.5], module: [22, 35], section: [44, 70], rate: 95.45 },
+    rw:   { quarter: [7, 8], half: [14, 16], module: [27, 32], section: [54, 64], rate: 71.1 }
+  };
+
+  var mathCountEl = document.getElementById('mathCount');
+  var rwCountEl = document.getElementById('rwCount');
+  var mathTimeEl = document.getElementById('mathTime');
+  var rwTimeEl = document.getElementById('rwTime');
+  var startBtn = document.getElementById('startBtn');
+  var mathBlock = document.getElementById('mathBlock');
+  var rwBlock = document.getElementById('rwBlock');
+  var currentSubj = 'both';
+  var timerBasis = 'official';
+  var customMinutesEl = document.getElementById('customMinutes');
+
+  function fmtMin(min) {
+    if (min < 1) return Math.round(min * 60) + ' sec';
+    return (Math.round(min * 10) / 10) + ' min';
+  }
+
+  function computeTimeFor(subj, count, isPreset) {
+    var p = PACE[subj];
+    if (isPreset) {
+      var vals = p[isPreset];
+      return { min: vals[1], estimated: false };
+    }
+    return { min: (count * p.rate) / 60, estimated: true };
+  }
+
+  var activePreset = 'module';
+
+  function recompute() {
+    var mCount = parseInt(mathCountEl.value, 10) || 0;
+    var rCount = parseInt(rwCountEl.value, 10) || 0;
+
+    var mTime = computeTimeFor('math', mCount, activePreset);
+    var rTime = computeTimeFor('rw', rCount, activePreset);
+    mathTimeEl.textContent = (mTime.estimated ? '~' : '') + fmtMin(mTime.min) + (mTime.estimated ? ', estimated' : '');
+    rwTimeEl.textContent = (rTime.estimated ? '~' : '') + fmtMin(rTime.min) + (rTime.estimated ? ', estimated' : '');
+
+    var totalCount = 0, totalTime = 0;
+    if (currentSubj === 'math' || currentSubj === 'both') { totalCount += mCount; totalTime += mTime.min; }
+    if (currentSubj === 'rw' || currentSubj === 'both') { totalCount += rCount; totalTime += rTime.min; }
+
+    if (timerBasis === 'official') {
+      startBtn.textContent = 'Start ' + totalCount + '-question set → (' + fmtMin(totalTime) + ')';
+    } else if (timerBasis === 'custom') {
+      var custom = parseInt(customMinutesEl.value, 10) || 0;
+      startBtn.textContent = 'Start ' + totalCount + '-question set → (' + custom + ' min, your time)';
+    } else {
+      startBtn.textContent = 'Start ' + totalCount + '-question set → (untimed)';
+    }
+
+    checkPool(rCount);
+  }
+
+  function checkPool(rCount) {
+    var poolWarning = document.getElementById('poolWarning');
+    var boundariesOn = document.querySelector('.chip[data-chip="Boundaries"]').classList.contains('on');
+    var available = 11; // demo: simulated real pool size for this filter combo
+    if (boundariesOn && (currentSubj === 'rw' || currentSubj === 'both') && rCount > available) {
+      document.getElementById('poolWarningText').textContent =
+        'Only ' + available + ' R&W "Boundaries" questions match your filters (you asked for ' + rCount + ').';
+      poolWarning.classList.add('show');
+    } else {
+      poolWarning.classList.remove('show');
+    }
+  }
+
+  // subject segmented control
+  document.querySelectorAll('.seg-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.seg-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentSubj = btn.dataset.subj;
+      mathBlock.style.display = (currentSubj === 'rw') ? 'none' : 'block';
+      rwBlock.style.display = (currentSubj === 'math') ? 'none' : 'block';
+      recompute();
+    });
+  });
+
+  // section chips
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      chip.classList.toggle('on');
+      recompute();
+    });
+  });
+
+  // steppers
+  document.querySelectorAll('.stepper button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = document.getElementById(btn.dataset.target);
+      var val = parseInt(target.value, 10) || 0;
+      val += parseInt(btn.dataset.step, 10);
+      target.value = Math.max(1, Math.min(100, val));
+      activePreset = null;
+      document.querySelectorAll('.qp').forEach(function (q) { q.classList.remove('active'); });
+      recompute();
+    });
+  });
+  [mathCountEl, rwCountEl].forEach(function (el) {
+    el.addEventListener('input', function () {
+      activePreset = null;
+      document.querySelectorAll('.qp').forEach(function (q) { q.classList.remove('active'); });
+      recompute();
+    });
+  });
+
+  // quick-pick presets
+  document.querySelectorAll('.qp').forEach(function (qp) {
+    qp.addEventListener('click', function () {
+      document.querySelectorAll('.qp').forEach(function (q) { q.classList.remove('active'); });
+      qp.classList.add('active');
+      activePreset = qp.dataset.preset;
+      mathCountEl.value = PACE.math[activePreset][0];
+      rwCountEl.value = PACE.rw[activePreset][0];
+      recompute();
+    });
+  });
+
+  // pool warning actions
+  document.getElementById('startWithFewerBtn').addEventListener('click', function () {
+    rwCountEl.value = 11;
+    activePreset = null;
+    document.querySelectorAll('.qp').forEach(function (q) { q.classList.remove('active'); });
+    recompute();
+    toast('Count adjusted to match the available pool.');
+  });
+  document.getElementById('widenFiltersBtn').addEventListener('click', function () {
+    document.querySelectorAll('#rwChips .chip').forEach(function (c) { c.classList.add('on'); });
+    recompute();
+    toast('All R&W sections selected — pool widened.');
+  });
+
+  // timer basis
+  document.querySelectorAll('.timer-opt').forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      document.querySelectorAll('.timer-opt').forEach(function (o) { o.classList.remove('active'); });
+      opt.classList.add('active');
+      timerBasis = opt.dataset.timer;
+      document.getElementById('customTimeRow').classList.toggle('show', timerBasis === 'custom');
+      recompute();
+    });
+  });
+  customMinutesEl.addEventListener('input', recompute);
+
+  // toggles
+  document.querySelectorAll('.switch').forEach(function (sw) {
+    sw.addEventListener('click', function () { sw.classList.toggle('on'); });
+  });
+
+  document.getElementById('startBtn').addEventListener('click', function () {
+    toast('Session created — would open the Practice Player.');
+  });
+
+  recompute();
+</script>

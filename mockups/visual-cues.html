@@ -1,0 +1,763 @@
+<title>BluePrep — AI Visual Cues, Standard English Conventions</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --ink: #14181f;
+    --ink-dim: #5b6472;
+    --line: #dde1e7;
+    --navy: #0f4fb0;
+    --navy-wash: #e8f0fc;
+
+    --c1: #1f6fd6; --c1-wash: #e6f0fd; --c1-ink: #0d3c78;
+    --c2: #7a3fc9; --c2-wash: #f1e9fb; --c2-ink: #4a1f88;
+    --c3a: #0f8a72; --c3a-wash: #e2f5f0; --c3a-ink: #0a5544;
+    --c3b: #c9821f; --c3b-wash: #fbeed9; --c3b-ink: #7a4e0f;
+    --c4: #b0331f; --c4-wash: #fbe6e2; --c4-ink: #7a2314;
+    --c5: #3a4fb0; --c5-wash: #e8eafc; --c5-ink: #222f7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --panel: #181b21; --ink: #e9ebf0; --ink-dim: #8b93a1; --line: #2a2e37;
+      --navy: #6fa6ea; --navy-wash: #1a2c47;
+      --c1: #6fa6ea; --c1-wash: #17263d; --c1-ink: #bcd8fb;
+      --c2: #b28ce6; --c2-wash: #241b38; --c2-ink: #ddc9f6;
+      --c3a: #4fbfa4; --c3a-wash: #122923; --c3a-ink: #9fe3d1;
+      --c3b: #e0a94f; --c3b-wash: #2c2210; --c3b-ink: #f3cd8e;
+      --c4: #e2705a; --c4-wash: #301712; --c4-ink: #f3ad9d;
+      --c5: #8b9ceb; --c5-wash: #1c2242; --c5-ink: #c7cffa;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111318; --panel: #181b21; --ink: #e9ebf0; --ink-dim: #8b93a1; --line: #2a2e37;
+    --navy: #6fa6ea; --navy-wash: #1a2c47;
+    --c1: #6fa6ea; --c1-wash: #17263d; --c1-ink: #bcd8fb;
+    --c2: #b28ce6; --c2-wash: #241b38; --c2-ink: #ddc9f6;
+    --c3a: #4fbfa4; --c3a-wash: #122923; --c3a-ink: #9fe3d1;
+    --c3b: #e0a94f; --c3b-wash: #2c2210; --c3b-ink: #f3cd8e;
+    --c4: #e2705a; --c4-wash: #301712; --c4-ink: #f3ad9d;
+    --c5: #8b9ceb; --c5-wash: #1c2242; --c5-ink: #c7cffa;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --panel: #f6f7f9; --ink: #14181f; --ink-dim: #5b6472; --line: #dde1e7;
+    --navy: #0f4fb0; --navy-wash: #e8f0fc;
+    --c1: #1f6fd6; --c1-wash: #e6f0fd; --c1-ink: #0d3c78;
+    --c2: #7a3fc9; --c2-wash: #f1e9fb; --c2-ink: #4a1f88;
+    --c3a: #0f8a72; --c3a-wash: #e2f5f0; --c3a-ink: #0a5544;
+    --c3b: #c9821f; --c3b-wash: #fbeed9; --c3b-ink: #7a4e0f;
+    --c4: #b0331f; --c4-wash: #fbe6e2; --c4-ink: #7a2314;
+    --c5: #3a4fb0; --c5-wash: #e8eafc; --c5-ink: #222f7a;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Neue Haas Grotesk Text Pro", "Helvetica Neue", Arial, sans-serif;
+  }
+  .serif { font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .page { max-width: 880px; margin: 0 auto; padding: 48px 28px 96px; }
+
+  .eyebrow { font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; margin: 0 0 12px; }
+  h1 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; margin: 0 0 14px; font-weight: 700; text-wrap: balance; max-width: 20ch; }
+  .lede { font-size: 15px; line-height: 1.6; color: var(--ink-dim); max-width: 62ch; margin: 0 0 8px; }
+  .hint { font-size: 12.5px; color: var(--ink-dim); margin: 18px 0 44px; display: flex; align-items: center; gap: 8px; }
+  .hint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--navy); flex: none; }
+
+  .qcard {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+    margin-bottom: 22px; overflow: hidden;
+  }
+  .qhead {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .skill-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .qnum { font-size: 11.5px; color: var(--ink-dim); }
+
+  .qbody { padding: 22px 24px 20px; }
+  .passage {
+    font-size: 17px; line-height: 1.85;
+  }
+  .passage .plain { color: var(--ink); }
+  .passage .dim { color: var(--ink-dim); }
+  .cue {
+    border-radius: 4px; padding: 1px 3px; cursor: pointer;
+    border-bottom: 2px solid; transition: opacity 0.15s ease;
+  }
+  .cue:hover { opacity: 0.82; }
+  .blank {
+    display: inline-block; min-width: 64px; text-align: center;
+    border-bottom: 1.5px dashed var(--ink-dim); padding: 0 4px;
+  }
+  .blank-filled { border-bottom: none; font-weight: 500; color: var(--ink); }
+  .ans-check { color: #1f8a5c; font-weight: 700; margin-left: 3px; font-size: 0.85em; }
+
+  /* always-visible answer key */
+  .answerkey { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .answerkey .akhead { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 10px; }
+  .akrow {
+    display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; border-radius: 7px;
+    border: 1px solid var(--line); margin-bottom: 7px; font-size: 13px; line-height: 1.5;
+  }
+  .akrow .aknum {
+    font-size: 11px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex: none; margin-top: 1px;
+    border: 1.5px solid var(--ink-dim); color: var(--ink-dim);
+  }
+  .akrow .aktext { flex: 1; }
+  .akrow .akchoice { color: var(--ink); }
+  .akrow .akwhy { display: block; margin-top: 3px; font-size: 12px; color: var(--ink-dim); }
+  .akrow.right { border-color: #1f8a5c; background: rgba(31,138,92,0.07); }
+  .akrow.right .aknum { border-color: #1f8a5c; color: #1f8a5c; }
+  .akrow.right .akwhy { color: #1f7a51; }
+  .akrow.wrong .aknum { border-color: #c23b2c; color: #c23b2c; }
+  .akrow.wrong .akwhy { color: #a8402f; }
+
+  .legend { display: flex; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+  .legend span { font-size: 11.5px; color: var(--ink-dim); display: flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+  .rulecard {
+    margin-top: 16px; border-radius: 8px; padding: 14px 16px;
+    border: 1px solid var(--line); display: none;
+  }
+  .rulecard.open { display: block; }
+  .rulecard .rtitle { font-size: 12.5px; font-weight: 700; margin: 0 0 6px; letter-spacing: 0.01em; }
+  .rulecard p { font-size: 13px; line-height: 1.55; margin: 0 0 10px; color: var(--ink); }
+  .rulecard a {
+    font-size: 12.5px; font-weight: 600; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .rulecard a::after { content: "→"; transition: transform 0.15s ease; }
+  .rulecard a:hover::after { transform: translateX(2px); }
+
+  .tap-note { font-size: 11.5px; color: var(--ink-dim); margin-top: 14px; font-style: italic; }
+
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-dim); }
+
+  .trapdemo { margin-top: 40px; }
+  .trapdemo .sechead { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
+  .trapdemo .secsub { font-size: 12.5px; color: var(--ink-dim); margin: 0 0 20px; }
+  .trapopt { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin-bottom: 12px; }
+  .trapopt .optlabel { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .trapopt .rec { background: var(--navy-wash); color: var(--navy); border-radius: 4px; padding: 2px 7px; font-size: 10px; letter-spacing: 0.02em; }
+  .trapopt .sample { font-size: 16.5px; }
+  .trapopt .note { font-size: 12.5px; color: var(--ink-dim); margin-top: 10px; line-height: 1.5; }
+
+  .trap-squiggly { text-decoration: underline wavy; text-decoration-color: #d43b2c; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+  .trap-tag { border-bottom: 1.5px dashed #b8860b; padding-bottom: 1px; }
+  .trap-icon { font-size: 12px; margin-right: 2px; }
+
+  /* final trap treatment: red flag + hatch fill */
+  .trap-dash {
+    position: relative; cursor: pointer; padding: 0 2px; border-radius: 2px;
+    background-image: repeating-linear-gradient(135deg, rgba(194,59,44,0.16) 0px, rgba(194,59,44,0.16) 3px, transparent 3px, transparent 7px);
+    border-bottom: 1.5px solid rgba(194,59,44,0.6);
+  }
+  .trap-dash::before { content: "\2691"; color: #c23b2c; font-size: 11px; margin-right: 3px; }
+  .trap-dash[data-trap]::after {
+    content: attr(data-trap);
+    position: absolute;
+    top: 100%; left: 0;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: #c23b2c; white-space: nowrap; line-height: 1; margin-top: 3px;
+  }
+  @media (max-width: 620px) {
+    .trap-dash[data-trap]::after, .assume-mark[data-trap]::after {
+      white-space: normal; max-width: 92px; line-height: 1.25; font-size: 8.5px;
+    }
+  }
+
+  /* prior-assumption marker: distinct from a trap — not "wrong," just "about to be revised" */
+  .assume-mark {
+    position: relative; cursor: pointer; padding: 0 2px; border-radius: 2px;
+    background: rgba(91,107,140,0.09);
+    border-bottom: 1.5px dashed rgba(91,107,140,0.65);
+  }
+  .assume-mark::before { content: "\21BA"; color: #5b6b8c; font-size: 11px; margin-right: 3px; }
+  .assume-mark[data-trap]::after {
+    content: attr(data-trap);
+    position: absolute;
+    top: 100%; left: 0;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: #5b6b8c; white-space: nowrap; line-height: 1; margin-top: 3px;
+  }
+  .trap-hatch {
+    background-image: repeating-linear-gradient(135deg, rgba(184,134,11,0.16) 0px, rgba(184,134,11,0.16) 3px, transparent 3px, transparent 7px);
+    border-bottom: 1px solid rgba(184,134,11,0.55);
+    padding: 0 1px;
+  }
+
+  /* rhetorical synthesis card */
+  .rs-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; }
+  @media (max-width: 720px) { .rs-grid { grid-template-columns: 1fr; } }
+  .notes-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 10px; }
+  .notes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .notes-list li {
+    font-size: 13px; line-height: 1.5; padding: 7px 10px; border-radius: 6px;
+    border: 1px solid var(--line); color: var(--ink-dim);
+  }
+  .notes-list li.used {
+    cursor: pointer; color: var(--c5-ink); background: var(--c5-wash); border-color: var(--c5); font-weight: 500;
+  }
+  .choices { display: flex; flex-direction: column; gap: 8px; }
+  .choice {
+    border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; font-size: 13.5px; line-height: 1.55;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .choice .num {
+    font-size: 11px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex: none; margin-top: 1px;
+    border: 1.5px solid var(--ink-dim); color: var(--ink-dim);
+  }
+  .choice.correct { border-color: var(--c5); background: var(--c5-wash); }
+  .choice.correct .num { border-color: var(--c5); color: var(--c5-ink); background: transparent; }
+  .choice .trapchip {
+    display: inline-block; margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #c23b2c; cursor: pointer; white-space: nowrap; border-radius: 2px; padding: 1px 4px 2px;
+    background-image: repeating-linear-gradient(135deg, rgba(194,59,44,0.16) 0px, rgba(194,59,44,0.16) 3px, transparent 3px, transparent 7px);
+    border-bottom: 1.5px solid rgba(194,59,44,0.6);
+  }
+  .choice .trapchip::before { content: "\2691"; margin-right: 3px; }
+  .xtext-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 620px) { .xtext-grid { grid-template-columns: 1fr; } }
+  .xtext-box { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .xtext-box .xlabel { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 8px; }
+  .xtext-box p.passage { font-size: 14px; line-height: 1.65; margin: 0; }
+
+  .choice .okchip {
+    display: inline-block; margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--c5-ink); cursor: pointer;
+  }
+</style>
+
+<div class="page">
+  <p class="eyebrow">blueprep — review-mode overlay</p>
+  <h1>Same-color linking, per Standard English Conventions subtype</h1>
+  <p class="lede">Each subtype gets one accent color. Both halves of the grammatical relationship — the thing that determines the answer, and the thing being tested against it — are highlighted in that color. Click either highlighted span to open the rule card.</p>
+  <div class="hint"><span class="dot"></span> Click any highlighted phrase below to try it.</div>
+
+  <!-- Card 1: Subject-Verb Agreement -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c1)">Standard English Conventions — Agreement</span>
+      <span class="qnum mono">Q14</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.4;">
+        <span class="plain">The </span><span class="cue" data-target="r1" style="background: var(--c1-wash); border-color: var(--c1); color: var(--c1-ink);">collection</span><span class="dim"> of rare </span><span class="cue dim trap-dash" data-target="t1-manuscripts" data-trap="Trap 1" title="Plural bait — doesn't govern the verb">manuscripts</span><span class="dim">, donated by an </span><span class="cue dim trap-dash" data-target="t1-alum" data-trap="Trap 2" title="Second false subject">anonymous alum</span><span class="dim"> last spring,</span><span class="plain"> </span><span class="cue blank" data-target="r1" style="background: var(--c1-wash); border-color: var(--c1); color: var(--c1-ink);">was<span class="ans-check">✓</span></span><span class="plain"> housed in the university's east wing.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c1)"></span>subject ↔ verb</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>traps — click each</span>
+      </div>
+      <div class="rulecard" id="r1" style="background: var(--c1-wash); border-color: var(--c1);">
+        <p class="rtitle" style="color: var(--c1-ink)">Subject–verb agreement</p>
+        <p>The dimmed phrase between "collection" and the blank is an interrupting modifier — it doesn't change the subject. "Collection" is singular, so the verb must be singular: <b>was</b>.</p>
+        <a href="#" style="color: var(--c1)" onclick="return false;">Full guide: interrupting phrases</a>
+      </div>
+      <div class="rulecard" id="t1-manuscripts" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap 1 — "manuscripts"</p>
+        <p>Plural noun, closest to the verb visually — the classic proximity trap. If you matched the verb to this instead of the real subject, you'd wrongly pick "were." It sits inside "of rare manuscripts," a prepositional phrase, so it can never be the subject.</p>
+      </div>
+      <div class="rulecard" id="t1-alum" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap 2 — "anonymous alum"</p>
+        <p>A second false subject — and a sneaky one, because "alum" is singular, so treating it as the subject still happens to produce "was," the correct verb. Right answer, wrong reasoning: it's inside "donated by an anonymous alum," a modifying phrase, not the subject. Relying on this shortcut would fail on a sentence where the nearest noun is plural instead.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">was</span><span class="akwhy">Correct — matches the singular subject "collection."</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">were</span><span class="akwhy">Wrong — agrees with "manuscripts" (Trap 1), not the real subject.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">have been</span><span class="akwhy">Wrong — plural, same trap as "were," plus the wrong aspect for this sentence.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">are</span><span class="akwhy">Wrong — present-tense plural; clashes with singular "collection" and the past-tense "donated."</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 1b: Subject-Verb Agreement, comparative structure -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c1)">Standard English Conventions — Agreement</span>
+      <span class="qnum mono">R&amp;W Q20</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.4;">
+        <span class="plain">Researchers studying the "terra-cotta army" were shocked to realize that </span><span class="cue" data-target="r1b" style="background: var(--c1-wash); border-color: var(--c1); color: var(--c1-ink);">the shape</span><span class="dim"> of each statue's </span><span class="cue dim trap-dash" data-target="t1b-ears1" data-trap="Trap 1" title="Plural bait — inside a prepositional phrase">ears</span><span class="dim">, like the shape of each person's </span><span class="cue dim trap-dash" data-target="t1b-ears2" data-trap="Trap 2" title="Second plural bait — inside a comparison, not a second subject">ears</span><span class="dim">,</span><span class="plain"> </span><span class="cue blank" data-target="r1b" style="background: var(--c1-wash); border-color: var(--c1); color: var(--c1-ink);">is<span class="ans-check">✓</span></span><span class="plain"> unique.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c1)"></span>subject ↔ verb</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>traps — click each</span>
+      </div>
+      <div class="rulecard" id="r1b" style="background: var(--c1-wash); border-color: var(--c1);">
+        <p class="rtitle" style="color: var(--c1-ink)">Subject–verb agreement, across a comparison</p>
+        <p>"Like the shape of each person's ears" is a comparison set off by commas — it doesn't add a second subject, it just restates the same structure about a different noun. The real subject stays "the shape," singular, so the verb is <b>is</b>, not "are."</p>
+        <a href="#" style="color: var(--c1)" onclick="return false;">Full guide: comparative interrupters</a>
+      </div>
+      <div class="rulecard" id="t1b-ears1" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap 1 — "ears" (first)</p>
+        <p>Plural, right next to a spot that feels like it should take a verb — but it's inside "of each statue's ears," a prepositional phrase. Can't be the subject.</p>
+      </div>
+      <div class="rulecard" id="t1b-ears2" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap 2 — "ears" (second)</p>
+        <p>Easy to misread the whole "like the shape of each person's ears" clause as a second thing being described — as if the sentence were about two things, which would call for "are." It's a comparison, not a compound subject.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">is</span><span class="akwhy">Correct — matches the singular subject "the shape."</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">are</span><span class="akwhy">Wrong — agrees with "ears" (either trap), not the real subject.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">were</span><span class="akwhy">Wrong — same trap as "are," plus wrong tense for a present-tense sentence.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">have been</span><span class="akwhy">Wrong — plural and the wrong aspect.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: Pronoun-Antecedent -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c2)">Standard English Conventions — Pronouns</span>
+      <span class="qnum mono">Q22</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.4;">
+        <span class="plain">Before presenting to the board, </span><span class="cue" data-target="r2" style="background: var(--c2-wash); border-color: var(--c2); color: var(--c2-ink);">each</span><span class="dim"> of the </span><span class="cue dim trap-dash" data-target="t2-researchers" data-trap="Trap" title="Plural bait — doesn't govern the pronoun">researchers</span><span class="plain"> revised </span><span class="cue blank" data-target="r2" style="background: var(--c2-wash); border-color: var(--c2); color: var(--c2-ink);">his or her<span class="ans-check">✓</span></span><span class="plain"> section three times.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c2)"></span>true antecedent ↔ pronoun</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>trap — click it</span>
+      </div>
+      <div class="rulecard" id="r2" style="background: var(--c2-wash); border-color: var(--c2);">
+        <p class="rtitle" style="color: var(--c2-ink)">Pronoun–antecedent agreement</p>
+        <p>"Of the researchers" is a prepositional phrase modifying "each" — it's the trap, not the antecedent. <b>Each</b> is the grammatical head and is always singular, so the pronoun must match: <b>his or her</b>, not "their."</p>
+        <a href="#" style="color: var(--c2)" onclick="return false;">Full guide: indefinite pronouns</a>
+      </div>
+      <div class="rulecard" id="t2-researchers" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap — "researchers"</p>
+        <p>Plural, and it's the noun closest to the verb "revised" — the same proximity trap as "manuscripts" in Q14. But it's the object of "of," not the antecedent. The antecedent is "each," which governs the pronoun regardless of how many researchers there are.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">his or her</span><span class="akwhy">Correct — matches singular antecedent "each."</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">their</span><span class="akwhy">Wrong — treats "researchers," the trap, as the antecedent instead of "each."</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">its</span><span class="akwhy">Wrong — implies a non-person antecedent; each researcher is a person.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">our</span><span class="akwhy">Wrong — shifts to first person; nothing in the sentence supports "our."</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3: Boundaries -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c3a)">Standard English Conventions — Boundaries</span>
+      <span class="qnum mono">Q08</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.4;">
+        <span class="cue" data-target="r3" style="background: var(--c3a-wash); border-color: var(--c3a); color: var(--c3a-ink);"><u style="text-decoration-color:var(--c3a); text-decoration-thickness:2px;">The bridge</u> <i>was closed</i></span><span class="cue dim trap-dash" data-target="t3-forrepairs" data-trap="Trap" title="A trailing prepositional phrase — feels incomplete, isn't">for repairs</span><span class="plain"> </span><span class="cue blank" data-target="r3" style="background: var(--panel); border-color: var(--ink-dim); color: var(--ink);">;<span class="ans-check">✓</span></span><span class="plain"> </span><span class="cue" data-target="r3" style="background: var(--c3b-wash); border-color: var(--c3b); color: var(--c3b-ink);"><u style="text-decoration-color:var(--c3b); text-decoration-thickness:2px;">commuters</u> <i>had to find</i></span><span class="plain"> alternate routes for nearly a month.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c3a)"></span>clause A — subject underlined, verb italic</span>
+        <span><span class="sw" style="background: var(--c3b)"></span>clause B — subject underlined, verb italic</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>trap — click it</span>
+      </div>
+      <div class="rulecard" id="r3" style="background: var(--panel); border-color: var(--line);">
+        <p class="rtitle">Joining two independent clauses</p>
+        <p><b>Clause A</b> has a subject ("The bridge") and a complete verb ("was closed") — "for repairs" just adds detail, it isn't required for the clause to stand alone. <b>Clause B</b> has its own subject ("commuters") and verb ("had to find") plus its own object and modifier. Because each side already has everything it needs to be its own sentence, joining them with a comma alone is a comma splice. The blank needs a <b>semicolon</b>, a period, or a comma + coordinating conjunction (and/but/so...) — something strong enough to hold two complete sentences together.</p>
+        <a href="#" style="color: var(--navy)" onclick="return false;">Full guide: comma splices &amp; boundaries</a>
+      </div>
+      <div class="rulecard" id="t3-forrepairs" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap — "for repairs" feels unfinished</p>
+        <p>Sentences that trail off with a prepositional phrase can feel incomplete, which tempts students to underestimate clause A and reach for a lighter connector like a comma. But completeness is decided by subject + verb, not by how the sentence ends — "The bridge was closed" is already a full sentence; "for repairs" is optional detail sitting on top of it.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">;</span><span class="akwhy">Correct — a semicolon joins two independent clauses without a conjunction.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">,</span><span class="akwhy">Wrong — a comma alone between two independent clauses is a comma splice.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">, thus</span><span class="akwhy">Wrong — "thus" is a conjunctive adverb, not a coordinating conjunction; still a splice.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">being</span><span class="akwhy">Wrong — turns the second clause into a dangling participial phrase, not a full sentence.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3b: Boundaries — dependent + independent clause -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c3a)">Standard English Conventions — Boundaries</span>
+      <span class="qnum mono">R&amp;W Q — cathedral</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.4;">
+        <span class="cue dim trap-dash" data-target="t3b-although" data-trap="Trap" title="Has a subject and verb, but a subordinator makes it dependent">Although</span><span class="cue" data-target="r3b" style="background: var(--c3a-wash); border-color: var(--c3a); color: var(--c3a-ink);"> the 1866 renovation preserved the cathedral's <u style="text-decoration-color:var(--c3a); text-decoration-thickness:2px;">facade</u></span><span class="cue blank" data-target="r3b" style="background: var(--panel); border-color: var(--ink-dim); color: var(--ink);">,<span class="ans-check">✓</span></span><span class="cue" data-target="r3b" style="background: var(--c3b-wash); border-color: var(--c3b); color: var(--c3b-ink);"> <u style="text-decoration-color:var(--c3b); text-decoration-thickness:2px;">the interior</u> <i>was</i> almost entirely rebuilt in a modern style</span><span class="plain">.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c3a)"></span>clause A — dependent (subordinator up front)</span>
+        <span><span class="sw" style="background: var(--c3b)"></span>clause B — independent</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>trap — click it</span>
+      </div>
+      <div class="rulecard" id="r3b" style="background: var(--panel); border-color: var(--line);">
+        <p class="rtitle">Introductory dependent clause needs a comma</p>
+        <p>Clause A has its own subject ("the renovation") and verb ("preserved") — but it opens with "Although," a subordinating conjunction, which makes the whole clause dependent no matter how complete it looks internally. A dependent clause introducing an independent one is set off with a <b>comma</b>, not a semicolon (semicolons only join two independent clauses) and not a period (that would leave "Although..." as a sentence fragment).</p>
+      </div>
+      <div class="rulecard" id="t3b-although" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap — subject + verb ≠ independent</p>
+        <p>This clause has a full subject and verb, which is exactly what makes semicolon feel plausible — the Q08 rule "both sides look complete → semicolon" almost applies. But "Although" is a subordinating conjunction: it turns a complete-looking clause into a dependent one. Subject + verb is necessary for independence, but a leading subordinator overrides it.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">,</span><span class="akwhy">Correct — a comma sets off an introductory dependent clause from the independent clause that follows.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">;</span><span class="akwhy">Wrong — a semicolon can only join two independent clauses; "Although..." isn't one.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">.</span><span class="akwhy">Wrong — ending the sentence here leaves "Although the renovation preserved the facade" as a fragment.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">(no punctuation)</span><span class="akwhy">Wrong — an introductory dependent clause needs a comma to separate it from the main clause.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 4: Transitions -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c4)">Expression of Ideas — Transitions</span>
+      <span class="qnum mono">Q31</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.4;">
+        <span class="plain">The novel received </span><span class="cue" data-target="r4" style="background: var(--c4-wash); border-color: var(--c4); color: var(--c4-ink);">little attention upon its initial release</span><span class="plain">. </span><span class="cue blank" data-target="r4" style="background: var(--c4-wash); border-color: var(--c4); color: var(--c4-ink);">However<span class="ans-check">✓</span></span><span class="plain">, it is </span><span class="cue dim trap-dash" data-target="t4-now" data-trap="Trap" title="Signals time passing, not causation">now</span><span class="plain"> considered a </span><span class="cue" data-target="r4" style="background: var(--c4-wash); border-color: var(--c4); color: var(--c4-ink);">landmark of twentieth-century literature</span><span class="plain">.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c4)"></span>the two ideas being weighed against each other</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>trap — click it</span>
+      </div>
+      <div class="rulecard" id="r4" style="background: var(--c4-wash); border-color: var(--c4);">
+        <p class="rtitle" style="color: var(--c4-ink)">Transition logic</p>
+        <p>"Little attention" and "landmark" are opposites — the second sentence contradicts the first, it doesn't build on it. That calls for a contrast transition: <b>However</b>, not "Therefore" or "Similarly," both of which would treat the two ideas as agreeing.</p>
+        <a href="#" style="color: var(--c4)" onclick="return false;">Full guide: contrast vs. cause vs. continuation</a>
+      </div>
+      <div class="rulecard" id="t4-now" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap — "now" isn't a cause</p>
+        <p>"Now" marks that time has passed, and time passing can feel like it explains a change — which is exactly what makes "Therefore" tempting. But the sentence never says <i>why</i> opinion changed, only that it did, and that it's the opposite of the original reception. Passage of time is not a stated cause.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">However</span><span class="akwhy">Correct — signals the contrast between "little attention" and "landmark."</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">Therefore</span><span class="akwhy">Wrong — implies cause-and-effect; there's no causal link stated, only the passage of time.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">Similarly</span><span class="akwhy">Wrong — implies agreement between the two ideas, but they're opposites.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">In addition</span><span class="akwhy">Wrong — implies continuation, not the reversal the sentence describes.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="tap-note">In the real reviewer, the rule card would also carry a "generate a similar question" action, tied to this exact sub-skill.</p>
+
+  <!-- Card 5: Rhetorical Synthesis -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c5)">Information and Ideas — Rhetorical Synthesis</span>
+      <span class="qnum mono">R&amp;W Q25</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="font-size:15px; color: var(--ink-dim); margin-bottom:18px;">Goal: refute the claim that malapportionment in the Storting favors <b style="color:var(--ink)">small urban</b> districts.</p>
+
+      <div class="rs-grid">
+        <div>
+          <p class="notes-head">Student's notes</p>
+          <ul class="notes-list">
+            <li>Malapportionment is the over- or underrepresentation (relative to population) of electoral districts.</li>
+            <li>It is a common feature of representative governments.</li>
+            <li>The Storting has 169 seats.</li>
+            <li class="cue used" data-target="rs-formula">Seats are distributed by a formula: 1 point per resident, <b>1.8 points per unit of land</b>.</li>
+            <li class="cue used" data-target="rs-rural">Less populated rural districts with large tracts of land get disproportionately more seats than smaller, more populated urban districts.</li>
+          </ul>
+          <div class="rulecard" id="rs-formula" style="background: var(--c5-wash); border-color: var(--c5); margin-top:10px;">
+            <p class="rtitle" style="color: var(--c5-ink)">Why this note matters</p>
+            <p>Land is weighted almost twice as heavily as people (1.8 vs. 1). That single ratio is the mechanism the correct answer has to name.</p>
+          </div>
+          <div class="rulecard" id="rs-rural" style="background: var(--c5-wash); border-color: var(--c5); margin-top:10px;">
+            <p class="rtitle" style="color: var(--c5-ink)">Why this note matters</p>
+            <p>This is the outcome of that formula, stated directly: rural districts are overrepresented. That's the fact that refutes "favors urban."</p>
+          </div>
+          <p style="font-size:11.5px; color:var(--ink-dim); margin-top:12px;">Dimmed notes are real but unused by the correct answer — true information, wrong relevance to <i>this</i> claim.</p>
+        </div>
+
+        <div>
+          <p class="notes-head">Answer choices</p>
+          <div class="akrow wrong">
+            <span class="aknum">1</span>
+            <span class="aktext"><span class="akchoice">Less populated rural districts are disproportionally underrepresented, creating an unfair advantage for smaller but more populated urban districts.</span>
+            <span class="akwhy">Reversed — the notes say rural districts are overrepresented, not underrepresented.</span></span>
+          </div>
+          <div class="akrow wrong">
+            <span class="aknum">2</span>
+            <span class="aktext"><span class="akchoice">It's untrue that malapportionment favors small urban districts; rather, the formula overrepresents more populated districts.</span>
+            <span class="akwhy">Reversed, more subtly — correctly says "untrue," but the notes say <i>less</i> populated districts are overrepresented, not more.</span></span>
+          </div>
+          <div class="akrow wrong">
+            <span class="aknum">3</span>
+            <span class="aktext"><span class="akchoice">A common feature of representative governments, malapportionment occurs when electoral districts are over- or underrepresented.</span>
+            <span class="akwhy">True, but off-target — accurate, straight from the notes, but never engages the actual claim being refuted.</span></span>
+          </div>
+          <div class="akrow right">
+            <span class="aknum">4</span>
+            <span class="aktext"><span class="akchoice">Awarding more points per unit of land than points per resident, the formula for distributing Storting seats overrepresents less populated rural districts with large tracts of land.</span>
+            <span class="akwhy">Correct — names the mechanism (land weighted over residents) and its consequence (rural overrepresentation), which refutes "favors urban."</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 6: Inferences — logical text completion -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c5)">Information and Ideas — Inferences</span>
+      <span class="qnum mono">R&amp;W Q — Kuulo Kataa</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="font-size: 15.5px;">
+        If some artifacts recovered from excavations of the settlement of Kuulo Kataa date from the
+        <span class="cue" data-target="r6" style="background: var(--c5-wash); border-color: var(--c5); color: var(--c5-ink);">thirteenth century CE</span>,
+        that may lend credence to claims the settlement was founded around that time. There is other evidence, however, strongly supporting a
+        <span class="cue" data-target="r6" style="background: var(--c5-wash); border-color: var(--c5); color: var(--c5-ink);">fourteenth century CE founding date</span>.
+        If both are correct, that would imply that <span class="blank blank-filled">the artifacts originated elsewhere and eventually reached Kuulo Kataa through trade or migration.<span class="ans-check">✓</span></span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c5)"></span>the two facts the answer has to reconcile</span>
+      </div>
+      <div class="rulecard" id="r6" style="background: var(--c5-wash); border-color: var(--c5);">
+        <p class="rtitle" style="color: var(--c5-ink)">What has to be true for both facts to hold</p>
+        <p>Artifacts predating the settlement, but the settlement founded later — the only way both survive is if the artifacts didn't originate at Kuulo Kataa. The answer must supply that reconciling mechanism, not just restate either fact.</p>
+      </div>
+
+      <p class="notes-head" style="margin-top:18px;">Answer choices</p>
+      <div class="akrow wrong">
+        <span class="aknum">1</span>
+        <span class="aktext"><span class="akchoice">fourteenth-century artifacts are more commonly recovered than thirteenth-century ones.</span>
+        <span class="akwhy">Doesn't reconcile anything — a recovery-frequency comparison says nothing about why 13th-century artifacts exist at a 14th-century settlement.</span></span>
+      </div>
+      <div class="akrow right">
+        <span class="aknum">2</span>
+        <span class="aktext"><span class="akchoice">the artifacts originated elsewhere and eventually reached Kuulo Kataa through trade or migration.</span>
+        <span class="akwhy">Correct — the only option that lets both dates be true at once: the artifacts predate the settlement because they weren't made there.</span></span>
+      </div>
+      <div class="akrow wrong">
+        <span class="aknum">3</span>
+        <span class="aktext"><span class="akchoice">Kuulo Kataa was founded by people from a different region than had previously been assumed.</span>
+        <span class="akwhy">Unsupported leap — nothing in the premises supports a claim about who founded the settlement.</span></span>
+      </div>
+      <div class="akrow wrong">
+        <span class="aknum">4</span>
+        <span class="aktext"><span class="akchoice">excavations may have inadvertently damaged some fourteenth-century artifacts.</span>
+        <span class="akwhy">Off-target — damage during excavation doesn't explain a date discrepancy.</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 7: Inferences — evidence-driven, scientific -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c5)">Information and Ideas — Inferences</span>
+      <span class="qnum mono">R&amp;W Q — sea stars</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="font-size: 15.5px; line-height: 2.1;">
+        Sea stars are <span class="cue assume-mark" data-target="e-assume" data-trap="prior belief" title="The prior belief the finding overturns — not a trap, a premise to revise">thought to have evolved a headless layout from a known bilateral origin</span>.
+        Applying genomic markers from acorn worms to sea star body-patterning genes, researchers observed
+        <span class="cue" data-target="r7" style="background: var(--c5-wash); border-color: var(--c5); color: var(--c5-ink);">activity only in anterior genes across the entire body</span>, and
+        <span class="cue" data-target="r7" style="background: var(--c5-wash); border-color: var(--c5); color: var(--c5-ink);">some posterior genes limited to the edges</span>,
+        suggesting that <span class="blank blank-filled">sea star morphology evolved to lack a trunk and consist primarily of a head region, rather than losing its head as previously assumed.<span class="ans-check">✓</span></span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c5)"></span>the two observations the answer must jointly explain</span>
+        <span style="opacity:0.8"><span style="display:inline-block;width:14px;border-bottom:1.5px dashed rgba(91,107,140,0.65);margin-right:2px;"></span>prior belief being revised — not a trap, click it</span>
+      </div>
+      <div class="rulecard" id="e-assume" style="background: rgba(91,107,140,0.08); border-color: #5b6b8c;">
+        <p class="rtitle" style="color: #5b6b8c">Prior belief, not a trap</p>
+        <p>This is what scientists previously believed, stated so the finding can complicate it — it isn't bait pointing to a wrong answer, it's the premise the correct answer has to revise. That's a different job than a trap: a trap lures you toward a wrong choice, this tells you what the right choice needs to overturn.</p>
+      </div>
+      <div class="rulecard" id="r7" style="background: var(--c5-wash); border-color: var(--c5);">
+        <p class="rtitle" style="color: var(--c5-ink)">What the two observations jointly say</p>
+        <p>"Head" genes active everywhere + "tail" genes barely present at the rim = the body reads as almost entirely head-type tissue. That's the reinterpretation the answer has to state.</p>
+      </div>
+
+      <p class="notes-head" style="margin-top:18px;">Answer choices</p>
+      <div class="akrow wrong">
+        <span class="aknum">1</span>
+        <span class="aktext"><span class="akchoice">posterior genes active at the edges are primarily responsible for the starlike layout.</span>
+        <span class="akwhy">Overstates a minor finding — posterior genes were only "limited to the edges," not a primary driver.</span></span>
+      </div>
+      <div class="akrow wrong">
+        <span class="aknum">2</span>
+        <span class="aktext"><span class="akchoice">sea stars did not evolve from a bilateral ancestor at all.</span>
+        <span class="akwhy">Contradicts a given premise — the passage already states sea stars are "thought to have evolved... from a known bilateral origin."</span></span>
+      </div>
+      <div class="akrow wrong">
+        <span class="aknum">3</span>
+        <span class="aktext"><span class="akchoice">there is only minimal correspondence in genetic markers between the two species.</span>
+        <span class="akwhy">Unsupported by the finding — the genes were comparable enough to test, and clear activity patterns were found.</span></span>
+      </div>
+      <div class="akrow right">
+        <span class="aknum">4</span>
+        <span class="aktext"><span class="akchoice">sea star morphology evolved to lack a trunk and consist primarily of a head region, rather than losing its head as previously assumed.</span>
+        <span class="akwhy">Correct — matches both observations at once and explicitly overturns the stated assumption.</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 8: Words in Context -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c2)">Craft and Structure — Words in Context</span>
+      <span class="qnum mono">R&amp;W Q — committee report</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.2;">
+        Though the committee's initial report was <span class="cue dim trap-dash" data-target="w-trap" data-trap="Trap" title="Describes the tone of delivery, not the recommendations' scope">measured in tone</span>, its recommendations proved surprisingly <span class="cue blank" data-target="w1" style="background: var(--c2-wash); border-color: var(--c2); color: var(--c2-ink);">sweeping<span class="ans-check">✓</span></span>:
+        <span class="cue" data-target="w1" style="background: var(--c2-wash); border-color: var(--c2); color: var(--c2-ink);">within a year, three departments had been dissolved and half the district's budget reallocated</span>.
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--c2)"></span>blank ↔ the evidence that defines it</span>
+        <span style="opacity:0.75">‌<span style="display:inline-block;width:14px;border-bottom:1.5px solid rgba(194,59,44,0.6);margin-right:2px;"></span>trap — click it</span>
+      </div>
+      <div class="rulecard" id="w1" style="background: var(--c2-wash); border-color: var(--c2);">
+        <p class="rtitle" style="color: var(--c2-ink)">The evidence defines the word</p>
+        <p>Dissolving three departments and reallocating half a budget are large, decisive actions — that's what the blank has to match. "Sweeping" (broad in scope, far-reaching) fits; a word implying caution or small scale wouldn't.</p>
+      </div>
+      <div class="rulecard" id="w-trap" style="background: var(--panel); border-color: #c23b2c;">
+        <p class="rtitle" style="color: #c23b2c">Trap — "measured in tone" describes delivery, not scope</p>
+        <p>"Measured" here means calm and restrained in <i>how</i> the report was written — it's easy to let that color your read of the blank and reach for "provisional" or "cautious." But the blank describes the recommendations' <i>impact</i>, which the colon evidence shows was anything but restrained.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Answer choices</p>
+        <div class="akrow right"><span class="aknum">1</span><span class="aktext"><span class="akchoice">sweeping</span><span class="akwhy">Correct — matches the scale of the consequences described after the colon.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">redundant</span><span class="akwhy">Wrong — nothing in the evidence suggests duplication or repetition.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">provisional</span><span class="akwhy">Wrong — tempting because of "measured in tone," but dissolving departments isn't a tentative action.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">ambiguous</span><span class="akwhy">Wrong — the consequences described are specific and decisive, not unclear.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 9: Text Structure and Purpose -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c3a)">Craft and Structure — Text Structure and Purpose</span>
+      <span class="qnum mono">R&amp;W Q — brand trust</span>
+    </div>
+    <div class="qbody">
+      <p class="passage serif" style="line-height: 2.1; font-size: 15.5px;">
+        <span class="cue dim" data-target="ts-setup" style="border-bottom: 2px dashed var(--ink-dim);">Economists have long assumed that consumer trust in a brand is built primarily through advertising.</span>
+        <span class="cue" data-target="ts-evidence" style="background: var(--c3b-wash); border-color: var(--c3b); color: var(--c3b-ink);">A 2019 study of over 400 companies, however, found that trust levels correlated far more strongly with employee reviews on public rating sites than with advertising spending.</span>
+        <span class="cue" data-target="ts1" style="background: var(--c3a-wash); border-color: var(--c3a); color: var(--c3a-ink);">This suggests that a company's internal culture may shape public perception as much as, or more than, its marketing does.</span>
+      </p>
+      <div class="legend">
+        <span><span class="sw" style="background: var(--ink-dim)"></span>setup — the assumption being complicated</span>
+        <span><span class="sw" style="background: var(--c3b)"></span>evidence — the complicating finding</span>
+        <span><span class="sw" style="background: var(--c3a)"></span>sentence in question</span>
+      </div>
+      <div class="rulecard" id="ts-setup" style="background: var(--panel); border-color: var(--line);">
+        <p class="rtitle">Setup</p>
+        <p>States the conventional assumption the paragraph is about to complicate — not itself the answer, but needed to see what the underlined sentence is doing <i>in relation to</i>.</p>
+      </div>
+      <div class="rulecard" id="ts-evidence" style="background: var(--c3b-wash); border-color: var(--c3b);">
+        <p class="rtitle" style="color: var(--c3b-ink)">Evidence</p>
+        <p>A specific study complicating the assumption above. This is the finding — the underlined sentence has to do something <i>with</i> this finding, not just repeat it.</p>
+      </div>
+      <div class="rulecard" id="ts1" style="background: var(--c3a-wash); border-color: var(--c3a);">
+        <p class="rtitle" style="color: var(--c3a-ink)">What the underlined sentence is doing</p>
+        <p>It doesn't restate the setup (it says something new, not a rephrase of "advertising builds trust") and it doesn't describe methodology or a limitation (nothing here is about how the study was run or what it couldn't show). It takes the specific finding and generalizes it into a broader claim about internal culture — that's a conclusion drawn from evidence.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">The underlined sentence primarily serves to —</p>
+        <div class="akrow wrong"><span class="aknum">1</span><span class="aktext"><span class="akchoice">restate the initial assumption in different terms.</span><span class="akwhy">Wrong — it contradicts the assumption (culture over advertising), it doesn't rephrase it.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">2</span><span class="aktext"><span class="akchoice">introduce a new methodology used by the 2019 study.</span><span class="akwhy">Wrong — the study's methodology was already given in the prior sentence; this sentence doesn't describe method at all.</span></span></div>
+        <div class="akrow right"><span class="aknum">3</span><span class="aktext"><span class="akchoice">draw a broader conclusion from the study's finding.</span><span class="akwhy">Correct — generalizes the specific correlation into a claim about internal culture shaping perception.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">qualify a limitation of the study described earlier.</span><span class="akwhy">Wrong — no limitation of the study is mentioned anywhere in the passage.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 10: Cross-Text Connections -->
+  <div class="qcard">
+    <div class="qhead">
+      <span class="skill-tag" style="color: var(--c4)">Craft and Structure — Cross-Text Connections</span>
+      <span class="qnum mono">R&amp;W Q — UBI pilots</span>
+    </div>
+    <div class="qbody">
+      <div class="xtext-grid">
+        <div class="xtext-box">
+          <p class="xlabel">Text 1</p>
+          <p class="passage serif">Proponents of universal basic income (UBI) argue that a guaranteed monthly payment would reduce poverty without discouraging work, citing <span class="cue" data-target="x1" style="background: var(--c4-wash); border-color: var(--c4); color: var(--c4-ink);">pilot programs in Finland and Kenya as evidence of its viability</span>.</p>
+        </div>
+        <div class="xtext-box">
+          <p class="xlabel">Text 2</p>
+          <p class="passage serif">Critics of UBI trials caution that most pilot programs have been <span class="cue" data-target="x1" style="background: var(--c4-wash); border-color: var(--c4); color: var(--c4-ink);">too short in duration and too limited in scale</span> to reliably predict how a full guaranteed-income policy would affect a national workforce over time.</p>
+        </div>
+      </div>
+      <div class="legend" style="margin-top:16px;">
+        <span><span class="sw" style="background: var(--c4)"></span>the claim in Text 1 ↔ the specific rebuttal in Text 2</span>
+      </div>
+      <div class="rulecard" id="x1" style="background: var(--c4-wash); border-color: var(--c4);">
+        <p class="rtitle" style="color: var(--c4-ink)">Same claim, linked across passages</p>
+        <p>Text 2 doesn't reject UBI outright, and it doesn't deny the pilots happened — it specifically targets the <i>scope and duration</i> Text 1 leans on as proof. The correct answer has to mirror that precise, narrow objection, not a broader disagreement Text 2 never makes.</p>
+      </div>
+
+      <div class="answerkey">
+        <p class="akhead">Based on Text 2, how would its author most likely respond to the claim in Text 1?</p>
+        <div class="akrow wrong"><span class="aknum">1</span><span class="aktext"><span class="akchoice">By agreeing that the pilot data is sufficient to guide national policy.</span><span class="akwhy">Wrong — directly contradicts Text 2's stated caution about the pilots.</span></span></div>
+        <div class="akrow right"><span class="aknum">2</span><span class="aktext"><span class="akchoice">By questioning whether the pilots' limited scope and duration support that conclusion.</span><span class="akwhy">Correct — matches Text 2's specific objection, linked above.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">3</span><span class="aktext"><span class="akchoice">By denying that any UBI pilot programs have taken place.</span><span class="akwhy">Wrong — Text 2 references the pilots as real; it questions their scale, not their existence.</span></span></div>
+        <div class="akrow wrong"><span class="aknum">4</span><span class="aktext"><span class="akchoice">By arguing that UBI would necessarily increase poverty.</span><span class="akwhy">Wrong — unsupported; Text 2 never makes a claim about poverty outcomes.</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trapdemo">
+    <p class="sechead">How should the "trap" phrase be marked?</p>
+    <p class="secsub">Applied to <span class="mono">rare manuscripts</span> in Q14 — the plural noun that tempts a plural verb even though "collection" governs.</p>
+
+    <div class="trapopt">
+      <p class="optlabel">A — red squiggly (your suggestion)</p>
+      <p class="sample serif">The collection of <span class="trap-squiggly">rare manuscripts</span>, donated by an anonymous alum last spring, ______ housed in the university's east wing.</p>
+      <p class="note">Reads as "this is wrong" — same signal as a spellchecker. Risk: a student skimming might think the phrase itself is a grammar error, not that it's merely irrelevant to the verb.</p>
+    </div>
+
+    <div class="trapopt">
+      <p class="optlabel">B — dashed underline, warning tone, hover label <span class="rec">recommended</span></p>
+      <p class="sample serif">The collection of <span class="trap-dash" title="Doesn't govern the verb — a distractor">rare manuscripts</span>, donated by an anonymous alum last spring, ______ housed in the university's east wing.</p>
+      <p class="note">Neutral amber, not red — "flagged," not "broken." Dashed (vs. solid) reads as provisional/annotative rather than an error mark. A hover tooltip spells out <i>why</i> without needing a click.</p>
+    </div>
+
+    <div class="trapopt">
+      <p class="optlabel">C — inline flag icon + label</p>
+      <p class="sample serif">The collection of <span class="trap-tag"><span class="trap-icon">⚑</span>rare manuscripts</span>, donated by an anonymous alum last spring, ______ housed in the university's east wing.</p>
+      <p class="note">Most explicit — good for a first-time tutorial pass over this question type, but adds visual noise if every question has 2-3 trap phrases. Better as an onboarding mode than the default.</p>
+    </div>
+
+    <div class="trapopt">
+      <p class="optlabel">D — hatch-pattern fill</p>
+      <p class="sample serif">The collection of <span class="trap-hatch">rare manuscripts</span>, donated by an anonymous alum last spring, ______ housed in the university's east wing.</p>
+      <p class="note">Reads as "caution tape" — distinct from both the cue-color language and an error mark. Slightly heavier visually; works well at rest but competes if a cue color also touches this span.</p>
+    </div>
+  </div>
+
+  <footer>blueprep-sat — visual cue concept, Standard English Conventions subtypes</footer>
+</div>
+
+<script>
+  document.querySelectorAll('.cue').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var id = el.getAttribute('data-target');
+      var card = document.getElementById(id);
+      var isOpen = card.classList.contains('open');
+      var scope = el.closest('.qcard') || document;
+      scope.querySelectorAll('.rulecard').forEach(function (rc) { rc.classList.remove('open'); });
+      if (!isOpen) card.classList.add('open');
+    });
+  });
+</script>
