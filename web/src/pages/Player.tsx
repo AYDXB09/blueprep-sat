@@ -4,12 +4,14 @@ import './Player.css';
 import { useAuth } from '../lib/AuthContext';
 import {
   completeSession,
+  getCuesForQuestion,
   getQuestionWithChoices,
   getSessionWithAttempts,
   isSprAnswerCorrect,
   startQuestionAttempt,
   submitQuestionAttempt,
   type AttemptWithQuestion,
+  type CueWithCategory,
   type QuestionWithChoices,
 } from '../lib/practiceSessions';
 import type { Database } from '../lib/database.types';
@@ -33,6 +35,92 @@ function fmt(total: number): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
+// ---------------------------------------------------------------------------
+// Cue highlighting — system-driven (trap/govern/assumption spans from the
+// `cues` table), distinct from the student-driven manual highlighter above.
+// Walks real DOM text nodes with a TreeWalker (never regexes the raw HTML
+// string) so nested tags (<i>, <sup>, MathML) survive intact. Whitespace-only
+// text nodes (pure formatting between tags, e.g. newlines inside <math>) are
+// skipped entirely rather than treated as content, since `anchor_text` was
+// captured against the question's meaningful rendered text, not raw markup
+// whitespace.
+// ---------------------------------------------------------------------------
+
+function collectMeaningfulTextNodes(container: HTMLElement): Text[] {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return /\S/.test(node.nodeValue ?? '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    },
+  });
+  const nodes: Text[] = [];
+  let n: Node | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((n = walker.nextNode())) nodes.push(n as Text);
+  return nodes;
+}
+
+/**
+ * Finds the nth occurrence (cue.occurrence, 1-based) of cue.anchor_text as a
+ * verbatim substring of the container's concatenated meaningful text, and
+ * wraps the matched span in a <mark class="cue-mark cue-{type}"> carrying
+ * data-cue-id, without disturbing surrounding markup. Returns false (and
+ * console.warns) if the anchor can't be found or the wrap fails — callers
+ * must treat that as "skip this cue's highlight," never a crash.
+ */
+function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolean {
+  const target = cue.anchor_text;
+  if (!target) return false;
+
+  const textNodes = collectMeaningfulTextNodes(container);
+  if (textNodes.length === 0) return false;
+
+  let concatenated = '';
+  const offsets: Array<{ node: Text; start: number; end: number }> = [];
+  for (const node of textNodes) {
+    const text = node.nodeValue ?? '';
+    offsets.push({ node, start: concatenated.length, end: concatenated.length + text.length });
+    concatenated += text;
+  }
+
+  const occurrence = Math.max(1, cue.occurrence || 1);
+  let searchFrom = 0;
+  let matchIndex = -1;
+  for (let i = 0; i < occurrence; i++) {
+    matchIndex = concatenated.indexOf(target, searchFrom);
+    if (matchIndex === -1) break;
+    searchFrom = matchIndex + 1;
+  }
+  if (matchIndex === -1) {
+    console.warn(`[cues] anchor_text not found for cue ${cue.id} (question ${cue.question_id}): "${target}"`);
+    return false;
+  }
+
+  const matchStart = matchIndex;
+  const matchEnd = matchIndex + target.length;
+  const startEntry = offsets.find((o) => matchStart >= o.start && matchStart < o.end);
+  const endEntry = offsets.find((o) => matchEnd > o.start && matchEnd <= o.end);
+  if (!startEntry || !endEntry) {
+    console.warn(`[cues] could not map anchor_text offsets for cue ${cue.id}`);
+    return false;
+  }
+
+  try {
+    const range = document.createRange();
+    range.setStart(startEntry.node, matchStart - startEntry.start);
+    range.setEnd(endEntry.node, matchEnd - endEntry.start);
+
+    const mark = document.createElement('mark');
+    mark.className = `cue-mark cue-${cue.cue_type}`;
+    mark.dataset.cueId = cue.id;
+    mark.tabIndex = 0;
+    range.surroundContents(mark);
+    return true;
+  } catch (err) {
+    console.warn(`[cues] failed to wrap anchor for cue ${cue.id}:`, err);
+    return false;
+  }
+}
+
 export function Player() {
   const { sessionId, n: nParam } = useParams<{ sessionId: string; n: string }>();
   const navigate = useNavigate();
@@ -46,6 +134,14 @@ export function Player() {
   const [question, setQuestion] = useState<QuestionWithChoices | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // ---------------- trap/cue review ----------------
+  const [cues, setCues] = useState<CueWithCategory[]>([]);
+  const [activeCueId, setActiveCueId] = useState<string | null>(null);
+  const stimulusMarkupRef = useRef<HTMLDivElement | null>(null);
+  const stemMarkupRef = useRef<HTMLDivElement | null>(null);
+  const choiceRefsMap = useRef<Map<string, HTMLElement>>(new Map());
+  const processedCueKeyRef = useRef<string | null>(null);
 
   const TOTAL_Q = session?.question_ids.length ?? 0;
   const CURRENT_Q = n;
@@ -113,6 +209,29 @@ export function Player() {
     };
   }, [session, n]);
 
+  // Load the cues for the current question alongside it. Independent of the
+  // question fetch so a cues failure never blocks rendering the question.
+  useEffect(() => {
+    if (!questionId) {
+      setCues([]);
+      return;
+    }
+    let cancelled = false;
+    getCuesForQuestion(questionId)
+      .then((rows) => {
+        if (!cancelled) setCues(rows);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          console.warn('getCuesForQuestion failed:', err);
+          setCues([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [questionId]);
+
   const refetchAttempts = useCallback(async () => {
     if (!sessionId) return;
     const result = await getSessionWithAttempts(sessionId);
@@ -142,6 +261,9 @@ export function Player() {
     setStruck(new Set());
     setMarkedForReview(false);
     setQSeconds(0);
+    setActiveCueId(null);
+    choiceRefsMap.current.clear();
+    processedCueKeyRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionId]);
 
@@ -490,6 +612,62 @@ export function Player() {
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, []);
 
+  // ---------------- trap/cue reveal + DOM highlight pass ----------------
+  // Cues are a spoiler until the student has committed an answer to THIS
+  // question — either the session gives immediate feedback, or they're
+  // revisiting a question they already have a submitted attempt for.
+  const hasAnswered = question?.response_type === 'spr' ? enteredValue.trim() !== '' : !!selectedChoiceId;
+  const hasSubmittedAttemptForQuestion = attempts.some((a) => a.question_id === questionId && !!a.submitted_at);
+  const showCues =
+    hasAnswered && cues.length > 0 && (session?.feedback_mode === 'immediate' || hasSubmittedAttemptForQuestion);
+
+  // One-time DOM-mutation pass per question load, once cues become visible.
+  // Guarded by processedCueKeyRef so it never re-wraps already-wrapped text
+  // (which would corrupt the marks) if this effect re-fires for any reason.
+  useEffect(() => {
+    if (!showCues || !question) return;
+    const key = `${questionId}`;
+    if (processedCueKeyRef.current === key) return;
+    processedCueKeyRef.current = key;
+
+    const stimulusCues = cues.filter((c) => c.anchor_scope === 'stimulus');
+    const stemCues = cues.filter((c) => c.anchor_scope === 'stem');
+    const choiceCues = cues.filter((c) => c.anchor_scope === 'choice' && c.choice_id);
+
+    if (stimulusMarkupRef.current) {
+      for (const cue of stimulusCues) applyCueHighlight(stimulusMarkupRef.current, cue);
+    }
+    if (stemMarkupRef.current) {
+      for (const cue of stemCues) applyCueHighlight(stemMarkupRef.current, cue);
+    }
+    for (const cue of choiceCues) {
+      const el = choiceRefsMap.current.get(cue.choice_id as string);
+      if (el) applyCueHighlight(el, cue);
+    }
+  }, [showCues, cues, questionId, question]);
+
+  // Click delegation for the imperatively-inserted <mark class="cue-mark">
+  // spans — they aren't React elements, so they can't carry onClick props.
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      const markEl = target?.closest('mark.cue-mark') as HTMLElement | null;
+      if (markEl?.dataset.cueId) setActiveCueId(markEl.dataset.cueId);
+    }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
+
+  const focusCue = useCallback((cueId: string) => {
+    setActiveCueId(cueId);
+    const mark = document.querySelector(`mark.cue-mark[data-cue-id="${cueId}"]`);
+    if (mark) {
+      mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      mark.classList.add('cue-flash');
+      setTimeout(() => mark.classList.remove('cue-flash'), 900);
+    }
+  }, []);
+
   // ---------------- derived ----------------
   const sessionLow = !isOvertime && sessionSeconds <= 60 && sessionSeconds > 0;
   const sessionDisplay = isOvertime ? `+${fmt(overtimeSeconds)}` : fmt(Math.max(sessionSeconds, 0));
@@ -743,10 +921,10 @@ export function Player() {
               <div className="stimulus serif" ref={stimulusRef} onMouseUp={onStimulusMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user input.
-                  <div dangerouslySetInnerHTML={{ __html: question.stimulus_markup }} />
+                  <div ref={stimulusMarkupRef} dangerouslySetInnerHTML={{ __html: question.stimulus_markup }} />
                 )}
                 {/* eslint-disable-next-line react/no-danger */}
-                <div dangerouslySetInnerHTML={{ __html: question.stem_markup }} />
+                <div ref={stemMarkupRef} dangerouslySetInnerHTML={{ __html: question.stem_markup }} />
               </div>
             </div>
 
@@ -779,9 +957,57 @@ export function Player() {
                         {c.label}
                       </span>
                       {/* Trusted first-party content from our own `choices` table, not user input. */}
-                      <span className="ctext" dangerouslySetInnerHTML={{ __html: c.content_markup }} />
+                      <span
+                        className="ctext"
+                        ref={(el) => {
+                          if (el) choiceRefsMap.current.set(c.id, el);
+                          else choiceRefsMap.current.delete(c.id);
+                        }}
+                        dangerouslySetInnerHTML={{ __html: c.content_markup }}
+                      />
                     </div>
                   ))}
+                </div>
+              )}
+
+              {showCues && cues.length > 0 && (
+                <div className="cue-panel">
+                  <div className="cue-panel-head">
+                    <span className="cue-panel-title">Trap &amp; cue analysis</span>
+                    <div className="cue-legend">
+                      <span className="cue-legend-item">
+                        <span className="cue-swatch cue-govern" /> Governing rule
+                      </span>
+                      <span className="cue-legend-item">
+                        <span className="cue-swatch cue-trap" /> Trap
+                      </span>
+                      <span className="cue-legend-item">
+                        <span className="cue-swatch cue-assumption" /> Assumption
+                      </span>
+                    </div>
+                  </div>
+                  <div className="cue-list">
+                    {cues.map((cue) => (
+                      <div
+                        key={cue.id}
+                        className={`cue-row cue-${cue.cue_type}${activeCueId === cue.id ? ' active' : ''}`}
+                        onClick={() => focusCue(cue.id)}
+                      >
+                        <div className="cue-row-head">
+                          <span className={`cue-type-badge cue-${cue.cue_type}`}>
+                            {cue.cue_type === 'govern' ? 'Governing rule' : cue.cue_type === 'trap' ? 'Trap' : 'Assumption'}
+                          </span>
+                          {cue.cue_type === 'trap' && cue.trap_categories?.label && (
+                            <span className="cue-trap-label">{cue.trap_categories.label}</span>
+                          )}
+                        </div>
+                        {(cue.explanation_title || cue.short_label) && (
+                          <p className="cue-explanation-title">{cue.explanation_title ?? cue.short_label}</p>
+                        )}
+                        <p className="cue-explanation">{cue.explanation}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

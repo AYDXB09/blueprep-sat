@@ -466,6 +466,167 @@ mark.hl {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* ---------- trap/cue review (system-driven, distinct from mark.hl above) --
+   Dotted underline + colored wash rather than a solid highlighter block, so
+   these read as "click for more," not as the student's own manual marks. */
+mark.cue-mark {
+  background: transparent;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+  border-bottom: 2px dotted currentColor;
+  transition: background 0.12s ease;
+}
+mark.cue-mark:hover,
+mark.cue-mark:focus-visible {
+  background: var(--panel);
+}
+mark.cue-mark.cue-flash {
+  animation: cue-flash-pulse 0.9s ease;
+}
+@keyframes cue-flash-pulse {
+  0% {
+    background: var(--panel);
+  }
+  40% {
+    background: var(--line);
+  }
+  100% {
+    background: transparent;
+  }
+}
+mark.cue-govern {
+  color: var(--navy);
+}
+mark.cue-trap {
+  color: var(--red);
+}
+mark.cue-assumption {
+  color: var(--rw);
+}
+
+.cue-panel {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.cue-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.cue-panel-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-dim);
+}
+.cue-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+.cue-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cue-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.cue-swatch.cue-govern {
+  background: var(--navy);
+}
+.cue-swatch.cue-trap {
+  background: var(--red);
+}
+.cue-swatch.cue-assumption {
+  background: var(--rw);
+}
+
+.cue-list {
+  display: flex;
+  flex-direction: column;
+}
+.cue-row {
+  padding: 11px 14px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.cue-row:last-child {
+  border-bottom: none;
+}
+.cue-row:hover {
+  background: var(--panel);
+}
+.cue-row.active {
+  background: var(--panel);
+}
+.cue-row.cue-govern {
+  border-left-color: var(--navy);
+}
+.cue-row.cue-trap {
+  border-left-color: var(--red);
+}
+.cue-row.cue-assumption {
+  border-left-color: var(--rw);
+}
+.cue-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.cue-type-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.cue-type-badge.cue-govern {
+  color: var(--navy);
+  background: var(--navy-wash);
+}
+.cue-type-badge.cue-trap {
+  color: var(--red);
+  background: var(--red-wash);
+}
+.cue-type-badge.cue-assumption {
+  color: var(--rw);
+  background: var(--rw-wash);
+}
+.cue-trap-label {
+  font-size: 11px;
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+.cue-explanation-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+.cue-explanation {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* ---------- calculator ---------- */
 .calc-panel {
   position: fixed;

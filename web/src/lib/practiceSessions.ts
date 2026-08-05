@@ -356,6 +356,28 @@ export function isSprAnswerCorrect(enteredValue: string, acceptedAnswers: Json |
   });
 }
 
+export type CueRow = Database['public']['Tables']['cues']['Row'];
+
+export interface CueWithCategory extends CueRow {
+  trap_categories: Pick<Database['public']['Tables']['trap_categories']['Row'], 'label' | 'description'> | null;
+}
+
+/**
+ * All trap/cue rows for one question, joined to the trap category's real
+ * display label (never render `trap_category`'s raw code). Ordered so
+ * 'govern' cues surface first in any list UI — the correct-answer rationale
+ * before the trap breakdown.
+ */
+export async function getCuesForQuestion(questionId: string): Promise<CueWithCategory[]> {
+  const { data, error } = await supabase
+    .from('cues')
+    .select('*, trap_categories(label, description)')
+    .eq('question_id', questionId)
+    .order('cue_type', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as CueWithCategory[];
+}
+
 function stripHtmlPreview(markup: string, maxLen = 100): string {
   const text = markup.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
