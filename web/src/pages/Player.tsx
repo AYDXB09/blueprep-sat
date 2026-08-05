@@ -147,6 +147,14 @@ export function Player() {
   const CURRENT_Q = n;
   const questionId = session && Number.isFinite(n) ? session.question_ids[n - 1] : undefined;
 
+  // A session with completed_at set was already finished — opening it again
+  // (e.g. via Session Summary's "Review →" or Mistake Log) is read-only
+  // review, not a live retake: no new attempts get written, the existing
+  // answer is shown pre-filled with correct/incorrect feedback, and none of
+  // the live-session chrome (countdown, pause, "leave session?" confirm)
+  // applies.
+  const isReviewMode = !!session?.completed_at;
+
   // Load the session once (or whenever sessionId changes).
   useEffect(() => {
     if (!sessionId) {
@@ -243,7 +251,7 @@ export function Player() {
   const attemptStartInFlightRef = useRef(false);
 
   const ensureAttemptStarted = useCallback(() => {
-    if (currentAttemptId || attemptStartInFlightRef.current || !user || !sessionId || !questionId) return;
+    if (isReviewMode || currentAttemptId || attemptStartInFlightRef.current || !user || !sessionId || !questionId) return;
     attemptStartInFlightRef.current = true;
     startQuestionAttempt({ userId: user.id, sessionId, questionId, attemptNumber: 1 })
       .then((row) => setCurrentAttemptId(row.id))
@@ -251,13 +259,22 @@ export function Player() {
       .finally(() => {
         attemptStartInFlightRef.current = false;
       });
-  }, [currentAttemptId, user, sessionId, questionId]);
+  }, [isReviewMode, currentAttemptId, user, sessionId, questionId]);
 
   // Reset per-question answer/attempt state whenever the question changes.
+  // In review mode, pre-fill from the existing (already-submitted) attempt
+  // instead of starting blank — reviewing a finished session should show
+  // what was actually answered, not prompt for a fresh answer.
   useEffect(() => {
     setCurrentAttemptId(null);
-    setSelectedChoiceId(null);
-    setEnteredValue('');
+    if (isReviewMode) {
+      const priorAttempt = attempts.find((a) => a.question_id === questionId && a.submitted_at);
+      setSelectedChoiceId(priorAttempt?.selected_choice_id ?? null);
+      setEnteredValue(priorAttempt?.entered_value ?? '');
+    } else {
+      setSelectedChoiceId(null);
+      setEnteredValue('');
+    }
     setStruck(new Set());
     setMarkedForReview(false);
     setQSeconds(0);
@@ -265,7 +282,7 @@ export function Player() {
     choiceRefsMap.current.clear();
     processedCueKeyRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionId]);
+  }, [questionId, isReviewMode]);
 
   // ---------------- timers ----------------
   // A session created untimed (timer_basis='none', e.g. mistake retries —
@@ -273,8 +290,8 @@ export function Player() {
   // session countdown at all; timer_mode='none' also hides the per-question
   // clock, though qSeconds keeps counting internally either way since it
   // still feeds time_taken_seconds on submit.
-  const hasSessionCountdown = !!session && session.timer_basis !== 'none' && session.timer_mode !== 'none';
-  const showQuestionTimer = !session || session.timer_mode !== 'none';
+  const hasSessionCountdown = !isReviewMode && !!session && session.timer_basis !== 'none' && session.timer_mode !== 'none';
+  const showQuestionTimer = !isReviewMode && (!session || session.timer_mode !== 'none');
 
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [overtimeSeconds, setOvertimeSeconds] = useState(0);
@@ -291,6 +308,7 @@ export function Player() {
   }, [session]);
 
   useEffect(() => {
+    if (isReviewMode) return; // nothing to time when reviewing a finished session
     const id = setInterval(() => {
       if (paused) return;
       setQSeconds((q) => q + 1);
@@ -312,7 +330,7 @@ export function Player() {
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, hasSessionCountdown]);
+  }, [paused, hasSessionCountdown, isReviewMode]);
 
   // isOvertime needs a ref so the interval closure (captured once per `paused`
   // change) always sees the latest value without re-creating the interval.
@@ -524,7 +542,11 @@ export function Player() {
     try {
       await commitCurrentAnswer();
       if (CURRENT_Q >= TOTAL_Q) {
-        await finishSession();
+        if (isReviewMode) {
+          navigate(`/sessions/${sessionId}`);
+        } else {
+          await finishSession();
+        }
       } else {
         await refetchAttempts();
         navigate(`/practice/${sessionId}/q/${CURRENT_Q + 1}`);
@@ -532,14 +554,20 @@ export function Player() {
     } finally {
       setNavBusy(false);
     }
-  }, [sessionId, navBusy, CURRENT_Q, TOTAL_Q, commitCurrentAnswer, finishSession, refetchAttempts, navigate]);
+  }, [sessionId, navBusy, CURRENT_Q, TOTAL_Q, isReviewMode, commitCurrentAnswer, finishSession, refetchAttempts, navigate]);
 
   // ---------------- exit control ----------------
   const exitToDashboard = useCallback(() => {
+    // Nothing "in progress" to lose when reviewing an already-completed
+    // session — the resumable-progress framing only makes sense mid-test.
+    if (isReviewMode) {
+      navigate('/');
+      return;
+    }
     if (window.confirm('Leave this session? Your progress is saved and you can resume later.')) {
       navigate('/');
     }
-  }, [navigate]);
+  }, [isReviewMode, navigate]);
 
   // ---------------- highlighter (real Selection/Range API, kept imperative
   // via refs — this mirrors the mockup's actual DOM-surgery behavior, which
@@ -779,7 +807,12 @@ export function Player() {
         </div>
 
         <div className="timers">
-          {hasSessionCountdown ? (
+          {isReviewMode ? (
+            <div className="timer-block">
+              <p className="tlabel">Status</p>
+              <p className="tval mono">Reviewing</p>
+            </div>
+          ) : hasSessionCountdown ? (
             <div className="timer-block">
               <p className="tlabel" style={isOvertime ? { color: 'var(--red)' } : undefined}>
                 {isOvertime ? 'Overtime — session' : 'Time left, session'}
@@ -810,12 +843,16 @@ export function Player() {
               Desmos
             </button>
           )}
+          {!isReviewMode && (
           <button className="iconbtn" title="Ask AI" aria-label="Ask AI about this question" onClick={() => toast('Would open the live Ask AI chat for this question.')}>
             ✨
           </button>
+          )}
+          {!isReviewMode && (
           <button className="iconbtn" title="Pause" aria-label="Pause session" onClick={pause}>
             ⏸
           </button>
+          )}
         </div>
       </div>
 
@@ -932,41 +969,59 @@ export function Player() {
               {question.response_type === 'spr' ? (
                 <div className="spr-input-wrap">
                   <label htmlFor="sprInput" className="spr-label">
-                    Enter your answer
+                    {isReviewMode ? 'Your answer' : 'Enter your answer'}
                   </label>
                   <input
                     id="sprInput"
-                    className="spr-input mono"
+                    className={`spr-input mono${isReviewMode ? (isSprAnswerCorrect(enteredValue, question.accepted_answers) ? ' correct' : ' incorrect') : ''}`}
                     type="text"
                     inputMode="decimal"
                     placeholder="e.g. 3/4 or 0.75"
                     value={enteredValue}
                     onChange={(e) => onEnteredValueChange(e.target.value)}
+                    readOnly={isReviewMode}
                   />
-                  <p className="spr-hint">Fractions (3/4) and decimals (0.75) are both accepted.</p>
+                  {isReviewMode ? (
+                    <p className="spr-hint">
+                      Accepted: {(question.accepted_answers as string[] | null)?.join(', ') ?? '—'}
+                    </p>
+                  ) : (
+                    <p className="spr-hint">Fractions (3/4) and decimals (0.75) are both accepted.</p>
+                  )}
                 </div>
               ) : (
                 <div className="choices">
-                  {question.choices.map((c) => (
-                    <div
-                      key={c.id}
-                      className={`choice${selectedChoiceId === c.id ? ' selected' : ''}${struck.has(c.id) ? ' struck' : ''}`}
-                      onClick={() => selectChoice(c.id)}
-                    >
-                      <span className="letter" onClick={(e) => toggleStruck(c.id, e)}>
-                        {c.label}
-                      </span>
-                      {/* Trusted first-party content from our own `choices` table, not user input. */}
-                      <span
-                        className="ctext"
-                        ref={(el) => {
-                          if (el) choiceRefsMap.current.set(c.id, el);
-                          else choiceRefsMap.current.delete(c.id);
-                        }}
-                        dangerouslySetInnerHTML={{ __html: c.content_markup }}
-                      />
-                    </div>
-                  ))}
+                  {question.choices.map((c) => {
+                    const showFeedback = isReviewMode && !!selectedChoiceId;
+                    const feedbackClass = showFeedback
+                      ? c.is_correct
+                        ? ' correct'
+                        : selectedChoiceId === c.id
+                          ? ' incorrect'
+                          : ''
+                      : '';
+                    return (
+                      <div
+                        key={c.id}
+                        className={`choice${selectedChoiceId === c.id ? ' selected' : ''}${struck.has(c.id) ? ' struck' : ''}${feedbackClass}`}
+                        onClick={() => !isReviewMode && selectChoice(c.id)}
+                        style={isReviewMode ? { cursor: 'default' } : undefined}
+                      >
+                        <span className="letter" onClick={(e) => toggleStruck(c.id, e)}>
+                          {c.label}
+                        </span>
+                        {/* Trusted first-party content from our own `choices` table, not user input. */}
+                        <span
+                          className="ctext"
+                          ref={(el) => {
+                            if (el) choiceRefsMap.current.set(c.id, el);
+                            else choiceRefsMap.current.delete(c.id);
+                          }}
+                          dangerouslySetInnerHTML={{ __html: c.content_markup }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1024,7 +1079,7 @@ export function Player() {
               ✎ Strikethrough tool
             </button>
             <button className="btn primary" onClick={goNext} disabled={navBusy}>
-              {CURRENT_Q >= TOTAL_Q ? 'Finish →' : 'Next →'}
+              {CURRENT_Q >= TOTAL_Q ? (isReviewMode ? 'Back to Summary →' : 'Finish →') : 'Next →'}
             </button>
           </div>
         </>

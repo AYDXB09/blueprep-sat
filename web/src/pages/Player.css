@@ -286,6 +286,36 @@
   text-decoration: line-through;
 }
 
+/* Review-mode correct/incorrect feedback — distinct from the live
+   'selected'/navy state, shown once a completed session's answer is
+   revealed rather than being chosen. */
+.choice.correct {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+.choice.correct .letter {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--bg);
+}
+.choice.incorrect {
+  border-color: var(--red);
+  background: var(--red-wash);
+}
+.choice.incorrect .letter {
+  border-color: var(--red);
+  color: var(--red);
+  background: var(--bg);
+}
+.spr-input.correct {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+.spr-input.incorrect {
+  border-color: var(--red);
+  background: var(--red-wash);
+}
+
 /* ---------- bottom bar ---------- */
 .bottombar {
   display: flex;
