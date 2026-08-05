@@ -346,7 +346,13 @@ export function PracticeBuilder() {
             <button className={`switch${includeRetired ? ' on' : ''}`} onClick={() => setIncludeRetired((v) => !v)} />
           </div>
           <div className="toggle-row">
-            <span className="tlabel">New questions only</span>
+            {/* "New" = never attempted by this user before, in any past session — not a bank-freshness/release-date
+                concept. Distinct from "exclude previously correct": this excludes a question even if the user
+                got it wrong last time. TODO: once real question selection is wired (see createPracticeSession's
+                questionIds TODO), filter via a NOT EXISTS against question_attempts for this user_id/question_id. */}
+            <span className="tlabel" title="Questions you haven't attempted before, in any past session — whether you got them right or wrong.">
+              New questions only <span aria-hidden="true" style={{ color: 'var(--ink-dim)', cursor: 'help' }}>ⓘ</span>
+            </span>
             <button className={`switch${newOnly ? ' on' : ''}`} onClick={() => setNewOnly((v) => !v)} />
           </div>
         </div>
