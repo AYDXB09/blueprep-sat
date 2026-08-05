@@ -1,15 +1,36 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './PracticeBuilder.css';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
-import { createPracticeSession, type SubjectFilter } from '../lib/practiceSessions';
+import {
+  countMatchingQuestions,
+  createPracticeSession,
+  selectQuestionIds,
+  type QuestionFilters,
+  type SubjectFilter,
+} from '../lib/practiceSessions';
 
 // ---------------------------------------------------------------------------
-// Ported faithfully from mockups/ad-hoc-builder.html. UI-only — pool sizes
-// and start-session action are demo/mock (TODO: wire pool-scarcity check and
-// session creation to Supabase `questions`/`practice_sessions` once connected).
+// Ported from mockups/ad-hoc-builder.html. Pool-scarcity check and
+// question-selection now query the live `questions` table.
 // ---------------------------------------------------------------------------
+
+// Math chips are domain-level filters; R&W chips are skill-level filters —
+// the storyboard's "sections" are domains for Math but individual skills for
+// R&W (verified against the live schema's domain/skill values).
+const MATH_CHIP_TO_DOMAIN: Record<string, string> = {
+  Algebra: 'Algebra',
+  'Advanced Math': 'Advanced Math',
+  Geometry: 'Geometry and Trigonometry',
+  'Data Analysis': 'Problem-Solving and Data Analysis',
+};
+const RW_CHIP_TO_SKILL: Record<string, string> = {
+  Boundaries: 'Boundaries',
+  Transitions: 'Transitions',
+  'Rhetorical Synthesis': 'Rhetorical Synthesis',
+  Inferences: 'Inferences',
+};
 
 type Subject = 'math' | 'rw' | 'both';
 type Preset = 'quarter' | 'half' | 'module' | 'section';
@@ -30,8 +51,6 @@ const MATH_CHIP_LABELS: Record<(typeof MATH_SECTIONS)[number], string> = {
   Geometry: 'Geometry & Trig',
   'Data Analysis': 'Data Analysis',
 };
-
-const AVAILABLE_BOUNDARIES_POOL = 11; // demo: simulated real pool size for this filter combo
 
 function fmtMin(min: number): string {
   if (min < 1) return `${Math.round(min * 60)} sec`;
@@ -106,11 +125,39 @@ export function PracticeBuilder() {
     setRwCount(PACE.rw[preset][0]);
   }, []);
 
+  const [boundariesPool, setBoundariesPool] = useState<number | null>(null);
+
+  // Pool-scarcity check for the R&W "Boundaries" skill specifically, matching
+  // the warning banner's copy. Re-queries whenever the filters that affect
+  // that pool's size change.
+  useEffect(() => {
+    if (!rwChips.has('Boundaries')) {
+      setBoundariesPool(null);
+      return;
+    }
+    let cancelled = false;
+    countMatchingQuestions({
+      subject: 'Reading and Writing',
+      skills: ['Boundaries'],
+      includeRetired,
+      newOnlyUserId: newOnly ? (user?.id ?? null) : null,
+    })
+      .then((count) => {
+        if (!cancelled) setBoundariesPool(count);
+      })
+      .catch(() => {
+        if (!cancelled) setBoundariesPool(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rwChips, includeRetired, newOnly, user]);
+
   const startWithFewer = useCallback(() => {
-    setRwCount(AVAILABLE_BOUNDARIES_POOL);
+    if (boundariesPool !== null) setRwCount(boundariesPool);
     setActivePreset(null);
     toast('Count adjusted to match the available pool.');
-  }, [toast]);
+  }, [toast, boundariesPool]);
 
   const widenFilters = useCallback(() => {
     setRwChips(new Set(RW_SECTIONS));
@@ -143,7 +190,28 @@ export function PracticeBuilder() {
 
   const boundariesOn = rwChips.has('Boundaries');
   const poolWarningShown =
-    boundariesOn && (currentSubj === 'rw' || currentSubj === 'both') && rwCount > AVAILABLE_BOUNDARIES_POOL;
+    boundariesOn &&
+    (currentSubj === 'rw' || currentSubj === 'both') &&
+    boundariesPool !== null &&
+    rwCount > boundariesPool;
+
+  const buildFilters = useCallback(
+    (subj: 'math' | 'rw'): QuestionFilters => {
+      const chips = subj === 'math' ? mathChips : rwChips;
+      const domains =
+        subj === 'math' && chips.size > 0 ? Array.from(chips).map((c) => MATH_CHIP_TO_DOMAIN[c]).filter(Boolean) : null;
+      const skills =
+        subj === 'rw' && chips.size > 0 ? Array.from(chips).map((c) => RW_CHIP_TO_SKILL[c]).filter(Boolean) : null;
+      return {
+        subject: subj === 'math' ? 'Math' : 'Reading and Writing',
+        domains,
+        skills,
+        includeRetired,
+        newOnlyUserId: newOnly ? (user?.id ?? null) : null,
+      };
+    },
+    [mathChips, rwChips, includeRetired, newOnly, user]
+  );
 
   const startSession = useCallback(async () => {
     if (!user) {
@@ -156,13 +224,18 @@ export function PracticeBuilder() {
       const subjectFilter: SubjectFilter | null =
         currentSubj === 'math' ? 'Math' : currentSubj === 'rw' ? 'Reading and Writing' : null;
 
+      const questionIds: string[] = [];
+      if (currentSubj === 'math' || currentSubj === 'both') {
+        questionIds.push(...(await selectQuestionIds(buildFilters('math'), mathCount)));
+      }
+      if (currentSubj === 'rw' || currentSubj === 'both') {
+        questionIds.push(...(await selectQuestionIds(buildFilters('rw'), rwCount)));
+      }
+
       const session = await createPracticeSession({
         userId: user.id,
         mode: 'ad_hoc',
-        // TODO: the `questions` table hasn't been imported from
-        // data/questions.json yet (0 rows live) — real question selection
-        // against subject/domain/difficulty filters plugs in here once it is.
-        questionIds: [],
+        questionIds,
         requestedCount: totalCount,
         timerMode: qTimerDisplay ? 'per_question' : 'session_only',
         timerBasis: timerBasis === 'official' ? 'official_pace' : timerBasis === 'custom' ? 'custom' : 'none',
@@ -183,6 +256,9 @@ export function PracticeBuilder() {
     user,
     currentSubj,
     totalCount,
+    mathCount,
+    rwCount,
+    buildFilters,
     qTimerDisplay,
     timerBasis,
     feedback,
@@ -292,12 +368,12 @@ export function PracticeBuilder() {
         <div className={`warn-banner${poolWarningShown ? ' show' : ''}`}>
           <p className="wtitle">⚠ Pool check</p>
           <p>
-            Only {AVAILABLE_BOUNDARIES_POOL} R&amp;W &quot;Boundaries&quot; questions match your filters (you asked for{' '}
+            Only {boundariesPool ?? 0} R&amp;W &quot;Boundaries&quot; questions match your filters (you asked for{' '}
             {rwCount}).
           </p>
           <div className="wactions">
             <button className="wbtn" onClick={startWithFewer}>
-              Start with {AVAILABLE_BOUNDARIES_POOL}
+              Start with {boundariesPool ?? 0}
             </button>
             <button className="wbtn" onClick={widenFilters}>
               Widen filters

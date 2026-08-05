@@ -1,57 +1,93 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
+import { useAuth } from '../lib/AuthContext';
+import { createPracticeSession, getMistakes, type Mistake, type SubjectFilter } from '../lib/practiceSessions';
 import './MistakeLog.css';
 
 // ---------------------------------------------------------------------------
-// Storyboard screen 9 (/mistakes). Mock data only — TODO: query is a join of
-// `question_attempts` filtered to the latest attempt per question_id being
-// incorrect (not scoped to one session — persistent, matches
-// user_settings.mistake_resurface_days). "Retry all" creates a new
-// practice_sessions row with mode='retry_mistakes'.
+// Storyboard screen 9 (/mistakes). Real query: `question_attempts` filtered
+// to the latest attempt per question_id being incorrect, for this user (see
+// getMistakes in practiceSessions.ts). "Retry all" creates a new
+// practice_sessions row with mode='retry_mistakes', question_ids = the
+// currently-filtered mistake list.
 // ---------------------------------------------------------------------------
 
 type Subject = 'math' | 'rw';
+type SubjectFilterUi = 'all' | Subject;
 
-interface Mistake {
-  questionId: string;
-  subject: Subject;
-  domain: string;
-  stemPreview: string;
-  lastAttemptedAt: string;
-  missCount: number;
+function toSubjectShort(subject: string): Subject {
+  return subject === 'Math' ? 'math' : 'rw';
 }
 
-const MISTAKES: Mistake[] = [
-  { questionId: 'q-1', subject: 'math', domain: 'Advanced Math', stemPreview: 'Which of the following is equivalent to (x² − 9)/(x − 3)…', lastAttemptedAt: '2026-08-04', missCount: 2 },
-  { questionId: 'q-2', subject: 'rw', domain: 'Standard English Conventions', stemPreview: 'Which choice completes the text with the most logical transition?', lastAttemptedAt: '2026-08-04', missCount: 1 },
-  { questionId: 'q-3', subject: 'math', domain: 'Geometry & Trig', stemPreview: 'A right triangle has legs of length 6 and 8. What is…', lastAttemptedAt: '2026-08-03', missCount: 1 },
-  { questionId: 'q-4', subject: 'rw', domain: 'Craft and Structure', stemPreview: 'As used in the text, "temper" most nearly means…', lastAttemptedAt: '2026-08-02', missCount: 3 },
-  { questionId: 'q-5', subject: 'rw', domain: 'Standard English Conventions', stemPreview: 'Which choice completes the text so that it conforms to conventions…', lastAttemptedAt: '2026-08-01', missCount: 1 },
-  { questionId: 'q-6', subject: 'math', domain: 'Problem-Solving & Data Analysis', stemPreview: 'The scatterplot shows the relationship between…', lastAttemptedAt: '2026-07-30', missCount: 1 },
-];
-
-type SubjectFilter = 'all' | Subject;
+function toSubjectFull(subject: Subject): SubjectFilter {
+  return subject === 'math' ? 'Math' : 'Reading and Writing';
+}
 
 export function MistakeLog() {
   const navigate = useNavigate();
-  const [subjectFilter, setSubjectFilter] = useState<SubjectFilter>('all');
+  const { user } = useAuth();
+  const [mistakes, setMistakes] = useState<Mistake[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState<SubjectFilterUi>('all');
   const [domainFilter, setDomainFilter] = useState<string>('all');
 
-  const domains = useMemo(() => Array.from(new Set(MISTAKES.map((m) => m.domain))), []);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getMistakes(user.id)
+      .then((m) => {
+        if (!cancelled) setMistakes(m);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load mistakes.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
-  const filtered = MISTAKES.filter(
-    (m) => (subjectFilter === 'all' || m.subject === subjectFilter) && (domainFilter === 'all' || m.domain === domainFilter)
-  );
+  const domains = useMemo(() => Array.from(new Set((mistakes ?? []).map((m) => m.domain))), [mistakes]);
 
-  const retryAll = () => {
-    // TODO: new practice_sessions row, mode='retry_mistakes', question_ids
-    // set to exactly `filtered`'s question ids.
-    navigate('/practice/new');
+  const filtered = useMemo(() => {
+    if (!mistakes) return [];
+    return mistakes.filter(
+      (m) =>
+        (subjectFilter === 'all' || toSubjectShort(m.subject) === subjectFilter) &&
+        (domainFilter === 'all' || m.domain === domainFilter)
+    );
+  }, [mistakes, subjectFilter, domainFilter]);
+
+  const retryAll = async () => {
+    if (!user || filtered.length === 0) return;
+    setRetrying(true);
+    setError(null);
+    try {
+      const session = await createPracticeSession({
+        userId: user.id,
+        mode: 'retry_mistakes',
+        questionIds: filtered.map((m) => m.questionId),
+        requestedCount: filtered.length,
+        timerMode: 'per_question',
+        timerBasis: 'none',
+        feedbackMode: 'immediate',
+        includeRetired: true,
+        subjectFilter: subjectFilter === 'all' ? null : toSubjectFull(subjectFilter),
+      });
+      navigate(`/practice/${session.id}/q/1`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start retry session.');
+      setRetrying(false);
+    }
   };
+
+  const loading = mistakes === null;
 
   return (
     <AppShell title="Mistake Log">
+      {error && <p style={{ color: 'var(--red)' }}>{error}</p>}
+
       <div className="ml-filter-bar">
         <button className={`ml-filter-btn math${subjectFilter === 'math' ? ' active' : ''}`} onClick={() => setSubjectFilter(subjectFilter === 'math' ? 'all' : 'math')}>
           Math{subjectFilter === 'math' ? ' ✓' : ''}
@@ -67,30 +103,35 @@ export function MistakeLog() {
             </option>
           ))}
         </select>
-        <button className="ml-retry-btn" onClick={retryAll} disabled={filtered.length === 0}>
-          Retry all ({filtered.length})
+        <button className="ml-retry-btn" onClick={() => void retryAll()} disabled={filtered.length === 0 || retrying}>
+          {retrying ? 'Starting…' : `Retry all (${filtered.length})`}
         </button>
       </div>
 
       <div className="ml-card">
         <p className="ml-label">Mistake rows</p>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <p className="ml-empty">Loading…</p>
+        ) : (mistakes?.length ?? 0) === 0 ? (
+          <p className="ml-empty">No mistakes yet — nice work.</p>
+        ) : filtered.length === 0 ? (
           <p className="ml-empty">No mistakes match these filters — nice work.</p>
         ) : (
           <div className="ml-list">
-            {filtered.map((m) => (
-              <Link key={m.questionId} to={`/practice/retry/q/${m.questionId}`} className="ml-row">
-                <span className={`subj-chip ${m.subject}`}>{m.subject === 'math' ? 'Math' : 'R&W'}</span>
-                <div className="ml-row-mid">
-                  <span className="ml-row-domain">{m.domain}</span>
-                  <span className="ml-row-stem">{m.stemPreview}</span>
-                </div>
-                <span className="ml-row-miss mono">
-                  missed {m.missCount}×
-                </span>
-                <span className="ml-row-date mono">{m.lastAttemptedAt}</span>
-              </Link>
-            ))}
+            {filtered.map((m) => {
+              const subj = toSubjectShort(m.subject);
+              return (
+                <Link key={m.questionId} to={`/practice/retry/q/${m.questionId}`} className="ml-row">
+                  <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
+                  <div className="ml-row-mid">
+                    <span className="ml-row-domain">{m.domain}</span>
+                    <span className="ml-row-stem">{m.stemPreview}</span>
+                  </div>
+                  <span className="ml-row-miss mono">missed {m.missCount}×</span>
+                  <span className="ml-row-date mono">{new Date(m.lastAttemptedAt).toLocaleDateString()}</span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

@@ -171,3 +171,221 @@ export async function getSession(sessionId: string) {
   if (error) throw error;
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Read functions backing Dashboard / Progress / MistakeLog / SessionSummary /
+// PracticeBuilder. Kept here alongside the write path per the existing
+// "thin typed wrapper, no raw supabase calls in components" convention.
+// ---------------------------------------------------------------------------
+
+type PracticeSessionRow = Database['public']['Tables']['practice_sessions']['Row'];
+type QuestionAttemptRow = Database['public']['Tables']['question_attempts']['Row'];
+type QuestionRow = Database['public']['Tables']['questions']['Row'];
+
+/** Most recent completed sessions for this user, newest first. */
+export async function getRecentSessions(userId: string, limit: number): Promise<PracticeSessionRow[]> {
+  const { data, error } = await supabase
+    .from('practice_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export interface AttemptWithQuestion extends QuestionAttemptRow {
+  questions: Pick<QuestionRow, 'subject' | 'domain' | 'domain_code' | 'skill' | 'skill_code' | 'stem_markup'> | null;
+}
+
+/**
+ * Every question_attempts row for this user across all sessions, joined to
+ * the question's subject/domain for accuracy aggregation. Ordered
+ * oldest-first so callers can compute streaks/trends by walking forward.
+ */
+export async function getAllAttemptsForUser(userId: string): Promise<AttemptWithQuestion[]> {
+  const { data, error } = await supabase
+    .from('question_attempts')
+    .select('*, questions(subject, domain, domain_code, skill, skill_code, stem_markup)')
+    .eq('user_id', userId)
+    .not('submitted_at', 'is', null)
+    .order('submitted_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as AttemptWithQuestion[];
+}
+
+/** One session plus every attempt in it, joined to question text/domain. */
+export async function getSessionWithAttempts(sessionId: string): Promise<{
+  session: PracticeSessionRow;
+  attempts: AttemptWithQuestion[];
+} | null> {
+  const { data: session, error: sessionError } = await supabase
+    .from('practice_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (sessionError) throw sessionError;
+  if (!session) return null;
+
+  const { data: attempts, error: attemptsError } = await supabase
+    .from('question_attempts')
+    .select('*, questions(subject, domain, domain_code, skill, skill_code, stem_markup)')
+    .eq('session_id', sessionId)
+    .order('attempt_number', { ascending: true });
+  if (attemptsError) throw attemptsError;
+
+  return { session, attempts: (attempts ?? []) as AttemptWithQuestion[] };
+}
+
+export interface Mistake {
+  questionId: string;
+  subject: string;
+  domain: string;
+  skill: string | null;
+  stemPreview: string;
+  lastAttemptedAt: string;
+  missCount: number;
+}
+
+export interface MistakeFilters {
+  subject?: SubjectFilter | null;
+  domain?: string | null;
+}
+
+/**
+ * Questions whose most recent attempt by this user was incorrect. Not scoped
+ * to a session — mirrors user_settings.mistake_resurface_days intent (latest
+ * attempt only, so a question later answered correctly drops off the list).
+ */
+export async function getMistakes(userId: string, filters: MistakeFilters = {}): Promise<Mistake[]> {
+  const { data, error } = await supabase
+    .from('question_attempts')
+    .select('*, questions(subject, domain, stem_markup, skill)')
+    .eq('user_id', userId)
+    .not('submitted_at', 'is', null)
+    .order('submitted_at', { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as AttemptWithQuestion[];
+  const latestByQuestion = new Map<string, AttemptWithQuestion>();
+  for (const row of rows) {
+    if (!latestByQuestion.has(row.question_id)) latestByQuestion.set(row.question_id, row);
+  }
+
+  const mistakes: Mistake[] = [];
+  let missCounts: Map<string, number> | null = null;
+  for (const row of latestByQuestion.values()) {
+    if (row.is_correct !== false || !row.questions) continue;
+    if (filters.subject && row.questions.subject !== filters.subject) continue;
+    if (filters.domain && row.questions.domain !== filters.domain) continue;
+    if (!missCounts) {
+      missCounts = new Map();
+      for (const r of rows) {
+        if (r.is_correct === false) missCounts.set(r.question_id, (missCounts.get(r.question_id) ?? 0) + 1);
+      }
+    }
+    mistakes.push({
+      questionId: row.question_id,
+      subject: row.questions.subject,
+      domain: row.questions.domain,
+      skill: row.questions.skill,
+      stemPreview: stripHtmlPreview(row.questions.stem_markup),
+      lastAttemptedAt: row.submitted_at ?? row.created_at,
+      missCount: missCounts.get(row.question_id) ?? 1,
+    });
+  }
+  return mistakes;
+}
+
+function stripHtmlPreview(markup: string, maxLen = 100): string {
+  const text = markup.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+}
+
+export interface QuestionFilters {
+  subject?: SubjectFilter | null;
+  domains?: string[] | null;
+  skills?: string[] | null;
+  difficulty?: string[] | null;
+  includeRetired?: boolean;
+  newOnlyUserId?: string | null;
+}
+
+async function questionIdsAlreadyAttempted(userId: string): Promise<Set<string>> {
+  const { data, error } = await supabase.from('question_attempts').select('question_id').eq('user_id', userId);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.question_id));
+}
+
+/** Count of questions matching the builder's current filter set. */
+export async function countMatchingQuestions(filters: QuestionFilters): Promise<number> {
+  let query = supabase.from('questions').select('id', { count: 'exact', head: true });
+  if (filters.subject) query = query.eq('subject', filters.subject);
+  if (filters.domains && filters.domains.length > 0) query = query.in('domain', filters.domains);
+  if (filters.skills && filters.skills.length > 0) query = query.in('skill', filters.skills);
+  if (filters.difficulty && filters.difficulty.length > 0) query = query.in('difficulty', filters.difficulty);
+  if (!filters.includeRetired) query = query.eq('is_active', true);
+
+  if (filters.newOnlyUserId) {
+    const attempted = await questionIdsAlreadyAttempted(filters.newOnlyUserId);
+    if (attempted.size === 0) {
+      const { count, error } = await query;
+      if (error) throw error;
+      return count ?? 0;
+    }
+    // Supabase JS has no NOT IN with a client-built set beyond a reasonable
+    // size limit — fetch matching ids and subtract client-side instead.
+    const { data, error } = await supabase
+      .from('questions')
+      .select('id')
+      .match(buildEqMatch(filters));
+    if (error) throw error;
+    let ids = (data ?? []).map((r) => r.id);
+    ids = ids.filter((id) => !attempted.has(id));
+    return ids.length;
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+function buildEqMatch(filters: QuestionFilters): Record<string, string | boolean> {
+  const match: Record<string, string | boolean> = {};
+  if (filters.subject) match.subject = filters.subject;
+  if (!filters.includeRetired) match.is_active = true;
+  return match;
+}
+
+/**
+ * Sample `count` question ids matching the filters, shuffled so the session
+ * isn't front-loaded by insertion order. Fetches the full matching pool
+ * client-side (question bank is small enough, ~3.2k rows total, and filtered
+ * pools are far smaller) rather than relying on Postgres-side random ordering
+ * through the JS client.
+ */
+export async function selectQuestionIds(filters: QuestionFilters, count: number): Promise<string[]> {
+  let query = supabase.from('questions').select('id, domain, skill, difficulty');
+  if (filters.subject) query = query.eq('subject', filters.subject);
+  if (filters.domains && filters.domains.length > 0) query = query.in('domain', filters.domains);
+  if (filters.skills && filters.skills.length > 0) query = query.in('skill', filters.skills);
+  if (filters.difficulty && filters.difficulty.length > 0) query = query.in('difficulty', filters.difficulty);
+  if (!filters.includeRetired) query = query.eq('is_active', true);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  let pool = (data ?? []).map((r) => r.id);
+
+  if (filters.newOnlyUserId) {
+    const attempted = await questionIdsAlreadyAttempted(filters.newOnlyUserId);
+    pool = pool.filter((id) => !attempted.has(id));
+  }
+
+  // Fisher-Yates shuffle.
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
