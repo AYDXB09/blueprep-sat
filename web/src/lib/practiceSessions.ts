@@ -238,6 +238,11 @@ export async function getSessionWithAttempts(sessionId: string): Promise<{
   return { session, attempts: (attempts ?? []) as AttemptWithQuestion[] };
 }
 
+export interface MistakeHistoryEntry {
+  date: string;
+  mode: string;
+}
+
 export interface Mistake {
   questionId: string;
   sourceExternalId: string | null;
@@ -247,14 +252,18 @@ export interface Mistake {
   stemPreview: string;
   lastAttemptedAt: string;
   missCount: number;
-  /** The session the most recent wrong attempt happened in — lets "View
-   * answer" open that exact question in real review mode (pre-filled wrong
-   * answer, rationale, cues) instead of forcing a fresh retake just to see
-   * the explanation. Only usable if sessionCompleted (Player's review mode
-   * is gated on practice_sessions.completed_at). */
+  /** The session the most recent wrong attempt happened in — lets "Answer"
+   * open that exact question in real review mode (pre-filled wrong answer,
+   * rationale, cues) instead of forcing a fresh retake just to see the
+   * explanation. Only usable if sessionCompleted (Player's review mode is
+   * gated on practice_sessions.completed_at). */
   sessionId: string;
   sessionCompleted: boolean;
   positionInSession: number | null;
+  /** Every wrong attempt on this question, newest first — date + which
+   * session mode it happened in (ad-hoc, full test, retry, ...), for the
+   * "missed Nx" expand in Mistake Log. */
+  history: MistakeHistoryEntry[];
 }
 
 export interface MistakeFilters {
@@ -270,7 +279,7 @@ export interface MistakeFilters {
 export async function getMistakes(userId: string, filters: MistakeFilters = {}): Promise<Mistake[]> {
   const { data, error } = await supabase
     .from('question_attempts')
-    .select('*, questions(subject, domain, stem_markup, skill, source_external_id), practice_sessions(completed_at, question_ids)')
+    .select('*, questions(subject, domain, stem_markup, skill, source_external_id), practice_sessions(completed_at, question_ids, mode)')
     .eq('user_id', userId)
     .not('submitted_at', 'is', null)
     .order('submitted_at', { ascending: false });
@@ -278,7 +287,7 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
 
   type MistakeAttemptRow = QuestionAttemptRow & {
     questions: Pick<QuestionRow, 'subject' | 'domain' | 'stem_markup' | 'skill' | 'source_external_id'> | null;
-    practice_sessions: Pick<PracticeSessionRow, 'completed_at' | 'question_ids'> | null;
+    practice_sessions: Pick<PracticeSessionRow, 'completed_at' | 'question_ids' | 'mode'> | null;
   };
   const rows = (data ?? []) as MistakeAttemptRow[];
   const latestByQuestion = new Map<string, MistakeAttemptRow>();
@@ -288,14 +297,24 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
 
   const mistakes: Mistake[] = [];
   let missCounts: Map<string, number> | null = null;
+  let historyByQuestion: Map<string, MistakeHistoryEntry[]> | null = null;
   for (const row of latestByQuestion.values()) {
     if (row.is_correct !== false || !row.questions || !row.session_id) continue;
     if (filters.subject && row.questions.subject !== filters.subject) continue;
     if (filters.domain && row.questions.domain !== filters.domain) continue;
-    if (!missCounts) {
+    if (!missCounts || !historyByQuestion) {
       missCounts = new Map();
+      historyByQuestion = new Map();
       for (const r of rows) {
-        if (r.is_correct === false) missCounts.set(r.question_id, (missCounts.get(r.question_id) ?? 0) + 1);
+        if (r.is_correct !== false) continue;
+        missCounts.set(r.question_id, (missCounts.get(r.question_id) ?? 0) + 1);
+        const entry: MistakeHistoryEntry = {
+          date: r.submitted_at ?? r.created_at,
+          mode: r.practice_sessions?.mode ?? 'unknown',
+        };
+        const arr = historyByQuestion.get(r.question_id) ?? [];
+        arr.push(entry);
+        historyByQuestion.set(r.question_id, arr);
       }
     }
     const session = row.practice_sessions;
@@ -312,6 +331,7 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
       sessionId: row.session_id,
       sessionCompleted: !!session?.completed_at,
       positionInSession: position > 0 ? position : null,
+      history: historyByQuestion.get(row.question_id) ?? [],
     });
   }
   return mistakes;

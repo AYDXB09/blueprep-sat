@@ -4,6 +4,7 @@ import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { getAllAttemptsForUser, getRecentSessions, type AttemptWithQuestion } from '../lib/practiceSessions';
 import { fmtDate } from '../lib/format';
+import { domainColor } from '../lib/domainColors';
 import type { Database } from '../lib/database.types';
 import './Progress.css';
 
@@ -204,25 +205,28 @@ export function Progress() {
           ) : (
             <>
               <div className="prog-domain-list">
-                {domainAccuracy.map((d) => (
-                  <button
-                    key={d.label}
-                    className="prog-domain-row"
-                    onClick={() =>
-                      navigate('/practice/new', {
-                        state: { presetSubject: d.subject, presetDomainLabel: d.label },
-                      })
-                    }
-                    title="Practice this domain"
-                  >
-                    <span className={`prog-domain-dot ${d.subject}`} />
-                    <span className="prog-domain-label">{d.label}</span>
-                    <div className="prog-domain-bar-track">
-                      <div className={`prog-domain-bar ${d.subject}`} style={{ width: `${d.pct}%` }} />
-                    </div>
-                    <span className="prog-domain-pct mono">{d.pct}%</span>
-                  </button>
-                ))}
+                {domainAccuracy.map((d) => {
+                  const color = domainColor(d.label);
+                  return (
+                    <button
+                      key={d.label}
+                      className="prog-domain-row"
+                      onClick={() =>
+                        navigate('/practice/new', {
+                          state: { presetSubject: d.subject, presetDomainLabel: d.label },
+                        })
+                      }
+                      title="Practice this domain"
+                    >
+                      <span className="prog-domain-dot" style={{ background: color.border }} />
+                      <span className="prog-domain-label">{d.label}</span>
+                      <div className="prog-domain-bar-track">
+                        <div className="prog-domain-bar" style={{ width: `${d.pct}%`, background: color.border }} />
+                      </div>
+                      <span className="prog-domain-pct mono">{d.pct}%</span>
+                    </button>
+                  );
+                })}
               </div>
               {weakest && (
                 <p className="prog-hint">

@@ -1,6 +1,50 @@
-.dash-grid {
+/* Three score-trend tiles — Combined / Math / R&W, always shown together so
+   a student can see whether a dip is subject-specific or across the board. */
+.dash-trend-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 700px) {
+  .dash-trend-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.dash-trend-tile {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--panel);
+}
+.dash-trend-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+.dash-trend-label.math {
+  color: var(--math);
+}
+.dash-trend-label.rw {
+  color: var(--rw);
+}
+.dash-trend-svg {
+  width: 100%;
+  height: 24px;
+  display: block;
+}
+.dash-trend-big {
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -60,7 +104,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  margin-bottom: 18px;
+  margin-top: 18px;
 }
 @media (max-width: 700px) {
   .dash-actions {
@@ -133,7 +177,9 @@
 .dash-session-date {
   font-size: 11.5px;
   color: var(--ink-dim);
-  width: 56px;
+  width: 78px;
+  flex: none;
+  white-space: nowrap;
 }
 .dash-session-score {
   font-size: 13px;

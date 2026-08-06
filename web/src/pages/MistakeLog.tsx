@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
@@ -11,6 +11,7 @@ import {
 } from '../lib/practiceSessions';
 import { fmtDate } from '../lib/format';
 import { setSessionOrigin } from '../lib/sessionOrigin';
+import { ALL_DOMAINS, domainColor } from '../lib/domainColors';
 import './MistakeLog.css';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,21 @@ function toSubjectFull(subject: Subject): SubjectFilter {
   return subject === 'math' ? 'Math' : 'Reading and Writing';
 }
 
+function modeLabel(mode: string): string {
+  switch (mode) {
+    case 'full_test':
+      return 'Full test';
+    case 'practice_set':
+      return 'Practice set';
+    case 'ad_hoc':
+      return 'Ad-hoc practice';
+    case 'retry_mistakes':
+      return 'Mistake retry';
+    default:
+      return mode;
+  }
+}
+
 export function MistakeLog() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -45,6 +61,17 @@ export function MistakeLog() {
   const [domainFilter, setDomainFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [cuedQuestionIds, setCuedQuestionIds] = useState<Set<string>>(new Set());
+  const [domainMenuOpen, setDomainMenuOpen] = useState(false);
+  const domainMenuRef = useRef<HTMLDivElement | null>(null);
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (domainMenuRef.current && !domainMenuRef.current.contains(e.target as Node)) setDomainMenuOpen(false);
+    }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -79,16 +106,21 @@ export function MistakeLog() {
 
   // Domain options are scoped to the selected subject — picking "Math" should
   // only ever offer Math domains in the dropdown, not R&W ones alongside them.
+  // Ordered/colored via ALL_DOMAINS (not alphabetically) so the swatch order
+  // matches every other domain-colored list in the app.
   const domains = useMemo(() => {
-    const bySubject = (mistakes ?? []).filter((m) => subjectFilter === 'all' || toSubjectShort(m.subject) === subjectFilter);
-    return Array.from(new Set(bySubject.map((m) => m.domain))).sort();
+    const present = new Set((mistakes ?? []).map((m) => m.domain));
+    return ALL_DOMAINS.filter(
+      (d) => present.has(d.domain) && (subjectFilter === 'all' || d.subject === subjectFilter),
+    );
   }, [mistakes, subjectFilter]);
+  const selectedDomainMeta = domains.find((d) => d.domain === domainFilter) ?? null;
 
   // If the subject changes and the previously-selected domain no longer
   // applies (e.g. a Math domain while R&W is now selected), reset it rather
   // than silently filtering to zero results.
   useEffect(() => {
-    if (domainFilter !== 'all' && !domains.includes(domainFilter)) setDomainFilter('all');
+    if (domainFilter !== 'all' && !domains.some((d) => d.domain === domainFilter)) setDomainFilter('all');
   }, [domains, domainFilter]);
 
   const searchNorm = search.trim().toLowerCase();
@@ -199,14 +231,49 @@ export function MistakeLog() {
             Both
           </button>
         </div>
-        <select className="ml-domain-select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
-          <option value="all">Filter: Domain</option>
-          {domains.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
+        <div className="ml-domain-menu" ref={domainMenuRef}>
+          <button
+            type="button"
+            className="ml-domain-trigger"
+            onClick={() => setDomainMenuOpen((o) => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={domainMenuOpen}
+          >
+            {selectedDomainMeta ? (
+              <span className="ml-domain-trigger-swatch" style={{ background: selectedDomainMeta.color.border }} />
+            ) : null}
+            <span>{selectedDomainMeta ? selectedDomainMeta.domain : 'Filter: Domain'}</span>
+            <span className="ml-domain-trigger-caret">▾</span>
+          </button>
+          {domainMenuOpen && (
+            <div className="ml-domain-popover" role="listbox">
+              <button
+                type="button"
+                className={`ml-domain-option${domainFilter === 'all' ? ' active' : ''}`}
+                onClick={() => {
+                  setDomainFilter('all');
+                  setDomainMenuOpen(false);
+                }}
+              >
+                All domains
+              </button>
+              {domains.map((d) => (
+                <button
+                  type="button"
+                  key={d.domain}
+                  className={`ml-domain-option${domainFilter === d.domain ? ' active' : ''}`}
+                  onClick={() => {
+                    setDomainFilter(d.domain);
+                    setDomainMenuOpen(false);
+                  }}
+                >
+                  <span className="ml-domain-option-swatch" style={{ background: d.color.border }} />
+                  {d.domain}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <input
           className="ml-search"
           type="search"
@@ -233,39 +300,67 @@ export function MistakeLog() {
               const subj = toSubjectShort(m.subject);
               const starting = startingQuestionId === m.questionId;
               const canViewAnswer = m.sessionCompleted && !!m.positionInSession;
+              const color = domainColor(m.domain);
+              const expanded = expandedQuestionId === m.questionId;
               return (
-                <div key={m.questionId} className="ml-row">
-                  <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
-                  <div className="ml-row-mid">
-                    <span className="ml-row-domain">
-                      <span className={`ml-row-domain-chip ${subj}`}>{m.domain}</span>
-                      {m.sourceExternalId && <span className="ml-row-cbid mono"> · {m.sourceExternalId}</span>}
-                      {cuedQuestionIds.has(m.questionId) && <span title="Has trap/cue analysis"> 💡</span>}
-                    </span>
-                    <span className="ml-row-stem">{m.stemPreview}</span>
-                  </div>
-                  <span className="ml-row-miss mono">missed {m.missCount}×</span>
-                  <span className="ml-row-date mono">{fmtDate(m.lastAttemptedAt)}</span>
-                  <div className="ml-row-actions">
-                    {canViewAnswer && (
-                      <button
-                        type="button"
-                        className="ml-view-btn"
-                        title="See the answer and trap/cue analysis without retaking the question"
-                        onClick={() => viewAnswer(m)}
-                      >
-                        View answer{cuedQuestionIds.has(m.questionId) ? ' & cues' : ''}
-                      </button>
-                    )}
+                <div key={m.questionId} className="ml-row-wrap">
+                  <div className="ml-row">
+                    <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
+                    <div className="ml-row-mid">
+                      <span className="ml-row-domain">
+                        <span
+                          className="ml-row-domain-chip"
+                          style={{ background: color.bg, color: color.text, borderColor: color.border }}
+                        >
+                          {m.domain}
+                        </span>
+                        {m.sourceExternalId && <span className="ml-row-cbid mono"> · {m.sourceExternalId}</span>}
+                        {cuedQuestionIds.has(m.questionId) && <span title="Has trap/cue analysis"> 💡</span>}
+                      </span>
+                      <span className="ml-row-stem">{m.stemPreview}</span>
+                    </div>
                     <button
                       type="button"
-                      className="ml-retry-one-btn"
-                      onClick={() => void retryOne(m)}
-                      disabled={startingQuestionId !== null}
+                      className="ml-row-miss"
+                      onClick={() => setExpandedQuestionId(expanded ? null : m.questionId)}
+                      aria-expanded={expanded}
                     >
-                      {starting ? 'Starting…' : 'Retry'}
+                      <span className="mono">missed {m.missCount}×</span>
+                      <span className={`ml-row-miss-caret${expanded ? ' open' : ''}`} aria-hidden="true">
+                        ▾
+                      </span>
                     </button>
+                    <div className="ml-row-actions">
+                      {canViewAnswer && (
+                        <button
+                          type="button"
+                          className="ml-view-btn"
+                          title="See the answer and trap/cue analysis without retaking the question"
+                          onClick={() => viewAnswer(m)}
+                        >
+                          Answer
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="ml-retry-one-btn"
+                        onClick={() => void retryOne(m)}
+                        disabled={startingQuestionId !== null}
+                      >
+                        {starting ? 'Starting…' : 'Retry'}
+                      </button>
+                    </div>
                   </div>
+                  {expanded && (
+                    <div className="ml-history">
+                      {m.history.map((h, i) => (
+                        <div key={i} className="ml-history-row">
+                          <span className="mono">{fmtDate(h.date)}</span>
+                          <span>{modeLabel(h.mode)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

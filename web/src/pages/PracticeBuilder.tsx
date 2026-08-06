@@ -11,6 +11,7 @@ import {
   type SubjectFilter,
 } from '../lib/practiceSessions';
 import { setSessionOrigin } from '../lib/sessionOrigin';
+import { domainColor } from '../lib/domainColors';
 
 // ---------------------------------------------------------------------------
 // Ported from mockups/ad-hoc-builder.html. Pool-scarcity check and
@@ -93,6 +94,17 @@ export function PracticeBuilder() {
   const [feedback, setFeedback] = useState(true);
   const [includeRetired, setIncludeRetired] = useState(true);
   const [newOnly, setNewOnly] = useState(false);
+  // Click/tap-triggered (not just hover) so the explanation is reachable on
+  // touch devices — a native `title` tooltip never fires on tap.
+  const [newOnlyTipOpen, setNewOnlyTipOpen] = useState(false);
+  useEffect(() => {
+    if (!newOnlyTipOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest('.info-tip-wrap')) setNewOnlyTipOpen(false);
+    }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [newOnlyTipOpen]);
 
   const [toastMsg, setToastMsg] = useState('');
   const [toastShow, setToastShow] = useState(false);
@@ -316,7 +328,8 @@ export function PracticeBuilder() {
               className={`seg-btn both${currentSubj === 'both' ? ' active' : ''}`}
               onClick={() => setCurrentSubj('both')}
             >
-              Both
+              <span className="seg-both-chip math">Math</span>
+              <span className="seg-both-chip rw">R&amp;W</span>
             </div>
           </div>
         </div>
@@ -325,15 +338,24 @@ export function PracticeBuilder() {
           <div className="subject-block math">
             <h3>Math</h3>
             <div className="chips">
-              {MATH_SECTIONS.map((s) => (
-                <div
-                  key={s}
-                  className={`chip math${mathChips.has(s) ? ' on' : ''}`}
-                  onClick={() => toggleChip('math', s)}
-                >
-                  {MATH_CHIP_LABELS[s]}
-                </div>
-              ))}
+              {MATH_SECTIONS.map((s) => {
+                const on = mathChips.has(s);
+                // These 4 chips map 1:1 onto real Math domains (unlike the
+                // R&W chips below, which are skills, not domains) — so it's
+                // safe to give each its own domain color here, matching
+                // Mistake Log / Progress instead of one flat "math" color.
+                const color = on ? domainColor(MATH_CHIP_TO_DOMAIN[s]) : null;
+                return (
+                  <div
+                    key={s}
+                    className={`chip math${on ? ' on' : ''}`}
+                    style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
+                    onClick={() => toggleChip('math', s)}
+                  >
+                    {MATH_CHIP_LABELS[s]}
+                  </div>
+                );
+              })}
             </div>
             <div className="stepper">
               <button onClick={() => step('math', -1)}>−</button>
@@ -451,8 +473,24 @@ export function PracticeBuilder() {
                 concept. Distinct from "exclude previously correct": this excludes a question even if the user
                 got it wrong last time. Implemented via selectQuestionIds/countMatchingQuestions's newOnlyUserId
                 filter (an anti-join against question_attempts for this user_id/question_id). */}
-            <span className="tlabel" title="Questions you haven't attempted before, in any past session — whether you got them right or wrong.">
-              New questions only <span aria-hidden="true" style={{ color: 'var(--ink-dim)', cursor: 'help' }}>ⓘ</span>
+            <span className="tlabel">
+              New questions only{' '}
+              <span className="info-tip-wrap">
+                <button
+                  type="button"
+                  className="info-tip-btn"
+                  aria-label="What does 'new questions only' mean?"
+                  onClick={() => setNewOnlyTipOpen((v) => !v)}
+                >
+                  ⓘ
+                </button>
+                {newOnlyTipOpen && (
+                  <span className="info-tip-bubble">
+                    Questions you haven&apos;t attempted before, in any past session — whether you got them right or
+                    wrong.
+                  </span>
+                )}
+              </span>
             </span>
             <button className={`switch${newOnly ? ' on' : ''}`} onClick={() => setNewOnly((v) => !v)} />
           </div>

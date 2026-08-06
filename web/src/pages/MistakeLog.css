@@ -37,7 +37,15 @@
   background: var(--navy-wash);
   color: var(--navy);
 }
-.ml-domain-select {
+/* Custom domain filter — replaces a native <select>, which can't reliably
+   show colored options across browsers. */
+.ml-domain-menu {
+  position: relative;
+}
+.ml-domain-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   padding: 7px 10px;
   border-radius: 8px;
   border: 1.5px solid var(--line);
@@ -45,6 +53,64 @@
   color: var(--ink);
   font-size: 12.5px;
   font-weight: 600;
+  cursor: pointer;
+}
+.ml-domain-trigger:hover {
+  border-color: var(--navy);
+}
+.ml-domain-trigger-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
+}
+.ml-domain-trigger-caret {
+  color: var(--ink-dim);
+  font-size: 10px;
+}
+.ml-domain-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ml-domain-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ml-domain-option:hover {
+  background: var(--panel);
+}
+.ml-domain-option.active {
+  background: var(--navy-wash);
+  color: var(--navy);
+  font-weight: 700;
+}
+.ml-domain-option-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
 }
 .ml-search {
   padding: 7px 10px;
@@ -95,22 +161,24 @@
   display: flex;
   flex-direction: column;
 }
+.ml-row-wrap {
+  border-bottom: 1px solid var(--line);
+}
+.ml-row-wrap:last-child {
+  border-bottom: none;
+}
 .ml-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 14px;
   padding: 12px 4px;
   border: none;
-  border-bottom: 1px solid var(--line);
   background: transparent;
   color: var(--ink);
   width: 100%;
   text-align: left;
   font: inherit;
-}
-.ml-row:last-child {
-  border-bottom: none;
 }
 .ml-row-mid {
   display: flex;
@@ -126,26 +194,16 @@
   color: var(--ink-dim);
   font-weight: 700;
 }
-/* Colored pill for the domain (e.g. "Craft and Structure") — same
-   subject-accent language as .subj-chip, so the domain reads as a
-   highlighted label rather than plain caption text. */
+/* Colored pill for the domain (e.g. "Craft and Structure") — one distinct
+   color per domain (see domainColors.ts), not shared across all domains in
+   a subject, so "Algebra" and "Geometry" read as visually different rows. */
 .ml-row-domain-chip {
   display: inline-block;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 2px 7px;
   border-radius: 4px;
-  border: 1px solid var(--line);
-}
-.ml-row-domain-chip.math {
-  border-color: var(--math);
-  color: var(--math);
-  background: var(--math-wash);
-}
-.ml-row-domain-chip.rw {
-  border-color: var(--rw);
-  color: var(--rw);
-  background: var(--rw-wash);
+  border: 1px solid transparent;
 }
 .ml-row-cbid {
   text-transform: none;
@@ -160,13 +218,47 @@
   text-overflow: ellipsis;
 }
 .ml-row-miss {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   font-size: 11px;
   color: var(--red);
   font-weight: 700;
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.ml-row-date {
-  font-size: 11px;
+.ml-row-miss:hover {
+  background: var(--red-wash);
+}
+.ml-row-miss-caret {
+  font-size: 9px;
+  transition: transform 0.12s ease;
+}
+.ml-row-miss-caret.open {
+  transform: rotate(180deg);
+}
+.ml-history {
+  padding: 4px 4px 12px 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ml-history-row {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
   color: var(--ink-dim);
+  padding: 3px 10px;
+  background: var(--panel);
+  border-radius: 6px;
+}
+.ml-history-row .mono {
+  color: var(--ink);
+  min-width: 76px;
 }
 .ml-row-actions {
   display: flex;

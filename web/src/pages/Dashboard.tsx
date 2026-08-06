@@ -133,10 +133,35 @@ export function Dashboard() {
     };
   }, [user]);
 
+  // Combined trend uses every completed session; Math/R&W trends only count
+  // sessions whose subject_filter was exactly that subject — a mixed
+  // ('both'/null) session has no single-subject score to attribute, so it's
+  // excluded from the per-subject lines rather than double-counted or
+  // guessed at.
   const scoreTrend = useMemo(() => {
     if (!sessions) return [];
     return [...sessions]
       .reverse()
+      .map(scorePctOf)
+      .filter((v): v is number => v !== null)
+      .slice(-7);
+  }, [sessions]);
+
+  const mathScoreTrend = useMemo(() => {
+    if (!sessions) return [];
+    return [...sessions]
+      .reverse()
+      .filter((s) => s.subject_filter === 'Math')
+      .map(scorePctOf)
+      .filter((v): v is number => v !== null)
+      .slice(-7);
+  }, [sessions]);
+
+  const rwScoreTrend = useMemo(() => {
+    if (!sessions) return [];
+    return [...sessions]
+      .reverse()
+      .filter((s) => s.subject_filter === 'Reading and Writing')
       .map(scorePctOf)
       .filter((v): v is number => v !== null)
       .slice(-7);
@@ -148,40 +173,50 @@ export function Dashboard() {
 
   const loading = sessions === null || attempts === null;
 
+  // Small helper for the three trend tiles below — kept inline since it only
+  // exists to avoid repeating the sparkline+delta markup three times.
+  function trendTile(label: string, accent: string, trend: number[]) {
+    if (loading) return <p className="dash-sub">Loading…</p>;
+    if (trend.length === 0) {
+      return <p className="dash-empty-text" style={{ margin: 0 }}>No {label.toLowerCase()} sessions yet.</p>;
+    }
+    const last = trend[trend.length - 1];
+    const prev = trend.length > 1 ? trend[trend.length - 2] : null;
+    return (
+      <>
+        <svg viewBox="0 0 80 24" className="dash-trend-svg" preserveAspectRatio="none">
+          <polyline points={sparklinePoints(trend, 80, 24)} fill="none" stroke={accent} strokeWidth="2" />
+        </svg>
+        <div className="dash-trend-big">{last}%</div>
+        {prev !== null && (
+          <div className={`dash-delta${last >= prev ? ' up' : ' down'}`}>
+            {last >= prev ? '▲' : '▼'} {Math.abs(last - prev)}pt
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <AppShell title="Dashboard">
       {error && <p style={{ color: 'var(--red)' }}>{error}</p>}
 
-      <div className="dash-grid">
-        <div className="dash-card">
-          <p className="dash-label">Score trend</p>
-          {loading ? (
-            <p className="dash-sub">Loading…</p>
-          ) : scoreTrend.length === 0 ? (
-            <div className="dash-empty">
-              <p className="dash-empty-text">No completed sessions yet.</p>
-              <button className="dash-empty-cta" onClick={() => navigate('/practice/new')}>
-                Start your first practice set
-              </button>
-            </div>
-          ) : (
-            <div className="dash-sparkline-row">
-              <svg viewBox="0 0 100 32" className="dash-sparkline" preserveAspectRatio="none">
-                <polyline points={sparklinePoints(scoreTrend, 100, 32)} fill="none" stroke="var(--navy)" strokeWidth="2" />
-              </svg>
-              <div>
-                <div className="dash-big">{scoreTrend[scoreTrend.length - 1]}%</div>
-                {scoreTrend.length > 1 && (
-                  <div className={`dash-delta${scoreTrend[scoreTrend.length - 1] >= scoreTrend[scoreTrend.length - 2] ? ' up' : ' down'}`}>
-                    {scoreTrend[scoreTrend.length - 1] >= scoreTrend[scoreTrend.length - 2] ? '▲' : '▼'}{' '}
-                    {Math.abs(scoreTrend[scoreTrend.length - 1] - scoreTrend[scoreTrend.length - 2])}pt vs. last session
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+      <div className="dash-trend-grid">
+        <div className="dash-trend-tile">
+          <p className="dash-trend-label">Combined</p>
+          {trendTile('combined', 'var(--navy)', scoreTrend)}
         </div>
+        <div className="dash-trend-tile">
+          <p className="dash-trend-label math">Math</p>
+          {trendTile('math', 'var(--math)', mathScoreTrend)}
+        </div>
+        <div className="dash-trend-tile">
+          <p className="dash-trend-label rw">R&amp;W</p>
+          {trendTile('R&W', 'var(--rw)', rwScoreTrend)}
+        </div>
+      </div>
 
+      <div className="dash-grid">
         <div className="dash-card">
           <p className="dash-label">Streak</p>
           {loading ? (
@@ -218,17 +253,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="dash-actions">
-        <button className="dash-action-btn navy" onClick={() => navigate('/test/new')}>
-          <span className="dash-action-title">Start Full Test</span>
-          <span className="dash-action-sub">Fixed module structure, adaptive Module 2</span>
-        </button>
-        <button className="dash-action-btn" onClick={() => navigate('/practice/new')}>
-          <span className="dash-action-title">Ad-hoc Practice</span>
-          <span className="dash-action-sub">Pick subjects, counts, and timing yourself</span>
-        </button>
-      </div>
-
       <div className="dash-card dash-recent">
         <p className="dash-label">Recent sessions</p>
         {loading ? (
@@ -259,6 +283,17 @@ export function Dashboard() {
             })}
           </div>
         )}
+      </div>
+
+      <div className="dash-actions">
+        <button className="dash-action-btn navy" onClick={() => navigate('/test/new')}>
+          <span className="dash-action-title">Start Full Test</span>
+          <span className="dash-action-sub">Fixed module structure, adaptive Module 2</span>
+        </button>
+        <button className="dash-action-btn" onClick={() => navigate('/practice/new')}>
+          <span className="dash-action-title">Ad-hoc Practice</span>
+          <span className="dash-action-sub">Pick subjects, counts, and timing yourself</span>
+        </button>
       </div>
     </AppShell>
   );

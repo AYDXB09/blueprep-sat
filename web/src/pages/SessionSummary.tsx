@@ -9,6 +9,7 @@ import {
   type AttemptWithQuestion,
 } from '../lib/practiceSessions';
 import { setSessionOrigin } from '../lib/sessionOrigin';
+import { domainColor } from '../lib/domainColors';
 import type { Database } from '../lib/database.types';
 import './SessionSummary.css';
 
@@ -189,18 +190,24 @@ export function SessionSummary() {
             <p style={{ fontSize: 12.5, color: 'var(--ink-dim)' }}>No scored questions in this session yet.</p>
           ) : (
             <div className="ss-domain-list">
-              {domainBreakdown.map((d) => (
-                <div key={d.label} className="ss-domain-row">
-                  <span className={`subj-chip ${d.subject}`}>{d.subject === 'math' ? 'Math' : 'R&W'}</span>
-                  <span className="ss-domain-label">{d.label}</span>
-                  <div className="ss-domain-bar-track">
-                    <div className={`ss-domain-bar ${d.subject}`} style={{ width: `${(d.correct / d.total) * 100}%` }} />
+              {domainBreakdown.map((d) => {
+                const color = domainColor(d.label);
+                return (
+                  <div key={d.label} className="ss-domain-row">
+                    <span className={`subj-chip ${d.subject}`}>{d.subject === 'math' ? 'Math' : 'R&W'}</span>
+                    <span className="ss-domain-label">{d.label}</span>
+                    <div className="ss-domain-bar-track">
+                      <div
+                        className="ss-domain-bar"
+                        style={{ width: `${(d.correct / d.total) * 100}%`, background: color.border }}
+                      />
+                    </div>
+                    <span className="ss-domain-frac mono">
+                      {d.correct}/{d.total}
+                    </span>
                   </div>
-                  <span className="ss-domain-frac mono">
-                    {d.correct}/{d.total}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
