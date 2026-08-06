@@ -680,6 +680,16 @@ export function Player() {
   // with authored cues on top.
   const showRationale = canRevealFeedback && !!question?.source_rationale_markup;
 
+  // Presentation-only transform: bold+upsize every "Choice A/B/C/D" mention in
+  // the source's own rationale text so a skimming student can immediately see
+  // which choice each sentence is talking about. Applied client-side (not
+  // stored in the DB) since it's pure formatting of the source's real text.
+  const rationaleHtml = useMemo(() => {
+    const raw = question?.source_rationale_markup;
+    if (!raw) return '';
+    return raw.replace(/\bChoice [A-D]\b/g, (m) => `<strong class="choice-ref">${m}</strong>`);
+  }, [question?.source_rationale_markup]);
+
   // One-time DOM-mutation pass per question load, once cues become visible.
   // Guarded by processedCueKeyRef so it never re-wraps already-wrapped text
   // (which would corrupt the marks) if this effect re-fires for any reason.
@@ -1046,7 +1056,16 @@ export function Player() {
                       <div
                         key={c.id}
                         className={`choice${selectedChoiceId === c.id ? ' selected' : ''}${struck.has(c.id) ? ' struck' : ''}${feedbackClass}`}
-                        onClick={() => !isReviewMode && selectChoice(c.id)}
+                        onClick={(e) => {
+                          if (isReviewMode) return;
+                          // A cue-marked word inside this choice's text has its own
+                          // click behavior (focus/flash the cue) — don't also let
+                          // that click bubble up and select the choice as the
+                          // answer, which visually swallows the mark's underline
+                          // under the "selected" style and looks like a bug.
+                          if ((e.target as HTMLElement).closest('mark.cue-mark')) return;
+                          selectChoice(c.id);
+                        }}
                         style={isReviewMode ? { cursor: 'default' } : undefined}
                       >
                         <span className="letter" onClick={(e) => toggleStruck(c.id, e)}>
@@ -1071,8 +1090,9 @@ export function Player() {
                 <div className="rationale-panel">
                   <p className="rationale-title">Explanation</p>
                   {/* Trusted first-party content (the source's own official answer
-                      rationale), not user input. */}
-                  <div className="rationale-body" dangerouslySetInnerHTML={{ __html: question!.source_rationale_markup! }} />
+                      rationale), not user input — rationaleHtml only adds bold/
+                      upsize spans around "Choice X" mentions, see above. */}
+                  <div className="rationale-body" dangerouslySetInnerHTML={{ __html: rationaleHtml }} />
                 </div>
               )}
 

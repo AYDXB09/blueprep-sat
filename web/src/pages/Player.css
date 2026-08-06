@@ -579,6 +579,11 @@ mark.cue-assumption {
 .rationale-body p:last-child {
   margin-bottom: 0;
 }
+.rationale-body .choice-ref {
+  font-weight: 800;
+  font-size: 1.08em;
+  color: var(--ink);
+}
 
 .cue-panel {
   margin-top: 22px;
