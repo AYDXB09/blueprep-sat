@@ -122,6 +122,31 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
   }
 }
 
+/**
+ * Returns `html` with every applicable cue's anchor wrapped in a
+ * <mark class="cue-mark"> span, as a STRING — not a live-DOM mutation.
+ *
+ * This exists because React resets a dangerouslySetInnerHTML node's real
+ * innerHTML back to its declared prop value on every re-render it processes
+ * for that node (confirmed empirically — even a click on a wholly unrelated
+ * button elsewhere in the page wipes marks injected by mutating the live
+ * DOM after the fact). Any imperative "wrap the rendered text once" pass is
+ * therefore inherently fragile: it survives only until the next re-render,
+ * which can be triggered by literally anything in this component. Instead,
+ * the marked-up markup is computed here (via a detached, unmounted
+ * container element so the real DOM is never touched imperatively) and fed
+ * back into React as the dangerouslySetInnerHTML value itself, memoized by
+ * caller — so it's part of what React renders, not something bolted on
+ * after, and it can never be wiped by an unrelated re-render again.
+ */
+function withCueMarks(html: string, cues: CueWithCategory[]): string {
+  if (!html || cues.length === 0) return html;
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  for (const cue of cues) applyCueHighlight(container, cue);
+  return container.innerHTML;
+}
+
 export function Player() {
   const { sessionId, n: nParam } = useParams<{ sessionId: string; n: string }>();
   const navigate = useNavigate();
@@ -139,10 +164,6 @@ export function Player() {
   // ---------------- trap/cue review ----------------
   const [cues, setCues] = useState<CueWithCategory[]>([]);
   const [activeCueId, setActiveCueId] = useState<string | null>(null);
-  const stimulusMarkupRef = useRef<HTMLDivElement | null>(null);
-  const stemMarkupRef = useRef<HTMLDivElement | null>(null);
-  const choiceRefsMap = useRef<Map<string, HTMLElement>>(new Map());
-  const processedCueKeyRef = useRef<string | null>(null);
   // Which of this session's questions have cues at all — for the nav grid's
   // "has cue analysis" indicator, so it's visible before opening a question.
   const [cuedQuestionIds, setCuedQuestionIds] = useState<Set<string>>(new Set());
@@ -312,8 +333,6 @@ export function Player() {
     setMarkedForReview(false);
     setQSeconds(0);
     setActiveCueId(null);
-    choiceRefsMap.current.clear();
-    processedCueKeyRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionId, isReviewMode]);
 
@@ -696,34 +715,43 @@ export function Player() {
     return raw.replace(/\bChoice [A-D]\b/g, (m) => `<strong class="choice-ref">${m}</strong>`);
   }, [question?.source_rationale_markup]);
 
-  // One-time DOM-mutation pass per question load, once cues become visible.
-  // Guarded by processedCueKeyRef so it never re-wraps already-wrapped text
-  // (which would corrupt the marks) if this effect re-fires for any reason.
-  useEffect(() => {
-    if (!showCues || !question) return;
-    // Keyed on questionId + the actual set of cue ids being applied, not just
-    // questionId alone — so a stale/empty cues array racing ahead of the real
-    // fetch (see the cues-fetch effect above) can never "claim" the key and
-    // permanently block the real cues from applying once they arrive.
-    const key = `${questionId}:${cues.map((c) => c.id).sort().join(',')}`;
-    if (processedCueKeyRef.current === key) return;
-    processedCueKeyRef.current = key;
+  // Marked-up HTML, computed as plain strings (not a live-DOM mutation —
+  // see withCueMarks' doc comment for why that approach doesn't survive
+  // React re-renders). Recomputed only when the relevant cues/content
+  // actually change, so this stays cheap on every unrelated re-render.
+  const stimulusCues = useMemo(
+    () => (showCues ? cues.filter((c) => c.anchor_scope === 'stimulus') : []),
+    [showCues, cues],
+  );
+  const stemCues = useMemo(() => (showCues ? cues.filter((c) => c.anchor_scope === 'stem') : []), [showCues, cues]);
+  const choiceCuesByChoiceId = useMemo(() => {
+    const map = new Map<string, CueWithCategory[]>();
+    if (!showCues) return map;
+    for (const cue of cues) {
+      if (cue.anchor_scope !== 'choice' || !cue.choice_id) continue;
+      const arr = map.get(cue.choice_id) ?? [];
+      arr.push(cue);
+      map.set(cue.choice_id, arr);
+    }
+    return map;
+  }, [showCues, cues]);
 
-    const stimulusCues = cues.filter((c) => c.anchor_scope === 'stimulus');
-    const stemCues = cues.filter((c) => c.anchor_scope === 'stem');
-    const choiceCues = cues.filter((c) => c.anchor_scope === 'choice' && c.choice_id);
-
-    if (stimulusMarkupRef.current) {
-      for (const cue of stimulusCues) applyCueHighlight(stimulusMarkupRef.current, cue);
+  const stimulusHtml = useMemo(
+    () => (question?.stimulus_markup ? withCueMarks(question.stimulus_markup, stimulusCues) : ''),
+    [question?.stimulus_markup, stimulusCues],
+  );
+  const stemHtml = useMemo(
+    () => (question?.stem_markup ? withCueMarks(question.stem_markup, stemCues) : ''),
+    [question?.stem_markup, stemCues],
+  );
+  const choiceHtmlById = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!question) return map;
+    for (const c of question.choices) {
+      map.set(c.id, withCueMarks(c.content_markup, choiceCuesByChoiceId.get(c.id) ?? []));
     }
-    if (stemMarkupRef.current) {
-      for (const cue of stemCues) applyCueHighlight(stemMarkupRef.current, cue);
-    }
-    for (const cue of choiceCues) {
-      const el = choiceRefsMap.current.get(cue.choice_id as string);
-      if (el) applyCueHighlight(el, cue);
-    }
-  }, [showCues, cues, questionId, question]);
+    return map;
+  }, [question, choiceCuesByChoiceId]);
 
   const focusCue = useCallback((cueId: string) => {
     setActiveCueId(cueId);
@@ -1019,11 +1047,13 @@ export function Player() {
               </div>
               <div className="stimulus serif" ref={stimulusRef} onMouseUp={onStimulusMouseUp}>
                 {question.stimulus_markup && (
-                  // Trusted first-party content from our own `questions` table, not user input.
-                  <div ref={stimulusMarkupRef} dangerouslySetInnerHTML={{ __html: question.stimulus_markup }} />
+                  // Trusted first-party content from our own `questions` table, not user
+                  // input — stimulusHtml is that same content with cue <mark> spans woven
+                  // in as a string (see withCueMarks), so it survives every re-render.
+                  <div dangerouslySetInnerHTML={{ __html: stimulusHtml }} />
                 )}
                 {/* eslint-disable-next-line react/no-danger */}
-                <div ref={stemMarkupRef} dangerouslySetInnerHTML={{ __html: question.stem_markup }} />
+                <div dangerouslySetInnerHTML={{ __html: stemHtml }} />
               </div>
             </div>
 
@@ -1081,15 +1111,10 @@ export function Player() {
                         <span className="letter" onClick={(e) => toggleStruck(c.id, e)}>
                           {c.label}
                         </span>
-                        {/* Trusted first-party content from our own `choices` table, not user input. */}
-                        <span
-                          className="ctext"
-                          ref={(el) => {
-                            if (el) choiceRefsMap.current.set(c.id, el);
-                            else choiceRefsMap.current.delete(c.id);
-                          }}
-                          dangerouslySetInnerHTML={{ __html: c.content_markup }}
-                        />
+                        {/* Trusted first-party content from our own `choices` table, not user
+                            input — choiceHtmlById carries the same cue-mark treatment as the
+                            stimulus/stem above. */}
+                        <span className="ctext" dangerouslySetInnerHTML={{ __html: choiceHtmlById.get(c.id) ?? c.content_markup }} />
                       </div>
                     );
                   })}
