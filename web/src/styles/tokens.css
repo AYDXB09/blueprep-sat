@@ -87,6 +87,14 @@
   --green: #1f8a5c;
 }
 
+/* Settings' "Font size: Large" — applied via CSS zoom, not a rem scale,
+   because this codebase's component CSS is fixed px throughout. Stamped
+   onto <html> by applyAppearance() (lib/appearance.ts), never set directly
+   in markup. */
+:root[data-font-size='large'] {
+  zoom: 1.15;
+}
+
 * {
   box-sizing: border-box;
 }

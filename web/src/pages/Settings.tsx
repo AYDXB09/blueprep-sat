@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { getOrCreateUserSettings, updateUserSettings, type UserSettingsRow } from '../lib/userSettings';
+import { applyAppearance } from '../lib/appearance';
 import type { Database } from '../lib/database.types';
 import './Settings.css';
 
@@ -43,7 +44,10 @@ export function Settings() {
     let cancelled = false;
     getOrCreateUserSettings(user.id)
       .then((row) => {
-        if (!cancelled) setSettings(row);
+        if (!cancelled) {
+          setSettings(row);
+          applyAppearance(row);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load settings.');
@@ -55,12 +59,19 @@ export function Settings() {
 
   // Applies a patch to local state immediately (so the control feels
   // instant) and writes it to Supabase in the background; a failed write
-  // surfaces an error rather than silently reverting, so the user isn't
-  // left thinking a change saved when it didn't.
+  // surfaces an error rather than revert-and-lie, so the user isn't left
+  // thinking a change saved when it didn't. theme/font_size additionally
+  // get applied to <html> right away — persisting them isn't the point,
+  // the page actually looking different is.
   const save = useCallback(
     (patch: UserSettingsUpdate) => {
       if (!user) return;
-      setSettings((prev) => (prev ? { ...prev, ...patch } : prev));
+      setSettings((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, ...patch };
+        if ('theme' in patch || 'font_size' in patch) applyAppearance(next);
+        return next;
+      });
       flash();
       updateUserSettings(user.id, patch).catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to save — try again.');

@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { getOrCreateUserSettings } from './userSettings';
+import { applyAppearance } from './appearance';
 
 interface AuthContextValue {
   session: Session | null;
@@ -29,6 +31,21 @@ async function ensureUserRow(user: User) {
   }
 }
 
+/**
+ * Applies the signed-in user's theme/font-size to <html> as soon as their
+ * session is known — not just when they happen to visit /settings.
+ * Settings.tsx applies changes instantly on save; this covers every other
+ * page load, and every page besides Settings itself.
+ */
+async function applyStoredAppearance(user: User) {
+  try {
+    const settings = await getOrCreateUserSettings(user.id);
+    applyAppearance(settings);
+  } catch (err) {
+    console.warn('applyStoredAppearance failed:', err);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,12 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
-      if (data.session?.user) void ensureUserRow(data.session.user);
+      if (data.session?.user) {
+        void ensureUserRow(data.session.user);
+        void applyStoredAppearance(data.session.user);
+      }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
-      if (newSession?.user) void ensureUserRow(newSession.user);
+      if (newSession?.user) {
+        void ensureUserRow(newSession.user);
+        void applyStoredAppearance(newSession.user);
+      }
     });
 
     return () => listener.subscription.unsubscribe();
