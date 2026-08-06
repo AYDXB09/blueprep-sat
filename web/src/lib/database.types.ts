@@ -1,7 +1,6 @@
 // Generated directly from the live BluePrep Supabase schema via
 // `mcp__supabase-blueprep__generate_typescript_types`. Do not hand-edit —
 // regenerate the same way after any schema migration instead.
-
 export type Json =
   | string
   | number
@@ -11,6 +10,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
@@ -717,6 +718,7 @@ export type Database = {
       user_settings: {
         Row: {
           explanation_verbosity: string
+          feedback_mode_default: string
           font_size: string
           include_retired_default: boolean
           mistake_resurface_days: number
@@ -731,6 +733,7 @@ export type Database = {
         }
         Insert: {
           explanation_verbosity?: string
+          feedback_mode_default?: string
           font_size?: string
           include_retired_default?: boolean
           mistake_resurface_days?: number
@@ -745,6 +748,7 @@ export type Database = {
         }
         Update: {
           explanation_verbosity?: string
+          feedback_mode_default?: string
           font_size?: string
           include_retired_default?: boolean
           mistake_resurface_days?: number
