@@ -224,10 +224,16 @@ export function Player() {
   // Load the cues for the current question alongside it. Independent of the
   // question fetch so a cues failure never blocks rendering the question.
   useEffect(() => {
-    if (!questionId) {
-      setCues([]);
-      return;
-    }
+    // Clear immediately (synchronously, before the fetch resolves) rather
+    // than leaving the previous question's cues in state — otherwise, if
+    // canRevealFeedback is already true for the new question (e.g. review
+    // mode with an existing submitted attempt), the DOM-highlight effect
+    // below can fire with the OLD question's cues against the NEW
+    // question's DOM: the anchors don't match, the pass fails silently, and
+    // its "already processed this question" guard then permanently blocks
+    // the real cues from ever being applied once they actually arrive.
+    setCues([]);
+    if (!questionId) return;
     let cancelled = false;
     getCuesForQuestion(questionId)
       .then((rows) => {
@@ -695,7 +701,11 @@ export function Player() {
   // (which would corrupt the marks) if this effect re-fires for any reason.
   useEffect(() => {
     if (!showCues || !question) return;
-    const key = `${questionId}`;
+    // Keyed on questionId + the actual set of cue ids being applied, not just
+    // questionId alone — so a stale/empty cues array racing ahead of the real
+    // fetch (see the cues-fetch effect above) can never "claim" the key and
+    // permanently block the real cues from applying once they arrive.
+    const key = `${questionId}:${cues.map((c) => c.id).sort().join(',')}`;
     if (processedCueKeyRef.current === key) return;
     processedCueKeyRef.current = key;
 
