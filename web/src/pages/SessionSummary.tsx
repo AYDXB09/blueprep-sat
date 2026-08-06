@@ -8,6 +8,7 @@ import {
   getSessionWithAttempts,
   type AttemptWithQuestion,
 } from '../lib/practiceSessions';
+import { setSessionOrigin } from '../lib/sessionOrigin';
 import type { Database } from '../lib/database.types';
 import './SessionSummary.css';
 
@@ -129,6 +130,7 @@ export function SessionSummary() {
         feedbackMode: 'immediate',
         includeRetired: true,
       });
+      setSessionOrigin(session.id, `/sessions/${sessionId}`);
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start retry session.');
@@ -220,6 +222,7 @@ export function SessionSummary() {
                   key={a.id}
                   to={`/practice/${sessionId}/q/${position}`}
                   className={`ss-qrow${a.is_correct ? '' : ' missed'}`}
+                  onClick={() => sessionId && setSessionOrigin(sessionId, `/sessions/${sessionId}`)}
                 >
                   <span className="ss-qn mono">Q{position}</span>
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>

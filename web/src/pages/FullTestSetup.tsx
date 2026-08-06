@@ -4,6 +4,7 @@ import { AppShell } from '../components/AppShell';
 import './FullTestSetup.css';
 import { useAuth } from '../lib/AuthContext';
 import { createPracticeSession } from '../lib/practiceSessions';
+import { setSessionOrigin } from '../lib/sessionOrigin';
 
 // ---------------------------------------------------------------------------
 // Storyboard screen 4 (/test/new). Unlike the Ad-hoc Builder, a full test's
@@ -44,6 +45,7 @@ export function FullTestSetup() {
         // R&W Module 1 (32 min) + Math Module 1 (35 min) official blueprint pacing.
         allottedSeconds: (32 + 35) * 60,
       });
+      setSessionOrigin(session.id, '/test/new');
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start test.');

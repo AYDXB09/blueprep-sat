@@ -10,6 +10,7 @@ import {
   type SubjectFilter,
 } from '../lib/practiceSessions';
 import { fmtDate } from '../lib/format';
+import { setSessionOrigin } from '../lib/sessionOrigin';
 import './MistakeLog.css';
 
 // ---------------------------------------------------------------------------
@@ -123,6 +124,7 @@ export function MistakeLog() {
         includeRetired: true,
         subjectFilter: subjectFilter === 'all' ? null : toSubjectFull(subjectFilter),
       });
+      setSessionOrigin(session.id, '/mistakes');
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start retry session.');
@@ -146,11 +148,22 @@ export function MistakeLog() {
         includeRetired: true,
         subjectFilter: toSubjectFull(toSubjectShort(m.subject)),
       });
+      setSessionOrigin(session.id, '/mistakes');
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start retry session.');
       setStartingQuestionId(null);
     }
+  };
+
+  // Jumps straight into the ORIGINAL session's question in real review mode
+  // (pre-filled wrong answer, rationale, cues) — no retake required just to
+  // see the explanation. Only available when that session finished (Player's
+  // review mode is gated on completed_at); otherwise falls back to Retry.
+  const viewAnswer = (m: Mistake) => {
+    if (!m.sessionCompleted || !m.positionInSession) return;
+    setSessionOrigin(m.sessionId, '/mistakes');
+    navigate(`/practice/${m.sessionId}/q/${m.positionInSession}`);
   };
 
   const loading = mistakes === null;
@@ -219,28 +232,41 @@ export function MistakeLog() {
             {filtered.map((m) => {
               const subj = toSubjectShort(m.subject);
               const starting = startingQuestionId === m.questionId;
+              const canViewAnswer = m.sessionCompleted && !!m.positionInSession;
               return (
-                <button
-                  key={m.questionId}
-                  type="button"
-                  className="ml-row"
-                  onClick={() => void retryOne(m)}
-                  disabled={startingQuestionId !== null}
-                >
+                <div key={m.questionId} className="ml-row">
                   <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
                   <div className="ml-row-mid">
                     <span className="ml-row-domain">
-                      {m.domain}
+                      <span className={`ml-row-domain-chip ${subj}`}>{m.domain}</span>
                       {m.sourceExternalId && <span className="ml-row-cbid mono"> · {m.sourceExternalId}</span>}
                       {cuedQuestionIds.has(m.questionId) && <span title="Has trap/cue analysis"> 💡</span>}
                     </span>
                     <span className="ml-row-stem">{m.stemPreview}</span>
                   </div>
                   <span className="ml-row-miss mono">missed {m.missCount}×</span>
-                  <span className="ml-row-date mono">
-                    {starting ? 'Starting…' : fmtDate(m.lastAttemptedAt)}
-                  </span>
-                </button>
+                  <span className="ml-row-date mono">{fmtDate(m.lastAttemptedAt)}</span>
+                  <div className="ml-row-actions">
+                    {canViewAnswer && (
+                      <button
+                        type="button"
+                        className="ml-view-btn"
+                        title="See the answer and trap/cue analysis without retaking the question"
+                        onClick={() => viewAnswer(m)}
+                      >
+                        View answer{cuedQuestionIds.has(m.questionId) ? ' & cues' : ''}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="ml-retry-one-btn"
+                      onClick={() => void retryOne(m)}
+                      disabled={startingQuestionId !== null}
+                    >
+                      {starting ? 'Starting…' : 'Retry'}
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>

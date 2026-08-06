@@ -10,6 +10,7 @@ import {
   type QuestionFilters,
   type SubjectFilter,
 } from '../lib/practiceSessions';
+import { setSessionOrigin } from '../lib/sessionOrigin';
 
 // ---------------------------------------------------------------------------
 // Ported from mockups/ad-hoc-builder.html. Pool-scarcity check and
@@ -269,6 +270,7 @@ export function PracticeBuilder() {
         allottedSeconds:
           timerBasis === 'custom' ? customMinutes * 60 : timerBasis === 'official' ? Math.round(totalTime * 60) : null,
       });
+      setSessionOrigin(session.id, '/practice/new');
       navigate(`/practice/${session.id}/q/1`);
     } catch (err) {
       setStartError(err instanceof Error ? err.message : 'Failed to start session.');

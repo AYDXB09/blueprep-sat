@@ -247,6 +247,14 @@ export interface Mistake {
   stemPreview: string;
   lastAttemptedAt: string;
   missCount: number;
+  /** The session the most recent wrong attempt happened in — lets "View
+   * answer" open that exact question in real review mode (pre-filled wrong
+   * answer, rationale, cues) instead of forcing a fresh retake just to see
+   * the explanation. Only usable if sessionCompleted (Player's review mode
+   * is gated on practice_sessions.completed_at). */
+  sessionId: string;
+  sessionCompleted: boolean;
+  positionInSession: number | null;
 }
 
 export interface MistakeFilters {
@@ -262,7 +270,7 @@ export interface MistakeFilters {
 export async function getMistakes(userId: string, filters: MistakeFilters = {}): Promise<Mistake[]> {
   const { data, error } = await supabase
     .from('question_attempts')
-    .select('*, questions(subject, domain, stem_markup, skill, source_external_id)')
+    .select('*, questions(subject, domain, stem_markup, skill, source_external_id), practice_sessions(completed_at, question_ids)')
     .eq('user_id', userId)
     .not('submitted_at', 'is', null)
     .order('submitted_at', { ascending: false });
@@ -270,6 +278,7 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
 
   type MistakeAttemptRow = QuestionAttemptRow & {
     questions: Pick<QuestionRow, 'subject' | 'domain' | 'stem_markup' | 'skill' | 'source_external_id'> | null;
+    practice_sessions: Pick<PracticeSessionRow, 'completed_at' | 'question_ids'> | null;
   };
   const rows = (data ?? []) as MistakeAttemptRow[];
   const latestByQuestion = new Map<string, MistakeAttemptRow>();
@@ -280,7 +289,7 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
   const mistakes: Mistake[] = [];
   let missCounts: Map<string, number> | null = null;
   for (const row of latestByQuestion.values()) {
-    if (row.is_correct !== false || !row.questions) continue;
+    if (row.is_correct !== false || !row.questions || !row.session_id) continue;
     if (filters.subject && row.questions.subject !== filters.subject) continue;
     if (filters.domain && row.questions.domain !== filters.domain) continue;
     if (!missCounts) {
@@ -289,6 +298,8 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
         if (r.is_correct === false) missCounts.set(r.question_id, (missCounts.get(r.question_id) ?? 0) + 1);
       }
     }
+    const session = row.practice_sessions;
+    const position = session ? session.question_ids.indexOf(row.question_id) + 1 : 0;
     mistakes.push({
       questionId: row.question_id,
       sourceExternalId: row.questions.source_external_id,
@@ -298,6 +309,9 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
       stemPreview: stripHtmlPreview(row.questions.stem_markup),
       lastAttemptedAt: row.submitted_at ?? row.created_at,
       missCount: missCounts.get(row.question_id) ?? 1,
+      sessionId: row.session_id,
+      sessionCompleted: !!session?.completed_at,
+      positionInSession: position > 0 ? position : null,
     });
   }
   return mistakes;

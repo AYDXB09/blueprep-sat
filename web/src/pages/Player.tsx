@@ -15,6 +15,7 @@ import {
   type CueWithCategory,
   type QuestionWithChoices,
 } from '../lib/practiceSessions';
+import { getSessionOrigin } from '../lib/sessionOrigin';
 import type { Database } from '../lib/database.types';
 
 // ---------------------------------------------------------------------------
@@ -609,17 +610,22 @@ export function Player() {
   }, [sessionId, navBusy, CURRENT_Q, TOTAL_Q, isReviewMode, commitCurrentAnswer, finishSession, refetchAttempts, navigate]);
 
   // ---------------- exit control ----------------
+  // Returns to wherever this session was actually entered from (Mistake Log,
+  // Session Summary, Dashboard, Practice Builder, Full Test Setup) rather
+  // than a hardcoded '/' — see sessionOrigin.ts for why this can't just be
+  // react-router location.state.
   const exitToDashboard = useCallback(() => {
+    const origin = getSessionOrigin(sessionId) ?? '/';
     // Nothing "in progress" to lose when reviewing an already-completed
     // session — the resumable-progress framing only makes sense mid-test.
     if (isReviewMode) {
-      navigate('/');
+      navigate(origin);
       return;
     }
     if (window.confirm('Leave this session? Your progress is saved and you can resume later.')) {
-      navigate('/');
+      navigate(origin);
     }
-  }, [isReviewMode, navigate]);
+  }, [isReviewMode, navigate, sessionId]);
 
   // ---------------- highlighter (real Selection/Range API, kept imperative
   // via refs — this mirrors the mockup's actual DOM-surgery behavior, which
