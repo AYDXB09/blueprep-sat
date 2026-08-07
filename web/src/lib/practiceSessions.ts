@@ -644,3 +644,71 @@ function notYetEligibleMistakesRows(
 ): PoolRow[] {
   return entries.slice(0, needed).map((e) => e.row);
 }
+
+type TierDifficultyProfile = Database['public']['Tables']['tier_difficulty_profiles']['Row'];
+
+/**
+ * `tier_difficulty_profiles` row for a given tier ('module1' | 'tier1' |
+ * 'tier2') — the (uncalibrated, first-pass — see CLAUDE.md's adaptive-
+ * threshold note) easy/medium/hard sampling weights.
+ */
+async function getTierDifficultyProfile(tier: string): Promise<TierDifficultyProfile | null> {
+  const { data, error } = await supabase.from('tier_difficulty_profiles').select('*').eq('tier', tier).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Assembles one subject's question set for a given tier (Module 1's fixed
+ * mix, or a Module 2 tier), difficulty-weighted per `tier_difficulty_profiles`
+ * and mistake-resurfacing-aware per `selectQuestionIds`. Splits `count`
+ * across Easy/Medium/Hard by the tier's *_pct weights (rounded, with any
+ * rounding remainder added to Medium so the total always matches `count`
+ * exactly), then samples each band separately so the resurfacing rule stays
+ * scoped to real domain+difficulty buckets rather than blurring difficulty
+ * across the whole subject.
+ */
+export async function selectTieredQuestionIds(args: {
+  subject: SubjectFilter;
+  tier: string;
+  count: number;
+  includeRetired?: boolean;
+  resurfaceForUserId?: string | null;
+  mistakeResurfaceDays?: number | null;
+}): Promise<string[]> {
+  const profile = await getTierDifficultyProfile(args.tier);
+  // No profile row for this tier (shouldn't happen against the live schema,
+  // but don't hard-fail a test start over it) — fall back to an even split.
+  const weights = profile
+    ? { Easy: profile.easy_pct, Medium: profile.medium_pct, Hard: profile.hard_pct }
+    : { Easy: 33, Medium: 34, Hard: 33 };
+  const totalWeight = weights.Easy + weights.Medium + weights.Hard || 1;
+
+  const easyCount = Math.round((weights.Easy / totalWeight) * args.count);
+  const hardCount = Math.round((weights.Hard / totalWeight) * args.count);
+  const mediumCount = Math.max(0, args.count - easyCount - hardCount); // absorbs rounding drift
+
+  const bandCounts: [string, number][] = [
+    ['Easy', easyCount],
+    ['Medium', mediumCount],
+    ['Hard', hardCount],
+  ];
+
+  const ids: string[] = [];
+  for (const [difficulty, bandCount] of bandCounts) {
+    if (bandCount <= 0) continue;
+    ids.push(
+      ...(await selectQuestionIds(
+        {
+          subject: args.subject,
+          difficulty: [difficulty],
+          includeRetired: args.includeRetired ?? true,
+          resurfaceForUserId: args.resurfaceForUserId,
+          mistakeResurfaceDays: args.mistakeResurfaceDays,
+        },
+        bandCount
+      ))
+    );
+  }
+  return ids;
+}
