@@ -26,6 +26,15 @@ export type FeedbackMode = 'immediate' | 'end_of_session';
 export type SizePreset = 'quarter' | 'half' | 'module' | 'section';
 export type SubjectFilter = 'Math' | 'Reading and Writing';
 
+// Real TEST_BLUEPRINTS module pacing (index.html:1997-1998) — R&W module =
+// 27q/32min, Math module = 22q/35min, same size/time whether it's Module 1
+// (fixed mix) or Module 2 (tiered). Shared by FullTestSetup (assembling
+// Module 1) and Player (assembling Modules 2-4 as the test progresses).
+export const RW_MODULE_QUESTION_COUNT = 27;
+export const MATH_MODULE_QUESTION_COUNT = 22;
+export const RW_MODULE_SECONDS = 32 * 60;
+export const MATH_MODULE_SECONDS = 35 * 60;
+
 export interface CreateSessionArgs {
   userId: string;
   mode: SessionMode;
@@ -93,6 +102,104 @@ export async function createSessionModule(args: {
   const { data, error } = await supabase.from('session_modules').insert(insert).select().single();
   if (error) throw error;
   return data;
+}
+
+export type SessionModuleRow = Database['public']['Tables']['session_modules']['Row'];
+
+/**
+ * A full test's module rows for one session, ordered by module_number.
+ * `module_number` is scoped per subject (DB CHECK restricts it to 1|2, and
+ * (session_id, subject, module_number) is unique) — callers that need the
+ * real R&W-M1 → R&W-M2 → Math-M1 → Math-M2 sequence must order by subject
+ * too (see Player.tsx's MODULE_SEQUENCE), not by this column alone.
+ */
+export async function getSessionModules(sessionId: string): Promise<SessionModuleRow[]> {
+  const { data, error } = await supabase
+    .from('session_modules')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('module_number', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Appends newly-assembled question ids to a live session's question list. */
+export async function appendSessionQuestionIds(sessionId: string, newIds: string[]): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('practice_sessions')
+    .select('question_ids')
+    .eq('id', sessionId)
+    .single();
+  if (fetchError) throw fetchError;
+  const merged = [...(existing?.question_ids ?? []), ...newIds];
+  const { error } = await supabase.from('practice_sessions').update({ question_ids: merged }).eq('id', sessionId);
+  if (error) throw error;
+}
+
+/**
+ * Re-seeds a live session's countdown basis to a newly-entered module's own
+ * official pacing (Player's "seed sessionSeconds from session.allotted_seconds"
+ * effect re-fires whenever the session reloads, so updating this here is
+ * what actually resets the on-screen clock at each module transition).
+ */
+export async function updateSessionAllottedSeconds(sessionId: string, seconds: number): Promise<void> {
+  const { error } = await supabase.from('practice_sessions').update({ allotted_seconds: seconds }).eq('id', sessionId);
+  if (error) throw error;
+}
+
+/**
+ * Module 1 → Module 2 tier cutoff. Uncalibrated placeholder — same
+ * first-pass-guess status as `tier_difficulty_profiles` itself (see
+ * CLAUDE.md's adaptive-threshold note: explicitly on hold pending real
+ * multi-user usage data to calibrate against). >=60% correct routes to the
+ * harder tier, matching the real exam's stronger-score-gets-harder-Module-2
+ * shape without claiming to reverse-engineer the real cutoff.
+ */
+export function decideModuleTier(correct: number, total: number): 'tier1' | 'tier2' {
+  if (total <= 0) return 'tier2';
+  return correct / total >= 0.6 ? 'tier1' : 'tier2';
+}
+
+/**
+ * Assembles and persists one full-test module: samples the question set
+ * (difficulty-weighted + mistake-resurfacing-aware via
+ * selectTieredQuestionIds), writes the session_modules row, appends the ids
+ * to the live session, and re-seeds the session's timer basis to this
+ * module's own official pacing. `tier` is the `tier_difficulty_profiles`
+ * lookup key ('module1' for a fixed-mix Module 1, 'tier1'/'tier2' for an
+ * adaptively-routed Module 2) — session_modules.tier itself only allows
+ * 'tier1'/'tier2'/null (DB CHECK), so a 'module1' weighting key is stored as
+ * tier: null there, matching "Module 1 has no adaptive tier" semantics.
+ */
+export async function assembleFullTestModule(args: {
+  sessionId: string;
+  subject: SubjectFilter;
+  moduleNumber: 1 | 2;
+  tier: 'module1' | 'tier1' | 'tier2';
+  count: number;
+  moduleSeconds: number;
+  resurfaceForUserId?: string | null;
+  mistakeResurfaceDays?: number | null;
+  includeRetired?: boolean;
+}): Promise<{ questionIds: string[] }> {
+  const questionIds = await selectTieredQuestionIds({
+    subject: args.subject,
+    tier: args.tier,
+    count: args.count,
+    includeRetired: args.includeRetired ?? true,
+    resurfaceForUserId: args.resurfaceForUserId,
+    mistakeResurfaceDays: args.mistakeResurfaceDays,
+  });
+  await createSessionModule({
+    sessionId: args.sessionId,
+    moduleNumber: args.moduleNumber,
+    subject: args.subject,
+    questionIds,
+    tier: args.tier === 'module1' ? null : args.tier,
+  });
+  await appendSessionQuestionIds(args.sessionId, questionIds);
+  await updateSessionAllottedSeconds(args.sessionId, args.moduleSeconds);
+  return { questionIds };
 }
 
 export async function completeSessionModule(

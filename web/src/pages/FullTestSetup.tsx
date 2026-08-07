@@ -3,7 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import './FullTestSetup.css';
 import { useAuth } from '../lib/AuthContext';
-import { createPracticeSession, selectTieredQuestionIds } from '../lib/practiceSessions';
+import {
+  createPracticeSession,
+  createSessionModule,
+  selectTieredQuestionIds,
+  MATH_MODULE_QUESTION_COUNT,
+  RW_MODULE_QUESTION_COUNT,
+  RW_MODULE_SECONDS,
+} from '../lib/practiceSessions';
 import { getOrCreateUserSettings } from '../lib/userSettings';
 import { setSessionOrigin } from '../lib/sessionOrigin';
 
@@ -12,15 +19,17 @@ import { setSessionOrigin } from '../lib/sessionOrigin';
 // module structure is fixed — nothing here is user-configured, it's a
 // confirmation + explanation screen. Module 2 tier routing is decided from
 // Module 1 performance after the fact, not chosen up front.
+//
+// Only R&W Module 1 is assembled here — the real exam runs R&W M1 → R&W M2
+// → break → Math M1 → Math M2 in sequence (see SECTION_ORDER below), and
+// each later module depends on the score of the one before it. Modules 2-4
+// are assembled by Player.tsx as the test actually progresses (see its
+// gateSubmit/continueFromBreak — session_modules + practice_sessions.
+// question_ids both grow live via assembleFullTestModule), not decided
+// up front.
 // ---------------------------------------------------------------------------
 
 const SECTION_ORDER = ['Reading & Writing — Module 1', 'Reading & Writing — Module 2', 'Break (~10 min)', 'Math — Module 1', 'Math — Module 2'];
-
-// TEST_BLUEPRINTS module pacing (index.html:1997-1998): R&W module = 27q,
-// Math module = 22q — Module 1 is fixed-mix at these sizes regardless of
-// tier (tier only affects Module 2's difficulty pool).
-const RW_MODULE1_COUNT = 27;
-const MATH_MODULE1_COUNT = 22;
 
 export function FullTestSetup() {
   const { user } = useAuth();
@@ -52,40 +61,40 @@ export function FullTestSetup() {
     setStarting(true);
     setError(null);
     try {
-      // Module 1's mix is fixed difficulty weights (not adaptive — that's
+      // R&W Module 1's mix is fixed difficulty weights (not adaptive — that's
       // Module 2 only), sampled per `tier_difficulty_profiles.module1` via
       // selectTieredQuestionIds, mistake-resurfacing-aware same as the
-      // Ad-hoc Builder. Module 2's tier (and its own question set) is
-      // decided after Module 1 completes, so it isn't assembled here.
-      const [rwIds, mathIds] = await Promise.all([
-        selectTieredQuestionIds({
-          subject: 'Reading and Writing',
-          tier: 'module1',
-          count: RW_MODULE1_COUNT,
-          resurfaceForUserId: user.id,
-          mistakeResurfaceDays,
-        }),
-        selectTieredQuestionIds({
-          subject: 'Math',
-          tier: 'module1',
-          count: MATH_MODULE1_COUNT,
-          resurfaceForUserId: user.id,
-          mistakeResurfaceDays,
-        }),
-      ]);
-      const questionIds = [...rwIds, ...mathIds];
+      // Ad-hoc Builder.
+      const rwM1Ids = await selectTieredQuestionIds({
+        subject: 'Reading and Writing',
+        tier: 'module1',
+        count: RW_MODULE_QUESTION_COUNT,
+        resurfaceForUserId: user.id,
+        mistakeResurfaceDays,
+      });
 
       const session = await createPracticeSession({
         userId: user.id,
         mode: 'full_test',
-        questionIds,
-        requestedCount: RW_MODULE1_COUNT + MATH_MODULE1_COUNT,
+        questionIds: rwM1Ids,
+        // Full 4-module test size (R&W 27+27, Math 22+22 = 98), even though
+        // only Module 1 is assembled yet — this is the session's eventual
+        // total, matching TEST_BLUEPRINTS' section counts (R&W 54, Math 44).
+        requestedCount: RW_MODULE_QUESTION_COUNT * 2 + MATH_MODULE_QUESTION_COUNT * 2,
         timerMode: 'per_question',
         timerBasis: 'official_pace',
         feedbackMode: 'end_of_session',
         includeRetired: true,
-        // R&W Module 1 (32 min) + Math Module 1 (35 min) official blueprint pacing.
-        allottedSeconds: (32 + 35) * 60,
+        // Module 1's own pacing — Player re-seeds this to each new module's
+        // pacing as the test progresses (see updateSessionAllottedSeconds).
+        allottedSeconds: RW_MODULE_SECONDS,
+      });
+      await createSessionModule({
+        sessionId: session.id,
+        moduleNumber: 1,
+        subject: 'Reading and Writing',
+        questionIds: rwM1Ids,
+        tier: null,
       });
       setSessionOrigin(session.id, '/test/new');
       navigate(`/practice/${session.id}/q/1`);

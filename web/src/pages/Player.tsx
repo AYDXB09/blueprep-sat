@@ -3,20 +3,44 @@ import { useNavigate, useParams } from 'react-router-dom';
 import './Player.css';
 import { useAuth } from '../lib/AuthContext';
 import {
+  assembleFullTestModule,
   completeSession,
+  decideModuleTier,
   getCuesForQuestion,
   getQuestionIdsWithCues,
   getQuestionWithChoices,
+  getSessionModules,
   getSessionWithAttempts,
   isSprAnswerCorrect,
   startQuestionAttempt,
   submitQuestionAttempt,
+  MATH_MODULE_QUESTION_COUNT,
+  MATH_MODULE_SECONDS,
+  RW_MODULE_QUESTION_COUNT,
+  RW_MODULE_SECONDS,
   type AttemptWithQuestion,
   type CueWithCategory,
   type QuestionWithChoices,
+  type SessionModuleRow,
 } from '../lib/practiceSessions';
+import { getOrCreateUserSettings } from '../lib/userSettings';
 import { getSessionOrigin } from '../lib/sessionOrigin';
 import type { Database } from '../lib/database.types';
+
+// Real full-test module sequence — R&W M1 → R&W M2 → (break) → Math M1 →
+// Math M2. session_modules.module_number is scoped PER SUBJECT (DB CHECK
+// restricts it to 1|2, unique per (session, subject, module_number)), so
+// this fixed ordering — not module_number alone — is what turns a session's
+// module rows into the real linear sequence a student walks through.
+const MODULE_SEQUENCE: Array<{ subject: string; moduleNumber: number }> = [
+  { subject: 'Reading and Writing', moduleNumber: 1 },
+  { subject: 'Reading and Writing', moduleNumber: 2 },
+  { subject: 'Math', moduleNumber: 1 },
+  { subject: 'Math', moduleNumber: 2 },
+];
+function moduleSeqIndex(subject: string, moduleNumber: number): number {
+  return MODULE_SEQUENCE.findIndex((s) => s.subject === subject && s.moduleNumber === moduleNumber);
+}
 
 // ---------------------------------------------------------------------------
 // Ported from mockups/player.html, then wired to real Supabase-backed
@@ -173,6 +197,36 @@ export function Player() {
   const CURRENT_Q = n;
   const questionId = session && Number.isFinite(n) ? session.question_ids[n - 1] : undefined;
 
+  // ---------------- full-test module tracking ----------------
+  // Empty for ad-hoc/practice_set/retry sessions (they never call
+  // createSessionModule) — every module-aware branch below is a no-op for
+  // those, same flat single-block behavior as before this feature existed.
+  const [modules, setModules] = useState<SessionModuleRow[]>([]);
+  const [mistakeResurfaceDays, setMistakeResurfaceDays] = useState<number | null>(null);
+  const [moduleBusy, setModuleBusy] = useState(false);
+
+  const isFullTest = session?.mode === 'full_test';
+
+  const moduleRanges = useMemo(() => {
+    const sorted = [...modules].sort(
+      (a, b) => moduleSeqIndex(a.subject, a.module_number) - moduleSeqIndex(b.subject, b.module_number)
+    );
+    let start = 1;
+    return sorted.map((m) => {
+      const len = m.question_ids.length;
+      const range = { module: m, start, end: start + len - 1 };
+      start += len;
+      return range;
+    });
+  }, [modules]);
+
+  const currentModuleRange = isFullTest ? moduleRanges.find((r) => CURRENT_Q >= r.start && CURRENT_Q <= r.end) : undefined;
+  // Every module boundary lands exactly at TOTAL_Q too, since the next
+  // module isn't appended to question_ids until the gate is actually
+  // submitted — so this alone is enough to intercept "next" at the end of
+  // any module, including the last one (finishSession handles that case).
+  const atModuleBoundary = isFullTest && !!currentModuleRange && CURRENT_Q === currentModuleRange.end;
+
   // A session with completed_at set was already finished — opening it again
   // (e.g. via Session Summary's "Review →" or Mistake Log) is read-only
   // review, not a live retake: no new attempts get written, the existing
@@ -300,6 +354,49 @@ export function Player() {
     const result = await getSessionWithAttempts(sessionId);
     if (result) setAttempts(result.attempts);
   }, [sessionId]);
+
+  // Reloads BOTH the session (so TOTAL_Q/question_ids/allotted_seconds pick
+  // up a just-appended module) and attempts — used after a module
+  // transition, where refetchAttempts alone wouldn't see the new questions.
+  const reloadSession = useCallback(async () => {
+    if (!sessionId) return null;
+    const result = await getSessionWithAttempts(sessionId);
+    if (result) {
+      setSession(result.session);
+      setAttempts(result.attempts);
+    }
+    return result;
+  }, [sessionId]);
+
+  const reloadModules = useCallback(async () => {
+    if (!sessionId) return [] as SessionModuleRow[];
+    const rows = await getSessionModules(sessionId);
+    setModules(rows);
+    return rows;
+  }, [sessionId]);
+
+  // Load this full test's module rows once per session (empty array for
+  // non-full-test sessions, which never write any).
+  useEffect(() => {
+    void reloadModules();
+  }, [reloadModules]);
+
+  // Needed for the mistake-resurfacing fallback ceiling when assembling
+  // Modules 2-4 live — same setting Ad-hoc Builder and Full Test Setup load.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getOrCreateUserSettings(user.id)
+      .then((row) => {
+        if (!cancelled) setMistakeResurfaceDays(row.mistake_resurface_days);
+      })
+      .catch(() => {
+        // Non-critical — selectQuestionIds falls back to its own default.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // ---------------- current attempt tracking ----------------
   const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
@@ -499,19 +596,22 @@ export function Player() {
 
   const finishModule = useCallback(() => setView('gate'), []);
   const gateBack = useCallback(() => setView('main'), []);
-  const gateSubmit = useCallback(() => {
-    setView('break');
-    startBreakCountdown();
-  }, [startBreakCountdown]);
-  const continueFromBreak = useCallback(() => {
-    if (breakTimerRef.current) clearInterval(breakTimerRef.current);
-    setView('main');
-    toast('Would begin Math Module 1.');
-  }, [toast]);
   const showBreak = useCallback(() => {
     setView('break');
     startBreakCountdown();
   }, [startBreakCountdown]);
+
+  // Clears the per-module clock/overtime state that reloadSession's
+  // "seed sessionSeconds from session.allotted_seconds" effect doesn't
+  // touch on its own (assembleFullTestModule already bumped that DB column
+  // to the new module's pacing before this runs, so that effect re-fires
+  // correctly once reloadSession's setSession lands).
+  const resetModuleClock = useCallback(() => {
+    setOvertimeSeconds(0);
+    setIsOvertime(false);
+    timesUpShownRef.current = false;
+    setQSeconds(0);
+  }, []);
 
   // ---------------- pause ----------------
   const pause = useCallback(() => setPaused(true), []);
@@ -577,6 +677,139 @@ export function Player() {
     navigate(`/sessions/${sessionId}`);
   }, [sessionId, overtimeSeconds, TOTAL_Q, navigate]);
 
+  /**
+   * Real module-gate submit for a full test: scores the module that just
+   * finished off the live `attempts` state and decides what happens next —
+   * R&W M1 → assemble R&W M2 (tiered) and continue straight in; R&W M2 →
+   * break; Math M1 → assemble Math M2 (tiered) and continue straight in;
+   * Math M2 → the whole test is actually done, real finishSession. Only
+   * meaningful when currentModuleRange is set (full-test sessions) — the
+   * gate is unreachable any other way for non-full-test sessions (goNext
+   * never opens it for them; only the dev-only demo button can, and that
+   * has no module to submit).
+   */
+  const gateSubmit = useCallback(async () => {
+    if (!currentModuleRange || !sessionId || !user) {
+      setView('main');
+      return;
+    }
+    setModuleBusy(true);
+    try {
+      const finished = currentModuleRange.module;
+      const finishedIds = finished.question_ids;
+      const correct = attempts.filter(
+        (a) => finishedIds.includes(a.question_id) && !!a.submitted_at && a.is_correct === true
+      ).length;
+      const tier = decideModuleTier(correct, finishedIds.length);
+
+      if (finished.subject === 'Math' && finished.module_number === 2) {
+        // Last module of the real test — this gate's submit is the actual finish.
+        await finishSession();
+        return;
+      }
+
+      if (finished.subject === 'Reading and Writing' && finished.module_number === 1) {
+        await assembleFullTestModule({
+          sessionId,
+          subject: 'Reading and Writing',
+          moduleNumber: 2,
+          tier,
+          count: RW_MODULE_QUESTION_COUNT,
+          moduleSeconds: RW_MODULE_SECONDS,
+          resurfaceForUserId: user.id,
+          mistakeResurfaceDays,
+        });
+        const [freshSession] = await Promise.all([reloadSession(), reloadModules()]);
+        resetModuleClock();
+        setView('main');
+        const nextStart = (freshSession?.session.question_ids.length ?? TOTAL_Q) - RW_MODULE_QUESTION_COUNT + 1;
+        navigate(`/practice/${sessionId}/q/${nextStart}`);
+        return;
+      }
+
+      if (finished.subject === 'Reading and Writing' && finished.module_number === 2) {
+        // R&W is done — real break before Math starts, not the demo-only
+        // "show break screen" button's disconnected version of this.
+        setView('break');
+        startBreakCountdown();
+        return;
+      }
+
+      if (finished.subject === 'Math' && finished.module_number === 1) {
+        await assembleFullTestModule({
+          sessionId,
+          subject: 'Math',
+          moduleNumber: 2,
+          tier,
+          count: MATH_MODULE_QUESTION_COUNT,
+          moduleSeconds: MATH_MODULE_SECONDS,
+          resurfaceForUserId: user.id,
+          mistakeResurfaceDays,
+        });
+        const [freshSession] = await Promise.all([reloadSession(), reloadModules()]);
+        resetModuleClock();
+        setView('main');
+        const nextStart = (freshSession?.session.question_ids.length ?? TOTAL_Q) - MATH_MODULE_QUESTION_COUNT + 1;
+        navigate(`/practice/${sessionId}/q/${nextStart}`);
+      }
+    } catch (err) {
+      console.warn('Module transition failed:', err);
+      toast('Something went wrong assembling the next module — please try again.');
+      setView('main');
+    } finally {
+      setModuleBusy(false);
+    }
+  }, [
+    currentModuleRange,
+    sessionId,
+    user,
+    attempts,
+    mistakeResurfaceDays,
+    TOTAL_Q,
+    finishSession,
+    reloadSession,
+    reloadModules,
+    resetModuleClock,
+    startBreakCountdown,
+    navigate,
+    toast,
+  ]);
+
+  /** Real transition out of the R&W→Math break: assembles Math Module 1
+   * (fixed mix, same as R&W M1 — Math's tier decision only applies to its
+   * own Module 2) and continues straight into it. */
+  const continueFromBreak = useCallback(async () => {
+    if (breakTimerRef.current) clearInterval(breakTimerRef.current);
+    if (!sessionId || !user) {
+      setView('main');
+      return;
+    }
+    setModuleBusy(true);
+    try {
+      await assembleFullTestModule({
+        sessionId,
+        subject: 'Math',
+        moduleNumber: 1,
+        tier: 'module1',
+        count: MATH_MODULE_QUESTION_COUNT,
+        moduleSeconds: MATH_MODULE_SECONDS,
+        resurfaceForUserId: user.id,
+        mistakeResurfaceDays,
+      });
+      const [freshSession] = await Promise.all([reloadSession(), reloadModules()]);
+      resetModuleClock();
+      setView('main');
+      const nextStart = (freshSession?.session.question_ids.length ?? TOTAL_Q) - MATH_MODULE_QUESTION_COUNT + 1;
+      navigate(`/practice/${sessionId}/q/${nextStart}`);
+    } catch (err) {
+      console.warn('Assembling Math Module 1 failed:', err);
+      toast('Something went wrong starting Math — please try again.');
+      setView('break');
+    } finally {
+      setModuleBusy(false);
+    }
+  }, [sessionId, user, mistakeResurfaceDays, TOTAL_Q, reloadSession, reloadModules, resetModuleClock, navigate, toast]);
+
   const goPrev = useCallback(async () => {
     if (!sessionId || navBusy || CURRENT_Q <= 1) return;
     setNavBusy(true);
@@ -594,7 +827,13 @@ export function Player() {
     setNavBusy(true);
     try {
       await commitCurrentAnswer();
-      if (CURRENT_Q >= TOTAL_Q) {
+      if (atModuleBoundary && !isReviewMode) {
+        // Full-test module boundary (including the very last module) —
+        // real review-before-submit gate, not a silent continue. gateSubmit
+        // decides what happens next once the student actually submits it.
+        await refetchAttempts();
+        setView('gate');
+      } else if (CURRENT_Q >= TOTAL_Q) {
         if (isReviewMode) {
           navigate(`/sessions/${sessionId}`);
         } else {
@@ -607,7 +846,18 @@ export function Player() {
     } finally {
       setNavBusy(false);
     }
-  }, [sessionId, navBusy, CURRENT_Q, TOTAL_Q, isReviewMode, commitCurrentAnswer, finishSession, refetchAttempts, navigate]);
+  }, [
+    sessionId,
+    navBusy,
+    CURRENT_Q,
+    TOTAL_Q,
+    isReviewMode,
+    atModuleBoundary,
+    commitCurrentAnswer,
+    finishSession,
+    refetchAttempts,
+    navigate,
+  ]);
 
   // ---------------- exit control ----------------
   // Returns to wherever this session was actually entered from (Mistake Log,
@@ -1197,26 +1447,40 @@ export function Player() {
         </>
       )}
 
-      {view === 'gate' && (
+      {view === 'gate' && (() => {
+        // Scoped to just the module that's actually being submitted (its
+        // own question range) for a full test — falls back to the whole
+        // session for non-module sessions, where this gate is only ever
+        // reached via the dev-only demo button.
+        const gateStart = currentModuleRange?.start ?? 1;
+        const gateEnd = currentModuleRange?.end ?? TOTAL_Q;
+        const gateTotal = gateEnd - gateStart + 1;
+        let gateAnswered = 0;
+        let gateFlagged = 0;
+        for (let pos = gateStart; pos <= gateEnd; pos++) {
+          if (answeredPositions.has(pos)) gateAnswered++;
+          if (flaggedPositions.has(pos)) gateFlagged++;
+        }
+        return (
         <div className="gate-view open">
           <h2>Review before you submit this module</h2>
           <p className="gsub">You can still go back and change any answer. Once you submit, this module is final.</p>
           <div className="gate-summary">
             <div className="gstat">
-              <p className="gnum">{answeredPositions.size}</p>
+              <p className="gnum">{gateAnswered}</p>
               <p className="glabel">Answered</p>
             </div>
             <div className="gstat">
-              <p className="gnum warn">{TOTAL_Q - answeredPositions.size}</p>
+              <p className="gnum warn">{gateTotal - gateAnswered}</p>
               <p className="glabel">Unanswered</p>
             </div>
             <div className="gstat">
-              <p className="gnum">{flaggedPositions.size}</p>
+              <p className="gnum">{gateFlagged}</p>
               <p className="glabel">Flagged</p>
             </div>
           </div>
           <div className="gate-grid">
-            {Array.from({ length: TOTAL_Q }, (_, i) => i + 1).map((pos) => (
+            {Array.from({ length: gateTotal }, (_, i) => gateStart + i).map((pos) => (
               <div
                 key={pos}
                 className={`nav-cell${answeredPositions.has(pos) ? ' answered' : ''}${
@@ -1228,15 +1492,16 @@ export function Player() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn ghost" onClick={gateBack}>
+            <button className="btn ghost" onClick={gateBack} disabled={moduleBusy}>
               ← Back to test
             </button>
-            <button className="btn primary" style={{ margin: 0 }} onClick={gateSubmit}>
-              Submit module
+            <button className="btn primary" style={{ margin: 0 }} onClick={() => void gateSubmit()} disabled={moduleBusy}>
+              {moduleBusy ? 'Submitting…' : 'Submit module'}
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {view === 'break' && (
         <div className="break-view open">
@@ -1244,8 +1509,8 @@ export function Player() {
           <h2>Break</h2>
           <p>Reading &amp; Writing is complete. Math starts after this break.</p>
           <p className="btime mono">{fmt(Math.max(breakSeconds, 0))}</p>
-          <button className="btn primary" onClick={continueFromBreak}>
-            Continue now →
+          <button className="btn primary" onClick={() => void continueFromBreak()} disabled={moduleBusy}>
+            {moduleBusy ? 'Starting Math…' : 'Continue now →'}
           </button>
         </div>
       )}
