@@ -15,7 +15,10 @@
 .page {
   max-width: 640px;
   margin: 0 auto;
-  padding: 40px 24px 100px;
+  /* No top padding here — AppShell's title (.shell-title) already supplies
+     the space above this content; stacking another 40px on top of it was
+     the redundant gap pushing the page into needing a scroll. */
+  padding: 0 24px 100px;
 }
 .brand {
   font-weight: 800;
@@ -32,7 +35,7 @@
 .sub {
   font-size: 13.5px;
   color: var(--ink-dim);
-  margin: 0 0 28px;
+  margin: 0 0 16px;
 }
 
 .card {
