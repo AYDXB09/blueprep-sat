@@ -437,12 +437,57 @@ export interface QuestionFilters {
   difficulty?: string[] | null;
   includeRetired?: boolean;
   newOnlyUserId?: string | null;
+  /**
+   * Enables the mistake-resurfacing rule (see selectQuestionIds) — a missed
+   * question is held back from selection until this user has exhausted the
+   * other unseen/corrected questions at its same domain+difficulty, with
+   * `mistakeResurfaceDaysById` (per-user `user_settings.mistake_resurface_days`)
+   * acting as a fallback ceiling so a mistake doesn't wait forever in a large
+   * pool. Independent of `newOnlyUserId` — that's a stricter "never attempted
+   * at all" toggle; this is the default-case sequencing rule.
+   */
+  resurfaceForUserId?: string | null;
+  mistakeResurfaceDays?: number | null;
 }
 
 async function questionIdsAlreadyAttempted(userId: string): Promise<Set<string>> {
   const { data, error } = await supabase.from('question_attempts').select('question_id').eq('user_id', userId);
   if (error) throw error;
   return new Set((data ?? []).map((r) => r.question_id));
+}
+
+interface LatestAttemptStatus {
+  isCorrect: boolean;
+  submittedAt: string;
+}
+
+/**
+ * This user's most-recent-attempt outcome per question, scoped to a given id
+ * list — backs the mistake-resurfacing rule in selectQuestionIds. Only
+ * submitted attempts count (an abandoned/never-submitted attempt shouldn't
+ * mark a question as "seen").
+ */
+async function getLatestAttemptStatusForUser(
+  userId: string,
+  questionIds: string[]
+): Promise<Map<string, LatestAttemptStatus>> {
+  const result = new Map<string, LatestAttemptStatus>();
+  if (questionIds.length === 0) return result;
+  const { data, error } = await supabase
+    .from('question_attempts')
+    .select('question_id, is_correct, submitted_at')
+    .eq('user_id', userId)
+    .in('question_id', questionIds)
+    .not('submitted_at', 'is', null)
+    .order('submitted_at', { ascending: false });
+  if (error) throw error;
+  for (const row of data ?? []) {
+    // Sorted newest-first, so the first row seen per question is its latest.
+    if (!result.has(row.question_id)) {
+      result.set(row.question_id, { isCorrect: !!row.is_correct, submittedAt: row.submitted_at as string });
+    }
+  }
+  return result;
 }
 
 /** Count of questions matching the builder's current filter set. */
@@ -489,6 +534,34 @@ export async function countMatchingQuestions(filters: QuestionFilters): Promise<
  * pools are far smaller) rather than relying on Postgres-side random ordering
  * through the JS client.
  */
+function shuffle<T>(items: T[]): T[] {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const DEFAULT_MISTAKE_RESURFACE_DAYS = 14;
+
+type PoolRow = { id: string; domain: string; difficulty: string | null };
+
+/**
+ * Sample `count` question ids matching the filters, shuffled so the session
+ * isn't front-loaded by insertion order. Fetches the full matching pool
+ * client-side (question bank is small enough, ~3.2k rows total, and filtered
+ * pools are far smaller) rather than relying on Postgres-side random ordering
+ * through the JS client.
+ *
+ * Mistake-resurfacing (`filters.resurfaceForUserId` set): a question whose
+ * most recent attempt by this user was wrong is deprioritized until the
+ * *other* unseen/corrected questions at its same domain+difficulty are
+ * exhausted — real spaced sequencing, not a flat day-based cooldown. The
+ * fallback ceiling (`mistakeResurfaceDays`, default 14) still resurfaces a
+ * miss once that many days have passed even if its bucket isn't exhausted,
+ * so a mistake in a huge pool doesn't wait forever.
+ */
 export async function selectQuestionIds(filters: QuestionFilters, count: number): Promise<string[]> {
   let query = supabase.from('questions').select('id, domain, skill, difficulty');
   if (filters.subject) query = query.eq('subject', filters.subject);
@@ -499,17 +572,75 @@ export async function selectQuestionIds(filters: QuestionFilters, count: number)
 
   const { data, error } = await query;
   if (error) throw error;
-  let pool = (data ?? []).map((r) => r.id);
+  let pool: PoolRow[] = (data ?? []) as PoolRow[];
 
   if (filters.newOnlyUserId) {
     const attempted = await questionIdsAlreadyAttempted(filters.newOnlyUserId);
-    pool = pool.filter((id) => !attempted.has(id));
+    pool = pool.filter((r) => !attempted.has(r.id));
   }
 
-  // Fisher-Yates shuffle.
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+  if (!filters.resurfaceForUserId) {
+    return shuffle(pool.map((r) => r.id)).slice(0, count);
   }
-  return pool.slice(0, count);
+
+  // Mistake-resurfacing path: bucket by domain+difficulty (the "same
+  // difficulty and topic" scope), split each bucket into fresh vs. missed,
+  // and only let a missed question in once its own bucket's fresh supply is
+  // gone (or the day ceiling has passed).
+  const statusByQuestion = await getLatestAttemptStatusForUser(
+    filters.resurfaceForUserId,
+    pool.map((r) => r.id)
+  );
+  const ceilingDays = filters.mistakeResurfaceDays ?? DEFAULT_MISTAKE_RESURFACE_DAYS;
+  const now = Date.now();
+  const daysSince = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
+
+  const bucketKey = (r: PoolRow) => `${r.domain}|${r.difficulty ?? ''}`;
+  const freshByBucket = new Map<string, PoolRow[]>();
+  const missed: { row: PoolRow; submittedAt: string }[] = [];
+
+  for (const row of pool) {
+    const status = statusByQuestion.get(row.id);
+    if (!status || status.isCorrect) {
+      const key = bucketKey(row);
+      const list = freshByBucket.get(key) ?? [];
+      list.push(row);
+      freshByBucket.set(key, list);
+    } else {
+      missed.push({ row, submittedAt: status.submittedAt });
+    }
+  }
+
+  const bucketExhausted = (row: PoolRow) => (freshByBucket.get(bucketKey(row))?.length ?? 0) === 0;
+
+  // Oldest-missed-first, so once a bucket empties out (or the ceiling hits)
+  // the longest-waiting mistakes resurface before more recent ones.
+  missed.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+
+  const eligibleMissed = missed.filter(
+    (m) => bucketExhausted(m.row) || daysSince(m.submittedAt) >= ceilingDays
+  );
+  const notYetEligibleMissed = missed.filter((m) => !eligibleMissed.includes(m));
+
+  const fresh = shuffle(Array.from(freshByBucket.values()).flat());
+  let candidates = fresh.concat(eligibleMissed.map((m) => m.row));
+
+  // Not enough to fill the request even counting eligible mistakes — fall
+  // back to the still-waiting ones (oldest first) rather than short the
+  // session, since a session that can't be built is worse than an early
+  // resurface.
+  if (candidates.length < count) {
+    candidates = candidates.concat(notYetEligibleMistakesRows(notYetEligibleMissed, count - candidates.length));
+  }
+
+  return shuffle(candidates)
+    .map((r) => r.id)
+    .slice(0, count);
+}
+
+function notYetEligibleMistakesRows(
+  entries: { row: PoolRow; submittedAt: string }[],
+  needed: number
+): PoolRow[] {
+  return entries.slice(0, needed).map((e) => e.row);
 }

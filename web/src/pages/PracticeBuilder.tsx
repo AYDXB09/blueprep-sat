@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './PracticeBuilder.css';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
+import { getOrCreateUserSettings } from '../lib/userSettings';
 import {
   countMatchingQuestions,
   createPracticeSession,
@@ -92,6 +93,22 @@ export function PracticeBuilder() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getOrCreateUserSettings(user.id)
+      .then((row) => {
+        if (!cancelled) setMistakeResurfaceDays(row.mistake_resurface_days);
+      })
+      .catch(() => {
+        // Non-critical — selectQuestionIds falls back to its own default.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [currentSubj, setCurrentSubj] = useState<Subject>('both');
@@ -107,6 +124,10 @@ export function PracticeBuilder() {
   const [feedback, setFeedback] = useState(true);
   const [includeRetired, setIncludeRetired] = useState(true);
   const [newOnly, setNewOnly] = useState(false);
+  // Loaded once for the mistake-resurfacing fallback ceiling in
+  // selectQuestionIds — falls back to that function's own default (14) if
+  // the settings row hasn't loaded yet by the time a session starts.
+  const [mistakeResurfaceDays, setMistakeResurfaceDays] = useState<number | null>(null);
   // Click/tap-triggered (not just hover) so the explanation is reachable on
   // touch devices — a native `title` tooltip never fires on tap.
   const [newOnlyTipOpen, setNewOnlyTipOpen] = useState(false);
@@ -253,9 +274,14 @@ export function PracticeBuilder() {
         domains,
         includeRetired,
         newOnlyUserId: newOnly ? (user?.id ?? null) : null,
+        // Mistake-resurfacing: irrelevant when newOnly is on (that toggle
+        // already excludes every attempted question, missed or not), but
+        // harmless to pass either way.
+        resurfaceForUserId: user?.id ?? null,
+        mistakeResurfaceDays,
       };
     },
-    [mathChips, rwChips, includeRetired, newOnly, user]
+    [mathChips, rwChips, includeRetired, newOnly, user, mistakeResurfaceDays]
   );
 
   const startSession = useCallback(async () => {
