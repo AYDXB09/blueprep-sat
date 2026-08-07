@@ -1247,10 +1247,6 @@ export function Player() {
           <button className="btn primary" onClick={continueFromBreak}>
             Continue now →
           </button>
-          <p className="break-caveat">
-            10-minute figure is from general knowledge of the real exam&apos;s break structure, not verified against an
-            official source in this session — confirm before treating as fact.
-          </p>
         </div>
       )}
 
