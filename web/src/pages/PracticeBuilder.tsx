@@ -18,27 +18,32 @@ import { domainColor } from '../lib/domainColors';
 // question-selection now query the live `questions` table.
 // ---------------------------------------------------------------------------
 
-// Math chips are domain-level filters; R&W chips are skill-level filters —
-// the storyboard's "sections" are domains for Math but individual skills for
-// R&W (verified against the live schema's domain/skill values).
+// Both Math's and R&W's chips are domain-level filters — matching the real
+// domain taxonomy used everywhere else in the app (Mistake Log, Progress,
+// Session Summary). R&W chips were previously the 4 *skills* (Boundaries,
+// Transitions, Rhetorical Synthesis, Inferences) instead of the 4 real
+// domains; those skill names are still real and valid, just a finer-grained
+// axis than domain — switched here for site-wide consistency, per explicit
+// request, not because the skill names were wrong.
 const MATH_CHIP_TO_DOMAIN: Record<string, string> = {
   Algebra: 'Algebra',
   'Advanced Math': 'Advanced Math',
   Geometry: 'Geometry and Trigonometry',
   'Data Analysis': 'Problem-Solving and Data Analysis',
 };
-const RW_CHIP_TO_SKILL: Record<string, string> = {
-  Boundaries: 'Boundaries',
-  Transitions: 'Transitions',
-  'Rhetorical Synthesis': 'Rhetorical Synthesis',
-  Inferences: 'Inferences',
+const RW_CHIP_TO_DOMAIN: Record<string, string> = {
+  'Information and Ideas': 'Information and Ideas',
+  'Craft and Structure': 'Craft and Structure',
+  'Expression of Ideas': 'Expression of Ideas',
+  'Standard English Conventions': 'Standard English Conventions',
 };
-// Reverse of MATH_CHIP_TO_DOMAIN — used to pre-select a Math chip when
-// arriving from Progress's "click a weak domain" (Math domains map 1:1 onto
-// chips; R&W's chips are skill-level and don't have a matching domain-level
-// preset, so only the subject gets pre-filled for R&W).
+// Reverse maps — used to pre-select a chip when arriving from Progress's
+// "click a weak domain" (both subjects' domains map 1:1 onto chips now).
 const MATH_DOMAIN_TO_CHIP: Record<string, string> = Object.fromEntries(
   Object.entries(MATH_CHIP_TO_DOMAIN).map(([chip, domain]) => [domain, chip])
+);
+const RW_DOMAIN_TO_CHIP: Record<string, string> = Object.fromEntries(
+  Object.entries(RW_CHIP_TO_DOMAIN).map(([chip, domain]) => [domain, chip])
 );
 
 type Subject = 'math' | 'rw' | 'both';
@@ -53,12 +58,20 @@ const PACE: Record<'math' | 'rw', { quarter: [number, number]; half: [number, nu
 };
 
 const MATH_SECTIONS = ['Algebra', 'Advanced Math', 'Geometry', 'Data Analysis'] as const;
-const RW_SECTIONS = ['Boundaries', 'Transitions', 'Rhetorical Synthesis', 'Inferences'] as const;
+const RW_SECTIONS = [
+  'Information and Ideas',
+  'Craft and Structure',
+  'Expression of Ideas',
+  'Standard English Conventions',
+] as const;
+// Full real domain names, matching Mistake Log / Progress / Session Summary
+// exactly — no abbreviations, so the same domain always reads identically
+// everywhere it appears in the app.
 const MATH_CHIP_LABELS: Record<(typeof MATH_SECTIONS)[number], string> = {
   Algebra: 'Algebra',
   'Advanced Math': 'Advanced Math',
-  Geometry: 'Geometry & Trig',
-  'Data Analysis': 'Data Analysis',
+  Geometry: 'Geometry and Trigonometry',
+  'Data Analysis': 'Problem-Solving and Data Analysis',
 };
 
 function fmtMin(min: number): string {
@@ -83,7 +96,7 @@ export function PracticeBuilder() {
   const [startError, setStartError] = useState<string | null>(null);
   const [currentSubj, setCurrentSubj] = useState<Subject>('both');
   const [mathChips, setMathChips] = useState<Set<string>>(new Set(['Algebra', 'Geometry']));
-  const [rwChips, setRwChips] = useState<Set<string>>(new Set(['Boundaries']));
+  const [rwChips, setRwChips] = useState<Set<string>>(new Set(['Information and Ideas']));
   const [mathCount, setMathCount] = useState(22);
   const [rwCount, setRwCount] = useState(15);
   const [activePreset, setActivePreset] = useState<Preset | null>('module');
@@ -153,35 +166,39 @@ export function PracticeBuilder() {
     const preset = location.state as { presetSubject?: 'math' | 'rw'; presetDomainLabel?: string } | null;
     if (!preset?.presetSubject) return;
     setCurrentSubj(preset.presetSubject);
-    if (preset.presetSubject === 'math' && preset.presetDomainLabel) {
-      const chip = MATH_DOMAIN_TO_CHIP[preset.presetDomainLabel];
-      if (chip) setMathChips(new Set([chip]));
+    if (preset.presetDomainLabel) {
+      const chip =
+        preset.presetSubject === 'math'
+          ? MATH_DOMAIN_TO_CHIP[preset.presetDomainLabel]
+          : RW_DOMAIN_TO_CHIP[preset.presetDomainLabel];
+      if (chip) (preset.presetSubject === 'math' ? setMathChips : setRwChips)(new Set([chip]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [boundariesPool, setBoundariesPool] = useState<number | null>(null);
+  const [rwPool, setRwPool] = useState<number | null>(null);
 
-  // Pool-scarcity check for the R&W "Boundaries" skill specifically, matching
-  // the warning banner's copy. Re-queries whenever the filters that affect
-  // that pool's size change.
+  // Pool-scarcity check for whatever R&W domains are currently selected —
+  // generalized from a single hardcoded skill now that R&W filters by
+  // domain like Math does. Re-queries whenever the filters that affect the
+  // pool's size change.
   useEffect(() => {
-    if (!rwChips.has('Boundaries')) {
-      setBoundariesPool(null);
+    if (rwChips.size === 0) {
+      setRwPool(null);
       return;
     }
     let cancelled = false;
     countMatchingQuestions({
       subject: 'Reading and Writing',
-      skills: ['Boundaries'],
+      domains: Array.from(rwChips).map((c) => RW_CHIP_TO_DOMAIN[c]).filter(Boolean),
       includeRetired,
       newOnlyUserId: newOnly ? (user?.id ?? null) : null,
     })
       .then((count) => {
-        if (!cancelled) setBoundariesPool(count);
+        if (!cancelled) setRwPool(count);
       })
       .catch(() => {
-        if (!cancelled) setBoundariesPool(null);
+        if (!cancelled) setRwPool(null);
       });
     return () => {
       cancelled = true;
@@ -189,10 +206,10 @@ export function PracticeBuilder() {
   }, [rwChips, includeRetired, newOnly, user]);
 
   const startWithFewer = useCallback(() => {
-    if (boundariesPool !== null) setRwCount(boundariesPool);
+    if (rwPool !== null) setRwCount(rwPool);
     setActivePreset(null);
     toast('Count adjusted to match the available pool.');
-  }, [toast, boundariesPool]);
+  }, [toast, rwPool]);
 
   const widenFilters = useCallback(() => {
     setRwChips(new Set(RW_SECTIONS));
@@ -223,24 +240,17 @@ export function PracticeBuilder() {
     startLabel = `Start ${totalCount}-question set → (untimed)`;
   }
 
-  const boundariesOn = rwChips.has('Boundaries');
   const poolWarningShown =
-    boundariesOn &&
-    (currentSubj === 'rw' || currentSubj === 'both') &&
-    boundariesPool !== null &&
-    rwCount > boundariesPool;
+    rwChips.size > 0 && (currentSubj === 'rw' || currentSubj === 'both') && rwPool !== null && rwCount > rwPool;
 
   const buildFilters = useCallback(
     (subj: 'math' | 'rw'): QuestionFilters => {
       const chips = subj === 'math' ? mathChips : rwChips;
-      const domains =
-        subj === 'math' && chips.size > 0 ? Array.from(chips).map((c) => MATH_CHIP_TO_DOMAIN[c]).filter(Boolean) : null;
-      const skills =
-        subj === 'rw' && chips.size > 0 ? Array.from(chips).map((c) => RW_CHIP_TO_SKILL[c]).filter(Boolean) : null;
+      const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
+      const domains = chips.size > 0 ? Array.from(chips).map((c) => chipToDomain[c]).filter(Boolean) : null;
       return {
         subject: subj === 'math' ? 'Math' : 'Reading and Writing',
         domains,
-        skills,
         includeRetired,
         newOnlyUserId: newOnly ? (user?.id ?? null) : null,
       };
@@ -378,11 +388,20 @@ export function PracticeBuilder() {
           <div className="subject-block rw">
             <h3>Reading &amp; Writing</h3>
             <div className="chips">
-              {RW_SECTIONS.map((s) => (
-                <div key={s} className={`chip rw${rwChips.has(s) ? ' on' : ''}`} onClick={() => toggleChip('rw', s)}>
-                  {s}
-                </div>
-              ))}
+              {RW_SECTIONS.map((s) => {
+                const on = rwChips.has(s);
+                const color = on ? domainColor(RW_CHIP_TO_DOMAIN[s]) : null;
+                return (
+                  <div
+                    key={s}
+                    className={`chip rw${on ? ' on' : ''}`}
+                    style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
+                    onClick={() => toggleChip('rw', s)}
+                  >
+                    {s}
+                  </div>
+                );
+              })}
             </div>
             <div className="stepper">
               <button onClick={() => step('rw', -1)}>−</button>
@@ -415,12 +434,12 @@ export function PracticeBuilder() {
         <div className={`warn-banner${poolWarningShown ? ' show' : ''}`}>
           <p className="wtitle">⚠ Pool check</p>
           <p>
-            Only {boundariesPool ?? 0} R&amp;W &quot;Boundaries&quot; questions match your filters (you asked for{' '}
-            {rwCount}).
+            Only {rwPool ?? 0} R&amp;W questions match your selected domain{rwChips.size === 1 ? '' : 's'} (you asked
+            for {rwCount}).
           </p>
           <div className="wactions">
             <button className="wbtn" onClick={startWithFewer}>
-              Start with {boundariesPool ?? 0}
+              Start with {rwPool ?? 0}
             </button>
             <button className="wbtn" onClick={widenFilters}>
               Widen filters
