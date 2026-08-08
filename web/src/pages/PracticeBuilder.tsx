@@ -219,42 +219,50 @@ export function PracticeBuilder() {
     toastTimerRef.current = setTimeout(() => setToastShow(false), 2200);
   }, []);
 
-  const toggleChip = useCallback((subj: 'math' | 'rw', name: string) => {
-    setActivePreset(null);
-    const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
-    const chipsSetter = subj === 'math' ? setMathChips : setRwChips;
-    const skillsSetter = subj === 'math' ? setMathSkills : setRwSkills;
-    const expandedSetter = subj === 'math' ? setMathExpandedDomain : setRwExpandedDomain;
-    let turnedOn = false;
-    chipsSetter((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-        turnedOn = true;
+  const toggleChip = useCallback(
+    (subj: 'math' | 'rw', name: string) => {
+      setActivePreset(null);
+      const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
+      const currentChips = subj === 'math' ? mathChips : rwChips;
+      const chipsSetter = subj === 'math' ? setMathChips : setRwChips;
+      const skillsSetter = subj === 'math' ? setMathSkills : setRwSkills;
+      const expandedSetter = subj === 'math' ? setMathExpandedDomain : setRwExpandedDomain;
+      // Computed from the CURRENT state directly, not from a flag mutated
+      // inside a setState updater — React doesn't run updater functions
+      // synchronously, so reading a variable they set immediately after
+      // calling the setter reads the stale value (this was a real bug: a
+      // freshly-selected domain's badge showed "0/N" instead of "N/N"
+      // because `turnedOn` was always still `false` by the time it was
+      // checked below).
+      const turnedOn = !currentChips.has(name);
+
+      chipsSetter((prev) => {
+        const next = new Set(prev);
+        if (next.has(name)) next.delete(name);
+        else next.add(name);
+        return next;
+      });
+      // Selecting a domain also selects ALL of its sub-topics by default (not
+      // an empty/implicit "include everything" state, which read as
+      // indistinguishable from "nothing chosen yet") — every sub-topic chip
+      // lights up and the badge reads e.g. "5/5", so "whole domain included"
+      // is something you can actually see, not something you have to already
+      // know. The student can then deselect individual sub-topics to narrow.
+      if (turnedOn) {
+        const domainSkills = SKILLS_BY_DOMAIN[chipToDomain[name]] ?? [];
+        skillsSetter((prev) => new Set([...prev, ...domainSkills]));
       }
-      return next;
-    });
-    // Selecting a domain also selects ALL of its sub-topics by default (not
-    // an empty/implicit "include everything" state, which read as
-    // indistinguishable from "nothing chosen yet") — every sub-topic chip
-    // lights up and the badge reads e.g. "5/5", so "whole domain included"
-    // is something you can actually see, not something you have to already
-    // know. The student can then deselect individual sub-topics to narrow.
-    if (turnedOn) {
-      const domainSkills = SKILLS_BY_DOMAIN[chipToDomain[name]] ?? [];
-      skillsSetter((prev) => new Set([...prev, ...domainSkills]));
-    }
-    // Selecting a domain opens its sub-topic panel immediately (closing
-    // whichever other domain's panel was open); deselecting it closes its
-    // own panel if it was the one open. Both are the same "click the main
-    // topic" gesture the student just performed.
-    expandedSetter((prevExpanded) => {
-      if (turnedOn) return name;
-      return prevExpanded === name ? null : prevExpanded;
-    });
-  }, []);
+      // Selecting a domain opens its sub-topic panel immediately (closing
+      // whichever other domain's panel was open); deselecting it closes its
+      // own panel if it was the one open. Both are the same "click the main
+      // topic" gesture the student just performed.
+      expandedSetter((prevExpanded) => {
+        if (turnedOn) return name;
+        return prevExpanded === name ? null : prevExpanded;
+      });
+    },
+    [mathChips, rwChips]
+  );
 
   const toggleExpandedDomain = useCallback((subj: 'math' | 'rw', name: string) => {
     const setter = subj === 'math' ? setMathExpandedDomain : setRwExpandedDomain;
