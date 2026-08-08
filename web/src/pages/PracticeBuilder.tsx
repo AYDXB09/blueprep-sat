@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './PracticeBuilder.css';
 import { AppShell } from '../components/AppShell';
@@ -507,7 +507,7 @@ export function PracticeBuilder() {
                 const skillCount = Array.from(mathSkills).filter((sk) => skills.includes(sk)).length;
                 const expanded = on && mathExpandedDomain === s;
                 return (
-                  <div key={s} className="chip-row">
+                  <Fragment key={s}>
                     <div
                       className={`chip math${on ? ' on' : ''}`}
                       style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
@@ -531,12 +531,13 @@ export function PracticeBuilder() {
                         </>
                       )}
                     </div>
-                    {/* Right below the domain it belongs to, and only one
-                        domain's panel open at a time — selecting a domain
-                        (or its chevron) closes whichever other panel was
-                        open. */}
+                    {/* A full-width flex item forces a line break right
+                        after whichever chip is expanded, wherever that chip
+                        landed in the natural wrap — the rest of the chips
+                        keep wrapping normally (2+ per row) instead of each
+                        domain being forced onto its own full-width row. */}
                     {expanded && (
-                      <div className="skill-chips">
+                      <div key={`${s}-panel`} className="skill-chips">
                         {skills.map((skill) => (
                           <div
                             key={skill}
@@ -548,7 +549,7 @@ export function PracticeBuilder() {
                         ))}
                       </div>
                     )}
-                  </div>
+                  </Fragment>
                 );
               })}
             </div>
@@ -580,7 +581,7 @@ export function PracticeBuilder() {
                 const skillCount = Array.from(rwSkills).filter((sk) => skills.includes(sk)).length;
                 const expanded = on && rwExpandedDomain === s;
                 return (
-                  <div key={s} className="chip-row">
+                  <Fragment key={s}>
                     <div
                       className={`chip rw${on ? ' on' : ''}`}
                       style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
@@ -605,7 +606,7 @@ export function PracticeBuilder() {
                       )}
                     </div>
                     {expanded && (
-                      <div className="skill-chips">
+                      <div key={`${s}-panel`} className="skill-chips">
                         {skills.map((skill) => (
                           <div
                             key={skill}
@@ -617,7 +618,7 @@ export function PracticeBuilder() {
                         ))}
                       </div>
                     )}
-                  </div>
+                  </Fragment>
                 );
               })}
             </div>
