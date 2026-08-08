@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './PracticeBuilder.css';
 import { AppShell } from '../components/AppShell';
@@ -111,6 +111,19 @@ const MATH_CHIP_LABELS: Record<(typeof MATH_SECTIONS)[number], string> = {
   Geometry: 'Geometry and Trigonometry',
   'Data Analysis': 'Problem-Solving and Data Analysis',
 };
+
+// Fixed row grouping for the domain-chip accordion — chunking explicitly
+// (rather than relying on flex-wrap's own dynamic line-breaking) means
+// expanding one domain's panel only grows ITS row; it can't regroup which
+// chips share a line with which, which is what happened when a plain
+// flex-basis:100% panel item was inserted mid-flow (every chip after it
+// got recalculated onto a different line depending on which chip was
+// currently expanded — chips visibly "jumped" between rows).
+function chunk2<T>(items: readonly T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2) as T[]);
+  return rows;
+}
 
 function fmtMin(min: number): string {
   if (min < 1) return `${Math.round(min * 60)} sec`;
@@ -495,63 +508,73 @@ export function PracticeBuilder() {
         {currentSubj !== 'rw' && (
           <div className="subject-block math">
             <h3>Math</h3>
-            <div className="chips chips-accordion">
-              {MATH_SECTIONS.map((s) => {
-                const on = mathChips.has(s);
-                // These 4 chips map 1:1 onto real Math domains (unlike the
-                // R&W chips below, which are skills, not domains) — so it's
-                // safe to give each its own domain color here, matching
-                // Mistake Log / Progress instead of one flat "math" color.
-                const color = on ? domainColor(MATH_CHIP_TO_DOMAIN[s]) : null;
-                const skills = SKILLS_BY_DOMAIN[MATH_CHIP_TO_DOMAIN[s]] ?? [];
-                const skillCount = Array.from(mathSkills).filter((sk) => skills.includes(sk)).length;
-                const expanded = on && mathExpandedDomain === s;
-                return (
-                  <Fragment key={s}>
-                    <div
-                      className={`chip math${on ? ' on' : ''}`}
-                      style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
-                      onClick={() => toggleChip('math', s)}
-                    >
-                      {MATH_CHIP_LABELS[s]}
-                      {on && (
-                        <>
-                          {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
-                          <span
-                            className="chip-chevron"
-                            aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
-                            role="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpandedDomain('math', s);
-                            }}
-                          >
-                            {expanded ? '▴' : '▾'}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {/* A full-width flex item forces a line break right
-                        after whichever chip is expanded, wherever that chip
-                        landed in the natural wrap — the rest of the chips
-                        keep wrapping normally (2+ per row) instead of each
-                        domain being forced onto its own full-width row. */}
-                    {expanded && (
-                      <div key={`${s}-panel`} className="skill-chips">
-                        {skills.map((skill) => (
-                          <div
-                            key={skill}
-                            className={`chip skill${mathSkills.has(skill) ? ' on' : ''}`}
-                            onClick={() => toggleSkill('math', skill)}
-                          >
-                            {skill.trim()}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Fragment>
-                );
-              })}
+            <div className="chips-accordion">
+              {chunk2(MATH_SECTIONS).map((row) => (
+                <div key={row.join('|')} className="chip-fixed-row">
+                  <div className="chips">
+                    {row.map((s) => {
+                      const on = mathChips.has(s);
+                      // These 4 chips map 1:1 onto real Math domains (unlike
+                      // the R&W chips below, which are skills, not domains)
+                      // — so it's safe to give each its own domain color
+                      // here, matching Mistake Log / Progress instead of one
+                      // flat "math" color.
+                      const color = on ? domainColor(MATH_CHIP_TO_DOMAIN[s]) : null;
+                      const skills = SKILLS_BY_DOMAIN[MATH_CHIP_TO_DOMAIN[s]] ?? [];
+                      const skillCount = Array.from(mathSkills).filter((sk) => skills.includes(sk)).length;
+                      const expanded = on && mathExpandedDomain === s;
+                      return (
+                        <div
+                          key={s}
+                          className={`chip math${on ? ' on' : ''}`}
+                          style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
+                          onClick={() => toggleChip('math', s)}
+                        >
+                          {MATH_CHIP_LABELS[s]}
+                          {on && (
+                            <>
+                              {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
+                              <span
+                                className="chip-chevron"
+                                aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
+                                role="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpandedDomain('math', s);
+                                }}
+                              >
+                                {expanded ? '▴' : '▾'}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Fixed row grouping (chunk2), not flex-wrap's own dynamic
+                      line-breaking — so expanding one domain's panel only
+                      grows ITS row and never regroups which chips share a
+                      line with which. */}
+                  {row
+                    .filter((s) => mathChips.has(s) && mathExpandedDomain === s)
+                    .map((s) => {
+                      const skills = SKILLS_BY_DOMAIN[MATH_CHIP_TO_DOMAIN[s]] ?? [];
+                      return (
+                        <div key={s} className="skill-chips">
+                          {skills.map((skill) => (
+                            <div
+                              key={skill}
+                              className={`chip skill${mathSkills.has(skill) ? ' on' : ''}`}
+                              onClick={() => toggleSkill('math', skill)}
+                            >
+                              {skill.trim()}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                </div>
+              ))}
             </div>
             <div className="stepper">
               <button onClick={() => step('math', -1)}>−</button>
@@ -573,54 +596,64 @@ export function PracticeBuilder() {
         {currentSubj !== 'math' && (
           <div className="subject-block rw">
             <h3>Reading &amp; Writing</h3>
-            <div className="chips chips-accordion">
-              {RW_SECTIONS.map((s) => {
-                const on = rwChips.has(s);
-                const color = on ? domainColor(RW_CHIP_TO_DOMAIN[s]) : null;
-                const skills = SKILLS_BY_DOMAIN[RW_CHIP_TO_DOMAIN[s]] ?? [];
-                const skillCount = Array.from(rwSkills).filter((sk) => skills.includes(sk)).length;
-                const expanded = on && rwExpandedDomain === s;
-                return (
-                  <Fragment key={s}>
-                    <div
-                      className={`chip rw${on ? ' on' : ''}`}
-                      style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
-                      onClick={() => toggleChip('rw', s)}
-                    >
-                      {s}
-                      {on && (
-                        <>
-                          {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
-                          <span
-                            className="chip-chevron"
-                            aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
-                            role="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpandedDomain('rw', s);
-                            }}
-                          >
-                            {expanded ? '▴' : '▾'}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {expanded && (
-                      <div key={`${s}-panel`} className="skill-chips">
-                        {skills.map((skill) => (
-                          <div
-                            key={skill}
-                            className={`chip skill${rwSkills.has(skill) ? ' on' : ''}`}
-                            onClick={() => toggleSkill('rw', skill)}
-                          >
-                            {skill.trim()}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Fragment>
-                );
-              })}
+            <div className="chips-accordion">
+              {chunk2(RW_SECTIONS).map((row) => (
+                <div key={row.join('|')} className="chip-fixed-row">
+                  <div className="chips">
+                    {row.map((s) => {
+                      const on = rwChips.has(s);
+                      const color = on ? domainColor(RW_CHIP_TO_DOMAIN[s]) : null;
+                      const skills = SKILLS_BY_DOMAIN[RW_CHIP_TO_DOMAIN[s]] ?? [];
+                      const skillCount = Array.from(rwSkills).filter((sk) => skills.includes(sk)).length;
+                      const expanded = on && rwExpandedDomain === s;
+                      return (
+                        <div
+                          key={s}
+                          className={`chip rw${on ? ' on' : ''}`}
+                          style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
+                          onClick={() => toggleChip('rw', s)}
+                        >
+                          {s}
+                          {on && (
+                            <>
+                              {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
+                              <span
+                                className="chip-chevron"
+                                aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
+                                role="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpandedDomain('rw', s);
+                                }}
+                              >
+                                {expanded ? '▴' : '▾'}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {row
+                    .filter((s) => rwChips.has(s) && rwExpandedDomain === s)
+                    .map((s) => {
+                      const skills = SKILLS_BY_DOMAIN[RW_CHIP_TO_DOMAIN[s]] ?? [];
+                      return (
+                        <div key={s} className="skill-chips">
+                          {skills.map((skill) => (
+                            <div
+                              key={skill}
+                              className={`chip skill${rwSkills.has(skill) ? ' on' : ''}`}
+                              onClick={() => toggleSkill('rw', skill)}
+                            >
+                              {skill.trim()}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                </div>
+              ))}
             </div>
             <div className="stepper">
               <button onClick={() => step('rw', -1)}>−</button>

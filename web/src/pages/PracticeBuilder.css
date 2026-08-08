@@ -162,21 +162,31 @@
   background: rgba(184, 134, 11, 0.1);
 }
 
-/* Accordion — domain chips wrap normally (2+ per row, same as any other
-   chip row), and the currently-expanded domain's sub-topic panel is a
-   flex-basis:100% item placed right after that chip in DOM order. A
-   full-width flex item always forces a line break, so the panel lands
-   directly below whichever chip it belongs to — wherever that chip
-   happened to wrap to — without forcing every domain onto its own row.
-   At most one domain's panel is open per subject at a time
+/* Accordion — domain chips are grouped into FIXED rows of 2 (chunk2 in
+   PracticeBuilder.tsx), not left to flex-wrap's own dynamic line-breaking.
+   Relying on flex-wrap alone (a flex-basis:100% panel item inserted mid-row)
+   caused every chip after the expanded one to get recalculated onto a
+   different line depending on which domain was open — chips visibly jumped
+   between rows on every expand/collapse. Fixed chunking means each row's
+   membership never changes; expanding a domain only grows its own row's
+   height (the panel renders inside that row's own block, not inline with
+   the flex-wrap chip row), everything else stays exactly where it was. At
+   most one domain's panel is open per subject at a time
    (mathExpandedDomain/rwExpandedDomain are single values, not a Set). */
+.chips-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.chip-fixed-row .chips {
+  margin-bottom: 0;
+}
 .skill-chips {
   display: flex;
   flex-wrap: wrap;
-  flex-basis: 100%;
-  width: 100%;
   gap: 5px;
-  margin: 2px 0 6px;
+  margin: 6px 0 0;
 }
 .chip.skill {
   padding: 3px 9px;
