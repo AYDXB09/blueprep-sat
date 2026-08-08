@@ -162,35 +162,52 @@
   background: rgba(184, 134, 11, 0.1);
 }
 
-/* Sub-topic (skill) chips — one level finer than the domain chips, grouped
-   under each active domain. Smaller/lighter than domain chips so the
-   hierarchy (subject > domain > skill) stays visually obvious. */
-.skill-groups {
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.skill-group-label {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ink-dim);
-  font-weight: 700;
-  margin: 0 0 4px;
-}
+/* Sub-topic (skill) chips — one level finer than the domain chips, shown
+   only when that domain's chevron is expanded (collapsed by default). No
+   group-label header — the domain chip's own count badge already says how
+   many are selected, so the panel just needs the chips. Indented slightly
+   and smaller than domain chips so the hierarchy (subject > domain > skill)
+   stays visually obvious without eating vertical space when collapsed. */
 .skill-chips {
-  margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 12px 4px;
 }
 .chip.skill {
-  padding: 4px 10px;
-  font-size: 11.5px;
+  padding: 3px 9px;
+  font-size: 11px;
   font-weight: 500;
+  border-width: 1px;
 }
 .chip.skill.on {
   border-color: var(--navy);
   color: var(--navy);
   background: rgba(15, 41, 138, 0.08);
+}
+
+/* Count badge + expand/collapse chevron inside a selected domain chip. */
+.chip-skill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--navy);
+  color: #fff;
+  margin-left: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.chip-chevron {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
 }
 
 /* Difficulty chips — shared across both subjects. */
