@@ -164,13 +164,16 @@ export function PracticeBuilder() {
   const [currentSubj, setCurrentSubj] = useState<Subject>('both');
   const [mathChips, setMathChips] = useState<Set<string>>(new Set(['Algebra', 'Geometry']));
   const [rwChips, setRwChips] = useState<Set<string>>(new Set(['Information and Ideas']));
-  // Sub-topic (skill) selection, one level finer than the domain chips above
-  // — empty means "every skill within whichever domains are selected", not
-  // "no questions match". Values are the real DB domain names' skills, so
-  // toggling a domain chip off must also drop any of its now-orphaned
-  // skills (see the cleanup effects below).
-  const [mathSkills, setMathSkills] = useState<Set<string>>(new Set());
-  const [rwSkills, setRwSkills] = useState<Set<string>>(new Set());
+  // Sub-topic (skill) selection, one level finer than the domain chips
+  // above. A domain always has ALL of its sub-topics selected the moment
+  // it's turned on (see toggleChip) — never an implicit "empty means
+  // everything" state, which was indistinguishable from "nothing chosen
+  // yet". The two domains pre-selected above at mount need the same
+  // treatment here since they bypass toggleChip.
+  const [mathSkills, setMathSkills] = useState<Set<string>>(
+    new Set([...SKILLS_BY_DOMAIN['Algebra'], ...SKILLS_BY_DOMAIN['Geometry and Trigonometry']])
+  );
+  const [rwSkills, setRwSkills] = useState<Set<string>>(new Set(SKILLS_BY_DOMAIN['Information and Ideas']));
   // Accordion — AT MOST ONE domain's sub-topic panel open per subject, not a
   // Set. Selecting a domain opens its panel and closes whichever other
   // domain's panel was open; the chevron does the same switch without
@@ -218,7 +221,9 @@ export function PracticeBuilder() {
 
   const toggleChip = useCallback((subj: 'math' | 'rw', name: string) => {
     setActivePreset(null);
+    const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
     const chipsSetter = subj === 'math' ? setMathChips : setRwChips;
+    const skillsSetter = subj === 'math' ? setMathSkills : setRwSkills;
     const expandedSetter = subj === 'math' ? setMathExpandedDomain : setRwExpandedDomain;
     let turnedOn = false;
     chipsSetter((prev) => {
@@ -231,6 +236,16 @@ export function PracticeBuilder() {
       }
       return next;
     });
+    // Selecting a domain also selects ALL of its sub-topics by default (not
+    // an empty/implicit "include everything" state, which read as
+    // indistinguishable from "nothing chosen yet") — every sub-topic chip
+    // lights up and the badge reads e.g. "5/5", so "whole domain included"
+    // is something you can actually see, not something you have to already
+    // know. The student can then deselect individual sub-topics to narrow.
+    if (turnedOn) {
+      const domainSkills = SKILLS_BY_DOMAIN[chipToDomain[name]] ?? [];
+      skillsSetter((prev) => new Set([...prev, ...domainSkills]));
+    }
     // Selecting a domain opens its sub-topic panel immediately (closing
     // whichever other domain's panel was open); deselecting it closes its
     // own panel if it was the one open. Both are the same "click the main
@@ -318,7 +333,16 @@ export function PracticeBuilder() {
         preset.presetSubject === 'math'
           ? MATH_DOMAIN_TO_CHIP[preset.presetDomainLabel]
           : RW_DOMAIN_TO_CHIP[preset.presetDomainLabel];
-      if (chip) (preset.presetSubject === 'math' ? setMathChips : setRwChips)(new Set([chip]));
+      if (chip) {
+        (preset.presetSubject === 'math' ? setMathChips : setRwChips)(new Set([chip]));
+        // Same "select the domain = select all its sub-topics" rule as
+        // toggleChip — this path bypasses that function, so it needs its
+        // own copy.
+        (preset.presetSubject === 'math' ? setMathSkills : setRwSkills)(
+          new Set(SKILLS_BY_DOMAIN[preset.presetDomainLabel] ?? [])
+        );
+        (preset.presetSubject === 'math' ? setMathExpandedDomain : setRwExpandedDomain)(chip);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -362,9 +386,10 @@ export function PracticeBuilder() {
 
   const widenFilters = useCallback(() => {
     setRwChips(new Set(RW_SECTIONS));
-    // Sub-topic and difficulty filters narrow the pool the same way domain
-    // chips do — clear them too, or "widen filters" wouldn't actually widen.
-    setRwSkills(new Set());
+    // Every domain selected = every domain's sub-topics selected too (same
+    // rule as toggleChip), not an empty set — keeps the "colored chip with
+    // no sub-topics highlighted" state from ever happening.
+    setRwSkills(new Set(RW_SECTIONS.flatMap((s) => SKILLS_BY_DOMAIN[RW_CHIP_TO_DOMAIN[s]] ?? [])));
     setDifficulty(new Set());
     toast('All R&W sections selected — pool widened.');
   }, [toast]);
@@ -402,10 +427,18 @@ export function PracticeBuilder() {
       const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
       const domains = chips.size > 0 ? Array.from(chips).map((c) => chipToDomain[c]).filter(Boolean) : null;
       const skills = subj === 'math' ? mathSkills : rwSkills;
+      // null = "no skill filter at all" (nothing selected in this subject,
+      // e.g. no domain chosen yet). Once at least one domain IS selected,
+      // its sub-topics are always explicitly populated (see toggleChip) —
+      // an empty skills set at that point means the student deliberately
+      // unchecked every sub-topic, which must mean zero matches, not
+      // silently falling back to "include everything" (that used to
+      // contradict a domain chip showing a literal "0/5" badge).
+      const skillsFilter = chips.size === 0 ? null : Array.from(skills);
       return {
         subject: subj === 'math' ? 'Math' : 'Reading and Writing',
         domains,
-        skills: skills.size > 0 ? Array.from(skills) : null,
+        skills: skillsFilter,
         difficulty: difficulty.size > 0 ? Array.from(difficulty) : null,
         includeRetired,
         newOnlyUserId: newOnly ? (user?.id ?? null) : null,
@@ -533,7 +566,11 @@ export function PracticeBuilder() {
                           {MATH_CHIP_LABELS[s]}
                           {on && (
                             <>
-                              {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
+                              {skills.length > 0 && (
+                                <span className="chip-skill-badge">
+                                  {skillCount}/{skills.length}
+                                </span>
+                              )}
                               <span
                                 className="chip-chevron"
                                 aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
@@ -616,7 +653,11 @@ export function PracticeBuilder() {
                           {s}
                           {on && (
                             <>
-                              {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
+                              {skills.length > 0 && (
+                                <span className="chip-skill-badge">
+                                  {skillCount}/{skills.length}
+                                </span>
+                              )}
                               <span
                                 className="chip-chevron"
                                 aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}

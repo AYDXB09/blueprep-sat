@@ -599,6 +599,12 @@ async function getLatestAttemptStatusForUser(
 
 /** Count of questions matching the builder's current filter set. */
 export async function countMatchingQuestions(filters: QuestionFilters): Promise<number> {
+  // An explicitly-empty (but non-null) skills array means "every sub-topic
+  // for the selected domain(s) was deliberately deselected" — that's zero
+  // matches by definition, not "no skill filter" (which is what a bare
+  // `.in('skill', [])` query risks being read as, depending on the client
+  // version — short-circuiting here is unambiguous either way).
+  if (filters.skills && filters.skills.length === 0) return 0;
   let query = supabase.from('questions').select('id', { count: 'exact', head: true });
   if (filters.subject) query = query.eq('subject', filters.subject);
   if (filters.domains && filters.domains.length > 0) query = query.in('domain', filters.domains);
@@ -670,6 +676,9 @@ type PoolRow = { id: string; domain: string; difficulty: string | null };
  * so a mistake in a huge pool doesn't wait forever.
  */
 export async function selectQuestionIds(filters: QuestionFilters, count: number): Promise<string[]> {
+  // Same "explicit empty skills array = zero matches, not no-filter" rule
+  // as countMatchingQuestions above.
+  if (filters.skills && filters.skills.length === 0) return [];
   let query = supabase.from('questions').select('id, domain, skill, difficulty');
   if (filters.subject) query = query.eq('subject', filters.subject);
   if (filters.domains && filters.domains.length > 0) query = query.in('domain', filters.domains);
