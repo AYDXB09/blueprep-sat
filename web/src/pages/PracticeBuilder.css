@@ -186,45 +186,6 @@
   background: rgba(15, 41, 138, 0.08);
 }
 
-/* Count badge + expand/collapse chevron inside a selected domain chip. The
-   chevron is a real, separate hit target (24x24px minimum, matching normal
-   touch-target guidance) — the first version's 11x15px glyph was easy to
-   miss entirely or misclick as part of the label, per direct user report.
-   A visible circular hit-area (not just a bare glyph) is what tells the eye
-   "this is its own button", distinct from the domain-select click zone. */
-.chip-skill-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--navy);
-  color: #fff;
-  margin-left: 6px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.chip-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-left: 4px;
-  vertical-align: middle;
-  border-radius: 50%;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  color: inherit;
-  background: rgba(0, 0, 0, 0.06);
-}
-.chip-chevron:hover {
-  background: rgba(0, 0, 0, 0.14);
-}
-
 /* Difficulty chips — shared across both subjects. */
 .chip.difficulty.on.diff-easy {
   border-color: var(--green, #1a7a4c);
