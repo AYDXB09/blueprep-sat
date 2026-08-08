@@ -199,3 +199,17 @@
 .prog-table-score:hover {
   text-decoration: underline;
 }
+.prog-table-row-clickable {
+  cursor: pointer;
+}
+.prog-table-row-clickable:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.03));
+}
+.prog-table-row-clickable:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: -2px;
+}
+.prog-subj-chip-group {
+  display: inline-flex;
+  gap: 4px;
+}

@@ -291,15 +291,39 @@ export function Progress() {
                 const subj = toSubjectShort(h.subject_filter);
                 const pct = scorePctOf(h);
                 return (
-                  <tr key={h.id}>
+                  <tr
+                    key={h.id}
+                    className="prog-table-row-clickable"
+                    onClick={() => navigate(`/sessions/${h.id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') navigate(`/sessions/${h.id}`);
+                    }}
+                  >
                     <td className="mono">{fmtDate(h.completed_at)}</td>
                     <td>{modeLabel(h.mode)}</td>
                     <td>
-                      <span className={`subj-chip ${subj}`}>{subj === 'both' ? 'Both' : subj === 'math' ? 'Math' : 'R&W'}</span>
+                      {/* A session with no subject_filter (full tests, and any
+                          ad-hoc set started with both subjects) genuinely covers
+                          both — show Math + R&W as two real subject badges
+                          instead of a single vague "Both" chip. */}
+                      {subj === 'both' ? (
+                        <span className="prog-subj-chip-group">
+                          <span className="subj-chip math">Math</span>
+                          <span className="subj-chip rw">R&amp;W</span>
+                        </span>
+                      ) : (
+                        <span className={`subj-chip ${subj}`}>{subj === 'math' ? 'Math' : 'R&W'}</span>
+                      )}
                     </td>
                     <td className="mono">{h.actual_count ?? h.requested_count}</td>
                     <td>
-                      <Link to={`/sessions/${h.id}`} className="prog-table-score">
+                      <Link
+                        to={`/sessions/${h.id}`}
+                        className="prog-table-score"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {pct !== null ? `${pct}%` : '—'}
                       </Link>
                     </td>

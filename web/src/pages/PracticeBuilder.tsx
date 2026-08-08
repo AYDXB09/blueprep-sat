@@ -65,6 +65,43 @@ const RW_SECTIONS = [
   'Expression of Ideas',
   'Standard English Conventions',
 ] as const;
+
+// Real skill taxonomy per domain (verified live against `questions.skill`,
+// 2026-08-08) — a finer axis than domain, selectable as sub-topics once a
+// domain chip is on. Values must match the DB's `skill` column EXACTLY,
+// including a few skills' real trailing spaces in the source data — do not
+// "clean up" the whitespace, it would silently break the filter.
+const SKILLS_BY_DOMAIN: Record<string, string[]> = {
+  Algebra: [
+    'Linear equations in one variable',
+    'Linear equations in two variables',
+    'Linear functions',
+    'Linear inequalities in one or two variables',
+    'Systems of two linear equations in two variables',
+  ],
+  'Advanced Math': [
+    'Equivalent expressions',
+    'Nonlinear equations in one variable and systems of equations in two variables ',
+    'Nonlinear functions',
+  ],
+  'Geometry and Trigonometry': ['Area and volume', 'Circles', 'Lines, angles, and triangles', 'Right triangles and trigonometry'],
+  'Problem-Solving and Data Analysis': [
+    'Evaluating statistical claims: Observational studies and experiments ',
+    'Inference from sample statistics and margin of error ',
+    'One-variable data: Distributions and measures of center and spread',
+    'Percentages',
+    'Probability and conditional probability',
+    'Ratios, rates, proportional relationships, and units',
+    'Two-variable data: Models and scatterplots',
+  ],
+  'Information and Ideas': ['Central Ideas and Details', 'Command of Evidence', 'Inferences'],
+  'Craft and Structure': ['Cross-Text Connections', 'Text Structure and Purpose', 'Words in Context'],
+  'Expression of Ideas': ['Rhetorical Synthesis', 'Transitions'],
+  'Standard English Conventions': ['Boundaries', 'Form, Structure, and Sense'],
+};
+
+const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const;
+type Difficulty = (typeof DIFFICULTIES)[number];
 // Full real domain names, matching Mistake Log / Progress / Session Summary
 // exactly — no abbreviations, so the same domain always reads identically
 // everywhere it appears in the app.
@@ -114,6 +151,15 @@ export function PracticeBuilder() {
   const [currentSubj, setCurrentSubj] = useState<Subject>('both');
   const [mathChips, setMathChips] = useState<Set<string>>(new Set(['Algebra', 'Geometry']));
   const [rwChips, setRwChips] = useState<Set<string>>(new Set(['Information and Ideas']));
+  // Sub-topic (skill) selection, one level finer than the domain chips above
+  // — empty means "every skill within whichever domains are selected", not
+  // "no questions match". Values are the real DB domain names' skills, so
+  // toggling a domain chip off must also drop any of its now-orphaned
+  // skills (see the cleanup effects below).
+  const [mathSkills, setMathSkills] = useState<Set<string>>(new Set());
+  const [rwSkills, setRwSkills] = useState<Set<string>>(new Set());
+  // Shared across both subjects — Easy/Medium/Hard, empty = all difficulties.
+  const [difficulty, setDifficulty] = useState<Set<Difficulty>>(new Set());
   const [mathCount, setMathCount] = useState(22);
   const [rwCount, setRwCount] = useState(15);
   const [activePreset, setActivePreset] = useState<Preset | null>('module');
@@ -160,6 +206,45 @@ export function PracticeBuilder() {
       return next;
     });
   }, []);
+
+  const toggleSkill = useCallback((subj: 'math' | 'rw', skill: string) => {
+    const setter = subj === 'math' ? setMathSkills : setRwSkills;
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(skill)) next.delete(skill);
+      else next.add(skill);
+      return next;
+    });
+  }, []);
+
+  const toggleDifficulty = useCallback((d: Difficulty) => {
+    setDifficulty((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+  }, []);
+
+  // Dropping a domain chip should drop any of its skills too — a selected
+  // skill whose parent domain is no longer active would otherwise silently
+  // keep narrowing the pool from a chip the student can no longer see.
+  useEffect(() => {
+    const domainToChip = MATH_CHIP_TO_DOMAIN;
+    const activeSkills = new Set(Array.from(mathChips).flatMap((chip) => SKILLS_BY_DOMAIN[domainToChip[chip]] ?? []));
+    setMathSkills((prev) => {
+      const next = new Set(Array.from(prev).filter((s) => activeSkills.has(s)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [mathChips]);
+
+  useEffect(() => {
+    const activeSkills = new Set(Array.from(rwChips).flatMap((chip) => SKILLS_BY_DOMAIN[RW_CHIP_TO_DOMAIN[chip]] ?? []));
+    setRwSkills((prev) => {
+      const next = new Set(Array.from(prev).filter((s) => activeSkills.has(s)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rwChips]);
 
   const step = useCallback((target: 'math' | 'rw', delta: number) => {
     setActivePreset(null);
@@ -212,6 +297,8 @@ export function PracticeBuilder() {
     countMatchingQuestions({
       subject: 'Reading and Writing',
       domains: Array.from(rwChips).map((c) => RW_CHIP_TO_DOMAIN[c]).filter(Boolean),
+      skills: rwSkills.size > 0 ? Array.from(rwSkills) : null,
+      difficulty: difficulty.size > 0 ? Array.from(difficulty) : null,
       includeRetired,
       newOnlyUserId: newOnly ? (user?.id ?? null) : null,
     })
@@ -224,7 +311,7 @@ export function PracticeBuilder() {
     return () => {
       cancelled = true;
     };
-  }, [rwChips, includeRetired, newOnly, user]);
+  }, [rwChips, rwSkills, difficulty, includeRetired, newOnly, user]);
 
   const startWithFewer = useCallback(() => {
     if (rwPool !== null) setRwCount(rwPool);
@@ -234,6 +321,10 @@ export function PracticeBuilder() {
 
   const widenFilters = useCallback(() => {
     setRwChips(new Set(RW_SECTIONS));
+    // Sub-topic and difficulty filters narrow the pool the same way domain
+    // chips do — clear them too, or "widen filters" wouldn't actually widen.
+    setRwSkills(new Set());
+    setDifficulty(new Set());
     toast('All R&W sections selected — pool widened.');
   }, [toast]);
 
@@ -269,9 +360,12 @@ export function PracticeBuilder() {
       const chips = subj === 'math' ? mathChips : rwChips;
       const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
       const domains = chips.size > 0 ? Array.from(chips).map((c) => chipToDomain[c]).filter(Boolean) : null;
+      const skills = subj === 'math' ? mathSkills : rwSkills;
       return {
         subject: subj === 'math' ? 'Math' : 'Reading and Writing',
         domains,
+        skills: skills.size > 0 ? Array.from(skills) : null,
+        difficulty: difficulty.size > 0 ? Array.from(difficulty) : null,
         includeRetired,
         newOnlyUserId: newOnly ? (user?.id ?? null) : null,
         // Mistake-resurfacing: irrelevant when newOnly is on (that toggle
@@ -281,7 +375,7 @@ export function PracticeBuilder() {
         mistakeResurfaceDays,
       };
     },
-    [mathChips, rwChips, includeRetired, newOnly, user, mistakeResurfaceDays]
+    [mathChips, rwChips, mathSkills, rwSkills, difficulty, includeRetired, newOnly, user, mistakeResurfaceDays]
   );
 
   const startSession = useCallback(async () => {
@@ -393,6 +487,30 @@ export function PracticeBuilder() {
                 );
               })}
             </div>
+            {mathChips.size > 0 && (
+              <div className="skill-groups">
+                {MATH_SECTIONS.filter((s) => mathChips.has(s)).map((s) => {
+                  const domain = MATH_CHIP_TO_DOMAIN[s];
+                  const skills = SKILLS_BY_DOMAIN[domain] ?? [];
+                  return (
+                    <div key={s} className="skill-group">
+                      <p className="skill-group-label">{MATH_CHIP_LABELS[s]} sub-topics</p>
+                      <div className="chips skill-chips">
+                        {skills.map((skill) => (
+                          <div
+                            key={skill}
+                            className={`chip skill${mathSkills.has(skill) ? ' on' : ''}`}
+                            onClick={() => toggleSkill('math', skill)}
+                          >
+                            {skill.trim()}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="stepper">
               <button onClick={() => step('math', -1)}>−</button>
               <input
@@ -429,6 +547,30 @@ export function PracticeBuilder() {
                 );
               })}
             </div>
+            {rwChips.size > 0 && (
+              <div className="skill-groups">
+                {RW_SECTIONS.filter((s) => rwChips.has(s)).map((s) => {
+                  const domain = RW_CHIP_TO_DOMAIN[s];
+                  const skills = SKILLS_BY_DOMAIN[domain] ?? [];
+                  return (
+                    <div key={s} className="skill-group">
+                      <p className="skill-group-label">{s} sub-topics</p>
+                      <div className="chips skill-chips">
+                        {skills.map((skill) => (
+                          <div
+                            key={skill}
+                            className={`chip skill${rwSkills.has(skill) ? ' on' : ''}`}
+                            onClick={() => toggleSkill('rw', skill)}
+                          >
+                            {skill.trim()}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="stepper">
               <button onClick={() => step('rw', -1)}>−</button>
               <input
@@ -445,6 +587,24 @@ export function PracticeBuilder() {
             </div>
           </div>
         )}
+
+        <div className="card">
+          <h2>Difficulty</h2>
+          <p className="sub" style={{ marginBottom: 10 }}>
+            Leave all unselected to include every difficulty.
+          </p>
+          <div className="chips">
+            {DIFFICULTIES.map((d) => (
+              <div
+                key={d}
+                className={`chip difficulty diff-${d.toLowerCase()}${difficulty.has(d) ? ' on' : ''}`}
+                onClick={() => toggleDifficulty(d)}
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div className="card">
           <h2>Quick-pick a standard length</h2>

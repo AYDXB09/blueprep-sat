@@ -162,6 +162,54 @@
   background: rgba(184, 134, 11, 0.1);
 }
 
+/* Sub-topic (skill) chips — one level finer than the domain chips, grouped
+   under each active domain. Smaller/lighter than domain chips so the
+   hierarchy (subject > domain > skill) stays visually obvious. */
+.skill-groups {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skill-group-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.skill-chips {
+  margin-bottom: 0;
+}
+.chip.skill {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.chip.skill.on {
+  border-color: var(--navy);
+  color: var(--navy);
+  background: rgba(15, 41, 138, 0.08);
+}
+
+/* Difficulty chips — shared across both subjects. */
+.chip.difficulty.on.diff-easy {
+  border-color: var(--green, #1a7a4c);
+  color: var(--green, #1a7a4c);
+  background: rgba(26, 122, 76, 0.1);
+}
+.chip.difficulty.on.diff-medium {
+  border-color: #b8860b;
+  color: #b8860b;
+  background: rgba(184, 134, 11, 0.1);
+}
+.chip.difficulty.on.diff-hard {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(200, 40, 40, 0.1);
+}
+
 /* Click/tap-triggered info tooltip — a native title attribute never fires
    on touch devices, so this needs its own popover. */
 .info-tip-wrap {
