@@ -162,17 +162,32 @@
   background: rgba(184, 134, 11, 0.1);
 }
 
-/* Sub-topic (skill) chips — one level finer than the domain chips, shown
-   only when that domain's chevron is expanded (collapsed by default). No
-   group-label header — the domain chip's own count badge already says how
-   many are selected, so the panel just needs the chips. Indented slightly
-   and smaller than domain chips so the hierarchy (subject > domain > skill)
-   stays visually obvious without eating vertical space when collapsed. */
+/* Accordion layout — one domain per row (chip, then its sub-topic panel
+   directly beneath it when expanded), instead of the plain wrapped-chip
+   row above. At most one domain's panel is open per subject at a time
+   (mathExpandedDomain/rwExpandedDomain are single values, not a Set) —
+   opening a different domain's panel closes whichever one was open. */
+.chips-accordion {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.chip-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Sub-topic (skill) chips — sit directly under the one domain chip that's
+   currently expanded. No group-label header — the domain chip's own count
+   badge already says how many are selected. Indented slightly and smaller
+   than domain chips so the hierarchy (subject > domain > skill) stays
+   visually obvious. */
 .skill-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin: 0 0 12px 4px;
+  margin: 6px 0 0 4px;
 }
 .chip.skill {
   padding: 3px 9px;
@@ -184,6 +199,43 @@
   border-color: var(--navy);
   color: var(--navy);
   background: rgba(15, 41, 138, 0.08);
+}
+
+/* Count badge + expand/collapse chevron inside a selected domain chip. The
+   chevron is a real, separate 24px+ hit target (not the earlier 11x15px
+   glyph that was too small to reliably click) — its own background circle
+   makes it read as a distinct button rather than part of the label. */
+.chip-skill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--navy);
+  color: #fff;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.chip-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  vertical-align: middle;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.06);
+}
+.chip-chevron:hover {
+  background: rgba(0, 0, 0, 0.14);
 }
 
 /* Difficulty chips — shared across both subjects. */

@@ -158,6 +158,13 @@ export function PracticeBuilder() {
   // skills (see the cleanup effects below).
   const [mathSkills, setMathSkills] = useState<Set<string>>(new Set());
   const [rwSkills, setRwSkills] = useState<Set<string>>(new Set());
+  // Accordion — AT MOST ONE domain's sub-topic panel open per subject, not a
+  // Set. Selecting a domain opens its panel and closes whichever other
+  // domain's panel was open; the chevron does the same switch without
+  // touching selection (so a student can peek at a different selected
+  // domain's sub-topics, or collapse the panel, without deselecting it).
+  const [mathExpandedDomain, setMathExpandedDomain] = useState<string | null>(null);
+  const [rwExpandedDomain, setRwExpandedDomain] = useState<string | null>(null);
   // Shared across both subjects — Easy/Medium/Hard, empty = all difficulties.
   const [difficulty, setDifficulty] = useState<Set<Difficulty>>(new Set());
   const [mathCount, setMathCount] = useState(22);
@@ -198,13 +205,32 @@ export function PracticeBuilder() {
 
   const toggleChip = useCallback((subj: 'math' | 'rw', name: string) => {
     setActivePreset(null);
-    const setter = subj === 'math' ? setMathChips : setRwChips;
-    setter((prev) => {
+    const chipsSetter = subj === 'math' ? setMathChips : setRwChips;
+    const expandedSetter = subj === 'math' ? setMathExpandedDomain : setRwExpandedDomain;
+    let turnedOn = false;
+    chipsSetter((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+        turnedOn = true;
+      }
       return next;
     });
+    // Selecting a domain opens its sub-topic panel immediately (closing
+    // whichever other domain's panel was open); deselecting it closes its
+    // own panel if it was the one open. Both are the same "click the main
+    // topic" gesture the student just performed.
+    expandedSetter((prevExpanded) => {
+      if (turnedOn) return name;
+      return prevExpanded === name ? null : prevExpanded;
+    });
+  }, []);
+
+  const toggleExpandedDomain = useCallback((subj: 'math' | 'rw', name: string) => {
+    const setter = subj === 'math' ? setMathExpandedDomain : setRwExpandedDomain;
+    setter((prev) => (prev === name ? null : name));
   }, []);
 
   const toggleSkill = useCallback((subj: 'math' | 'rw', skill: string) => {
@@ -236,6 +262,7 @@ export function PracticeBuilder() {
       const next = new Set(Array.from(prev).filter((s) => activeSkills.has(s)));
       return next.size === prev.size ? prev : next;
     });
+    setMathExpandedDomain((prev) => (prev && !mathChips.has(prev) ? null : prev));
   }, [mathChips]);
 
   useEffect(() => {
@@ -244,6 +271,7 @@ export function PracticeBuilder() {
       const next = new Set(Array.from(prev).filter((s) => activeSkills.has(s)));
       return next.size === prev.size ? prev : next;
     });
+    setRwExpandedDomain((prev) => (prev && !rwChips.has(prev) ? null : prev));
   }, [rwChips]);
 
   const step = useCallback((target: 'math' | 'rw', delta: number) => {
@@ -467,7 +495,7 @@ export function PracticeBuilder() {
         {currentSubj !== 'rw' && (
           <div className="subject-block math">
             <h3>Math</h3>
-            <div className="chips">
+            <div className="chips chips-accordion">
               {MATH_SECTIONS.map((s) => {
                 const on = mathChips.has(s);
                 // These 4 chips map 1:1 onto real Math domains (unlike the
@@ -475,39 +503,55 @@ export function PracticeBuilder() {
                 // safe to give each its own domain color here, matching
                 // Mistake Log / Progress instead of one flat "math" color.
                 const color = on ? domainColor(MATH_CHIP_TO_DOMAIN[s]) : null;
+                const skills = SKILLS_BY_DOMAIN[MATH_CHIP_TO_DOMAIN[s]] ?? [];
+                const skillCount = Array.from(mathSkills).filter((sk) => skills.includes(sk)).length;
+                const expanded = on && mathExpandedDomain === s;
                 return (
-                  <div
-                    key={s}
-                    className={`chip math${on ? ' on' : ''}`}
-                    style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
-                    onClick={() => toggleChip('math', s)}
-                  >
-                    {MATH_CHIP_LABELS[s]}
+                  <div key={s} className="chip-row">
+                    <div
+                      className={`chip math${on ? ' on' : ''}`}
+                      style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
+                      onClick={() => toggleChip('math', s)}
+                    >
+                      {MATH_CHIP_LABELS[s]}
+                      {on && (
+                        <>
+                          {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
+                          <span
+                            className="chip-chevron"
+                            aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
+                            role="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpandedDomain('math', s);
+                            }}
+                          >
+                            {expanded ? '▴' : '▾'}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {/* Right below the domain it belongs to, and only one
+                        domain's panel open at a time — selecting a domain
+                        (or its chevron) closes whichever other panel was
+                        open. */}
+                    {expanded && (
+                      <div className="skill-chips">
+                        {skills.map((skill) => (
+                          <div
+                            key={skill}
+                            className={`chip skill${mathSkills.has(skill) ? ' on' : ''}`}
+                            onClick={() => toggleSkill('math', skill)}
+                          >
+                            {skill.trim()}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-            {/* Sub-topics follow the domain chip directly — selecting a
-                domain shows its sub-topics immediately, no separate
-                expand/collapse step. Deselecting the domain (via the chip
-                cleanup effect above) hides them again automatically. */}
-            {MATH_SECTIONS.filter((s) => mathChips.has(s)).map((s) => {
-              const domain = MATH_CHIP_TO_DOMAIN[s];
-              const skills = SKILLS_BY_DOMAIN[domain] ?? [];
-              return (
-                <div key={s} className="skill-chips">
-                  {skills.map((skill) => (
-                    <div
-                      key={skill}
-                      className={`chip skill${mathSkills.has(skill) ? ' on' : ''}`}
-                      onClick={() => toggleSkill('math', skill)}
-                    >
-                      {skill.trim()}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
             <div className="stepper">
               <button onClick={() => step('math', -1)}>−</button>
               <input
@@ -528,39 +572,55 @@ export function PracticeBuilder() {
         {currentSubj !== 'math' && (
           <div className="subject-block rw">
             <h3>Reading &amp; Writing</h3>
-            <div className="chips">
+            <div className="chips chips-accordion">
               {RW_SECTIONS.map((s) => {
                 const on = rwChips.has(s);
                 const color = on ? domainColor(RW_CHIP_TO_DOMAIN[s]) : null;
+                const skills = SKILLS_BY_DOMAIN[RW_CHIP_TO_DOMAIN[s]] ?? [];
+                const skillCount = Array.from(rwSkills).filter((sk) => skills.includes(sk)).length;
+                const expanded = on && rwExpandedDomain === s;
                 return (
-                  <div
-                    key={s}
-                    className={`chip rw${on ? ' on' : ''}`}
-                    style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
-                    onClick={() => toggleChip('rw', s)}
-                  >
-                    {s}
+                  <div key={s} className="chip-row">
+                    <div
+                      className={`chip rw${on ? ' on' : ''}`}
+                      style={color ? { borderColor: color.border, color: color.text, background: color.bg } : undefined}
+                      onClick={() => toggleChip('rw', s)}
+                    >
+                      {s}
+                      {on && (
+                        <>
+                          {skillCount > 0 && <span className="chip-skill-badge">{skillCount}</span>}
+                          <span
+                            className="chip-chevron"
+                            aria-label={expanded ? 'Hide sub-topics' : 'Show sub-topics'}
+                            role="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpandedDomain('rw', s);
+                            }}
+                          >
+                            {expanded ? '▴' : '▾'}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {expanded && (
+                      <div className="skill-chips">
+                        {skills.map((skill) => (
+                          <div
+                            key={skill}
+                            className={`chip skill${rwSkills.has(skill) ? ' on' : ''}`}
+                            onClick={() => toggleSkill('rw', skill)}
+                          >
+                            {skill.trim()}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-            {RW_SECTIONS.filter((s) => rwChips.has(s)).map((s) => {
-              const domain = RW_CHIP_TO_DOMAIN[s];
-              const skills = SKILLS_BY_DOMAIN[domain] ?? [];
-              return (
-                <div key={s} className="skill-chips">
-                  {skills.map((skill) => (
-                    <div
-                      key={skill}
-                      className={`chip skill${rwSkills.has(skill) ? ' on' : ''}`}
-                      onClick={() => toggleSkill('rw', skill)}
-                    >
-                      {skill.trim()}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
             <div className="stepper">
               <button onClick={() => step('rw', -1)}>−</button>
               <input
