@@ -1,6 +1,7 @@
 // Generated directly from the live BluePrep Supabase schema via
 // `mcp__supabase-blueprep__generate_typescript_types`. Do not hand-edit —
 // regenerate the same way after any schema migration instead.
+
 export type Json =
   | string
   | number
@@ -751,6 +752,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_ai_settings: {
+        Row: {
+          connected_at: string | null
+          key_last4: string | null
+          model: string | null
+          provider: string
+          updated_at: string
+          user_id: string
+          vault_secret_id: string | null
+        }
+        Insert: {
+          connected_at?: string | null
+          key_last4?: string | null
+          model?: string | null
+          provider?: string
+          updated_at?: string
+          user_id: string
+          vault_secret_id?: string | null
+        }
+        Update: {
+          connected_at?: string | null
+          key_last4?: string | null
+          model?: string | null
+          provider?: string
+          updated_at?: string
+          user_id?: string
+          vault_secret_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_ai_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_settings: {
         Row: {
           explanation_verbosity: string
@@ -830,7 +869,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      disconnect_ai_key: { Args: never; Returns: undefined }
+      get_ai_key: { Args: never; Returns: string }
+      save_ai_key: {
+        Args: { p_api_key: string; p_model: string; p_provider: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -843,7 +887,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals["public"]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends

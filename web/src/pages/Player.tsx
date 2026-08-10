@@ -26,6 +26,8 @@ import {
 import { getOrCreateUserSettings } from '../lib/userSettings';
 import { getNote, saveNote } from '../lib/questionNotes';
 import { getSessionOrigin } from '../lib/sessionOrigin';
+import { getAiSettings, type AiSettings } from '../lib/aiSettings';
+import { AskAiPanel } from '../components/AskAiPanel';
 import type { Database } from '../lib/database.types';
 
 // Real full-test module sequence — R&W M1 → R&W M2 → (break) → Math M1 →
@@ -353,6 +355,26 @@ export function Player() {
       cancelled = true;
     };
   }, [questionId, user]);
+
+  // ---------------- Ask-AI (BYOK) ----------------
+  // Fetched once per signed-in user, not per-question — whether AI is
+  // connected doesn't change while answering a session, only the question
+  // context passed to AskAiPanel does.
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getAiSettings(user.id)
+      .then((row) => {
+        if (!cancelled) setAiSettings(row);
+      })
+      .catch(() => {
+        if (!cancelled) setAiSettings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const openNoteEditor = useCallback(() => {
     setNoteDraft(note ?? '');
@@ -1058,6 +1080,23 @@ export function Player() {
     return map;
   }, [question, choiceCuesByChoiceId]);
 
+  // Plain-text summary handed to the AI as prompt context — stripped of
+  // markup since the model doesn't need HTML, just the real content. The
+  // [correct] tag is withheld until canRevealFeedback (same gate as the
+  // rationale panel) so Ask-AI can't be used to fish the answer out of the
+  // AI before actually answering.
+  const questionContextText = useMemo(() => {
+    if (!question) return '';
+    const stripHtml = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const parts: string[] = [];
+    if (question.stimulus_markup) parts.push(stripHtml(question.stimulus_markup));
+    parts.push(stripHtml(question.stem_markup));
+    question.choices.forEach((c) => {
+      parts.push(`${c.label}) ${stripHtml(c.content_markup)}${canRevealFeedback && c.is_correct ? ' [correct]' : ''}`);
+    });
+    return parts.join('\n');
+  }, [question, canRevealFeedback]);
+
   const focusCue = useCallback((cueId: string) => {
     setActiveCueId(cueId);
     const mark = document.querySelector(`mark.cue-mark[data-cue-id="${cueId}"]`);
@@ -1520,6 +1559,9 @@ export function Player() {
             <button className={`btn ghost${strikeMode ? ' active' : ''}`} onClick={() => setStrikeMode((s) => !s)}>
               ✎ Strikethrough tool
             </button>
+            <div style={{ marginLeft: 'auto' }}>
+              <AskAiPanel isConnected={!!aiSettings} model={aiSettings?.model ?? null} questionContext={questionContextText} />
+            </div>
             <button className="btn primary" onClick={goNext} disabled={navBusy}>
               {CURRENT_Q >= TOTAL_Q ? (isReviewMode ? 'Back to Summary →' : 'Finish →') : 'Next →'}
             </button>

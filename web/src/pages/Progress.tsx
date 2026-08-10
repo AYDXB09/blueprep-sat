@@ -6,6 +6,9 @@ import { getAllAttemptsForUser, getRecentSessions, type AttemptWithQuestion } fr
 import { fmtDate } from '../lib/format';
 import { domainColor } from '../lib/domainColors';
 import { SkillMap } from '../components/SkillMap';
+import { AiCoachPanel } from '../components/AiCoachPanel';
+import { getAiSettings, type AiSettings } from '../lib/aiSettings';
+import { buildDigest } from '../lib/analytics';
 import type { Database } from '../lib/database.types';
 import './Progress.css';
 
@@ -171,9 +174,31 @@ export function Progress() {
   const loading = sessions === null || attempts === null;
   const history = sessions ?? [];
 
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getAiSettings(user.id)
+      .then((row) => {
+        if (!cancelled) setAiSettings(row);
+      })
+      .catch(() => {
+        if (!cancelled) setAiSettings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   return (
     <AppShell title="Progress & Score Tracking">
       {error && <p style={{ color: 'var(--red)' }}>{error}</p>}
+
+      {!loading && attempts && attempts.some((a) => a.is_correct !== null) && (
+        <div className="prog-ai-coach-row">
+          <AiCoachPanel isConnected={!!aiSettings} model={aiSettings?.model ?? null} digest={buildDigest(attempts)} />
+        </div>
+      )}
 
       <div className="prog-card">
         <p className="prog-label">Score over time (all sessions)</p>

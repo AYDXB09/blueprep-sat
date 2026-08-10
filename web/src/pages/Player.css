@@ -338,6 +338,16 @@
   background: var(--panel);
   flex: none;
   overflow-x: auto;
+  /* NOTE: overflow-x:auto forces overflow-y to compute as "auto" too, per
+     spec — setting overflow-y:visible here does NOT override that (the
+     spec explicitly forces the "visible" one to become "auto" when its
+     sibling axis isn't visible/clip). That was clipping the Ask-AI
+     popover, which is positioned absolute and extends above this bar's
+     own box. Fixed by rendering the popover through a portal to
+     document.body instead (see AiIconButton.tsx) — not fixable in CSS
+     alone without dropping the horizontal scroll this bar needs on
+     narrow viewports.
+  */
 }
 .bottombar .btn {
   flex: none;

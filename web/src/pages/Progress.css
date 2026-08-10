@@ -4,6 +4,12 @@
   padding: 16px 18px;
   margin-bottom: 14px;
 }
+
+.prog-ai-coach-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
 .prog-label {
   font-size: 11px;
   text-transform: uppercase;

@@ -1,0 +1,59 @@
+.ai-coach-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ai-coach-panel {
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-coach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.ai-coach-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-dim);
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ai-coach-loading {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  margin: 0;
+}
+.ai-coach-error {
+  font-size: 11.5px;
+  color: var(--red);
+  margin: 0;
+}
+.ai-coach-advice {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0;
+  white-space: pre-wrap;
+}
+.ai-coach-refresh {
+  align-self: flex-start;
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+}

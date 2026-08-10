@@ -3,8 +3,19 @@ import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { getOrCreateUserSettings, updateUserSettings, type UserSettingsRow } from '../lib/userSettings';
 import { applyAppearance } from '../lib/appearance';
+import { getAiSettings, saveAiKey, disconnectAiKey, type AiSettings } from '../lib/aiSettings';
+import { testConnection, OpenRouterError } from '../lib/openrouter';
 import type { Database } from '../lib/database.types';
 import './Settings.css';
+
+// OpenRouter model ids — a short curated list, not the full catalog, so the
+// select stays scannable. "Test connection" fires a real request against
+// whichever one is picked, so a bad id surfaces immediately.
+const OPENROUTER_MODELS = [
+  { id: 'anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
+  { id: 'openai/gpt-4.1', label: 'GPT-4.1' },
+  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+];
 
 // ---------------------------------------------------------------------------
 // Storyboard screen 10 (/settings). Reads/writes the real `user_settings`
@@ -39,6 +50,15 @@ export function Settings() {
   const [settings, setSettings] = useState<UserSettingsRow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [aiSettings, setAiSettings] = useState<AiSettings | null | undefined>(undefined);
+  const [aiProvider, setAiProvider] = useState('openrouter');
+  const [aiKeyDraft, setAiKeyDraft] = useState('');
+  const [aiModel, setAiModel] = useState(OPENROUTER_MODELS[0].id);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiTestedOk, setAiTestedOk] = useState(false);
+  const [aiReplacing, setAiReplacing] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -52,10 +72,47 @@ export function Settings() {
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load settings.');
       });
+    getAiSettings(user.id)
+      .then((row) => {
+        if (!cancelled) setAiSettings(row);
+      })
+      .catch(() => {
+        if (!cancelled) setAiSettings(null);
+      });
     return () => {
       cancelled = true;
     };
   }, [user]);
+
+  const connectAi = async () => {
+    const key = aiKeyDraft.trim();
+    if (!key) return;
+    setAiTesting(true);
+    setAiError(null);
+    setAiTestedOk(false);
+    try {
+      await testConnection(key, aiModel);
+      await saveAiKey(aiProvider, key, aiModel);
+      setAiSettings({ provider: aiProvider, model: aiModel, keyLast4: key.slice(-4), connectedAt: new Date().toISOString() });
+      setAiKeyDraft('');
+      setAiReplacing(false);
+      setAiTestedOk(true);
+      setTimeout(() => setAiTestedOk(false), 2000);
+    } catch (err) {
+      setAiError(err instanceof OpenRouterError ? err.message : 'Could not connect — check your key and try again.');
+    } finally {
+      setAiTesting(false);
+    }
+  };
+
+  const disconnectAi = async () => {
+    try {
+      await disconnectAiKey();
+      setAiSettings(null);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to disconnect — try again.');
+    }
+  };
 
   // Applies a patch to local state immediately (so the control feels
   // instant) and writes it to Supabase in the background; a failed write
@@ -92,6 +149,79 @@ export function Settings() {
     <AppShell title="Settings">
       <div className={`settings-saved-flash${saved ? ' show' : ''}`}>Saved</div>
       {error && <p style={{ color: 'var(--red)', fontSize: 12.5, marginTop: -6, marginBottom: 12 }}>{error}</p>}
+
+      <div className="settings-card">
+        <p className="settings-label">AI features</p>
+        {aiSettings === undefined ? (
+          <p className="settings-row-label">Loading…</p>
+        ) : aiSettings && !aiReplacing ? (
+          <>
+            <p className="settings-ai-hint">Stored encrypted, scoped to your account only. Never shown in full again after saving.</p>
+            <div className="settings-row">
+              <span className="settings-row-label">Provider</span>
+              <span className="mono">{aiSettings.provider}</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Key</span>
+              <span className="mono">sk-...{aiSettings.keyLast4}</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Model</span>
+              <span className="mono">{OPENROUTER_MODELS.find((m) => m.id === aiSettings.model)?.label ?? aiSettings.model}</span>
+            </div>
+            {aiError && <p className="settings-ai-error">{aiError}</p>}
+            <div className="settings-ai-actions">
+              <button className="btn ghost" onClick={() => setAiReplacing(true)}>
+                Replace key
+              </button>
+              <button className="btn ghost settings-ai-disconnect" onClick={() => void disconnectAi()}>
+                Disconnect
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="settings-ai-hint">Stored encrypted, scoped to your account only. Never shown in full again after saving.</p>
+            <div className="settings-row">
+              <span className="settings-row-label">Provider</span>
+              <select className="settings-select" value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}>
+                <option value="openrouter">OpenRouter</option>
+              </select>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">API key</span>
+              <input
+                className="settings-select"
+                type="password"
+                placeholder="sk-or-v1-..."
+                value={aiKeyDraft}
+                onChange={(e) => setAiKeyDraft(e.target.value)}
+              />
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Model</span>
+              <select className="settings-select" value={aiModel} onChange={(e) => setAiModel(e.target.value)}>
+                {OPENROUTER_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {aiError && <p className="settings-ai-error">{aiError}</p>}
+            <div className="settings-ai-actions">
+              <button className="btn primary" style={{ margin: 0 }} onClick={() => void connectAi()} disabled={aiTesting || !aiKeyDraft.trim()}>
+                {aiTesting ? 'Testing…' : aiTestedOk ? 'Connected!' : 'Connect'}
+              </button>
+              {aiReplacing && (
+                <button className="btn ghost" onClick={() => setAiReplacing(false)}>
+                  Cancel
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="settings-card">
         <p className="settings-label">Practice defaults</p>
