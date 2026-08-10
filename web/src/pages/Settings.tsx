@@ -5,17 +5,12 @@ import { getOrCreateUserSettings, updateUserSettings, type UserSettingsRow } fro
 import { applyAppearance } from '../lib/appearance';
 import { getAiSettings, saveAiKey, disconnectAiKey, type AiSettings } from '../lib/aiSettings';
 import { testConnection, OpenRouterError } from '../lib/openrouter';
+import { getModels, type CachedModel } from '../lib/aiModels';
+import { AiModelPicker } from '../components/AiModelPicker';
 import type { Database } from '../lib/database.types';
 import './Settings.css';
 
-// OpenRouter model ids — a short curated list, not the full catalog, so the
-// select stays scannable. "Test connection" fires a real request against
-// whichever one is picked, so a bad id surfaces immediately.
-const OPENROUTER_MODELS = [
-  { id: 'anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
-  { id: 'openai/gpt-4.1', label: 'GPT-4.1' },
-  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-];
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.5';
 
 // ---------------------------------------------------------------------------
 // Storyboard screen 10 (/settings). Reads/writes the real `user_settings`
@@ -53,7 +48,13 @@ export function Settings() {
   const [aiSettings, setAiSettings] = useState<AiSettings | null | undefined>(undefined);
   const [aiProvider, setAiProvider] = useState('openrouter');
   const [aiKeyDraft, setAiKeyDraft] = useState('');
-  const [aiModel, setAiModel] = useState(OPENROUTER_MODELS[0].id);
+  const [aiModel, setAiModel] = useState(DEFAULT_MODEL);
+  const [aiModels, setAiModels] = useState<CachedModel[]>([]);
+  useEffect(() => {
+    getModels()
+      .then(setAiModels)
+      .catch(() => setAiModels([]));
+  }, []);
   const [aiTesting, setAiTesting] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiTestedOk, setAiTestedOk] = useState(false);
@@ -167,7 +168,7 @@ export function Settings() {
             </div>
             <div className="settings-row">
               <span className="settings-row-label">Model</span>
-              <span className="mono">{OPENROUTER_MODELS.find((m) => m.id === aiSettings.model)?.label ?? aiSettings.model}</span>
+              <span className="mono">{aiModels.find((m) => m.id === aiSettings.model)?.label ?? aiSettings.model}</span>
             </div>
             {aiError && <p className="settings-ai-error">{aiError}</p>}
             <div className="settings-ai-actions">
@@ -200,13 +201,7 @@ export function Settings() {
             </div>
             <div className="settings-row">
               <span className="settings-row-label">Model</span>
-              <select className="settings-select" value={aiModel} onChange={(e) => setAiModel(e.target.value)}>
-                {OPENROUTER_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+              <AiModelPicker value={aiModel} onChange={setAiModel} />
             </div>
             {aiError && <p className="settings-ai-error">{aiError}</p>}
             <div className="settings-ai-actions">

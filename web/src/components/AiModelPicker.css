@@ -1,0 +1,56 @@
+.ai-model-picker {
+  position: relative;
+  width: 260px;
+}
+.ai-model-picker-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.ai-model-picker-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  width: 320px;
+  max-width: min(320px, 80vw);
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 40;
+  padding: 6px;
+}
+.ai-model-picker-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.ai-model-picker-option:hover,
+.ai-model-picker-option.selected {
+  background: var(--bg);
+}
+.ai-model-picker-option-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ai-model-picker-option-id {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.ai-model-picker-empty,
+.ai-model-picker-hint {
+  font-size: 12px;
+  color: var(--ink-dim);
+  padding: 8px 10px;
+  margin: 0;
+}

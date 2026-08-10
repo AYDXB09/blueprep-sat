@@ -18,6 +18,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_models_cache: {
+        Row: {
+          context_length: number | null
+          label: string
+          model_id: string
+          pricing_completion: number | null
+          pricing_prompt: number | null
+          updated_at: string
+        }
+        Insert: {
+          context_length?: number | null
+          label: string
+          model_id: string
+          pricing_completion?: number | null
+          pricing_prompt?: number | null
+          updated_at?: string
+        }
+        Update: {
+          context_length?: number | null
+          label?: string
+          model_id?: string
+          pricing_completion?: number | null
+          pricing_prompt?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_models_cache_meta: {
+        Row: {
+          id: boolean
+          last_refreshed_at: string | null
+        }
+        Insert: {
+          id?: boolean
+          last_refreshed_at?: string | null
+        }
+        Update: {
+          id?: boolean
+          last_refreshed_at?: string | null
+        }
+        Relationships: []
+      }
       ai_usage_log: {
         Row: {
           created_at: string
