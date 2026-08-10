@@ -586,10 +586,10 @@ mark.cue-assumption {
 }
 
 .note-panel {
-  margin-top: 22px;
+  margin-top: 16px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px 18px;
+  border-radius: 10px;
+  padding: 10px 14px;
   background: var(--panel);
 }
 .note-textarea {
@@ -618,19 +618,21 @@ mark.cue-assumption {
 }
 .note-summary {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 .note-text {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.4;
   color: var(--ink);
   white-space: pre-wrap;
   flex: 1;
 }
 .note-edit-btn {
   flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 12px;
 }
 
 .cue-panel {
