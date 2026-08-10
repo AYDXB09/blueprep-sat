@@ -7,7 +7,8 @@ import { getOrCreateUserSettings } from '../lib/userSettings';
 import {
   countMatchingQuestions,
   createPracticeSession,
-  selectQuestionIds,
+  orderByOfficialSequence,
+  selectQuestionIdsDefaultRatio,
   type QuestionFilters,
   type SubjectFilter,
 } from '../lib/practiceSessions';
@@ -471,12 +472,21 @@ export function PracticeBuilder() {
       const subjectFilter: SubjectFilter | null =
         currentSubj === 'math' ? 'Math' : currentSubj === 'rw' ? 'Reading and Writing' : null;
 
+      // selectQuestionIdsDefaultRatio: when difficulty is left unselected,
+      // defaults to the same Easy/Medium/Hard ratio a real test module uses
+      // (tier_difficulty_profiles.module1) instead of an unweighted pull —
+      // respects an explicit difficulty pick as-is either way.
       const questionIds: string[] = [];
       if (currentSubj === 'math' || currentSubj === 'both') {
-        questionIds.push(...(await selectQuestionIds(buildFilters('math'), mathCount)));
+        questionIds.push(...(await selectQuestionIdsDefaultRatio(buildFilters('math'), mathCount)));
       }
       if (currentSubj === 'rw' || currentSubj === 'both') {
-        questionIds.push(...(await selectQuestionIds(buildFilters('rw'), rwCount)));
+        // Real official R&W domain sequence (Craft and Structure ->
+        // Information and Ideas -> Standard English Conventions ->
+        // Expression of Ideas, per College Board's Assessment Framework) —
+        // applied only to the R&W slice so it doesn't reorder Math ids.
+        const rwIds = await selectQuestionIdsDefaultRatio(buildFilters('rw'), rwCount);
+        questionIds.push(...(await orderByOfficialSequence(rwIds)));
       }
 
       const session = await createPracticeSession({
@@ -744,7 +754,12 @@ export function PracticeBuilder() {
           <div className="quickpicks">
             {(['quarter', 'half', 'module', 'section'] as Preset[]).map((p) => (
               <div key={p} className={`qp${activePreset === p ? ' active' : ''}`} onClick={() => pickPreset(p)}>
-                {p[0].toUpperCase() + p.slice(1)}
+                {/* "Section" with both subjects selected is 54+44=98 questions —
+                    the same size as a real Full Test, just without its module/
+                    break/tier structure (that's the separate /test/new flow) —
+                    so the label needs to say "both" here or it undersells what
+                    the preset actually builds. */}
+                {p === 'section' && currentSubj === 'both' ? 'Both Sections' : p[0].toUpperCase() + p.slice(1)}
               </div>
             ))}
           </div>

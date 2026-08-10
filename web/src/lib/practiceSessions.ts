@@ -182,7 +182,7 @@ export async function assembleFullTestModule(args: {
   mistakeResurfaceDays?: number | null;
   includeRetired?: boolean;
 }): Promise<{ questionIds: string[] }> {
-  const questionIds = await selectTieredQuestionIds({
+  const rawIds = await selectTieredQuestionIds({
     subject: args.subject,
     tier: args.tier,
     count: args.count,
@@ -190,6 +190,9 @@ export async function assembleFullTestModule(args: {
     resurfaceForUserId: args.resurfaceForUserId,
     mistakeResurfaceDays: args.mistakeResurfaceDays,
   });
+  // Real official R&W domain sequence (see orderByOfficialSequence) —
+  // no-op for Math, which has no published fixed order.
+  const questionIds = await orderByOfficialSequence(rawIds);
   await createSessionModule({
     sessionId: args.sessionId,
     moduleNumber: args.moduleNumber,
@@ -776,14 +779,65 @@ async function getTierDifficultyProfile(tier: string): Promise<TierDifficultyPro
 }
 
 /**
+ * Splits `count` across Easy/Medium/Hard using *_pct weights (rounded, with
+ * any rounding remainder absorbed by Medium so the total always matches
+ * `count` exactly). Shared by the difficulty-only split below and the
+ * domain x difficulty grid in `selectTieredQuestionIds`.
+ */
+function splitByDifficulty(
+  weights: { Easy: number; Medium: number; Hard: number },
+  count: number
+): [string, number][] {
+  const totalWeight = weights.Easy + weights.Medium + weights.Hard || 1;
+  const easyCount = Math.round((weights.Easy / totalWeight) * count);
+  const hardCount = Math.round((weights.Hard / totalWeight) * count);
+  const mediumCount = Math.max(0, count - easyCount - hardCount);
+  return [
+    ['Easy', easyCount],
+    ['Medium', mediumCount],
+    ['Hard', hardCount],
+  ];
+}
+
+/**
+ * Real official per-domain operational question-share, from College Board's
+ * "Assessment Framework for the Digital SAT Suite" (Tables 10 & 16 —
+ * ≈26/28/20/26% R&W, ≈35/32.5/20/12.5% Math). Applied identically to both
+ * modules of a subject (the framework documents these as a whole-section
+ * share and — per Table 9 — the same domain *order* recurs in both modules,
+ * so splitting the section share evenly across the two modules is the
+ * closest defensible per-module target without inventing a number College
+ * Board doesn't publish). Percentages sum to 100 within each subject.
+ */
+const DOMAIN_WEIGHTS: Record<SubjectFilter, Record<string, number>> = {
+  'Reading and Writing': {
+    'Craft and Structure': 28,
+    'Information and Ideas': 26,
+    'Standard English Conventions': 26,
+    'Expression of Ideas': 20,
+  },
+  Math: {
+    Algebra: 35,
+    'Advanced Math': 32.5,
+    'Problem-Solving and Data Analysis': 20,
+    'Geometry and Trigonometry': 12.5,
+  },
+};
+
+/**
  * Assembles one subject's question set for a given tier (Module 1's fixed
- * mix, or a Module 2 tier), difficulty-weighted per `tier_difficulty_profiles`
- * and mistake-resurfacing-aware per `selectQuestionIds`. Splits `count`
- * across Easy/Medium/Hard by the tier's *_pct weights (rounded, with any
- * rounding remainder added to Medium so the total always matches `count`
- * exactly), then samples each band separately so the resurfacing rule stays
- * scoped to real domain+difficulty buckets rather than blurring difficulty
- * across the whole subject.
+ * mix, or a Module 2 tier): weighted by domain per `DOMAIN_WEIGHTS` (real
+ * official operational shares) and, within each domain, by difficulty per
+ * `tier_difficulty_profiles` (module1 is real/calibrated — see the
+ * `calibrate_module1_difficulty_from_official_data` migration; tier1/tier2
+ * remain uncalibrated placeholders, see CLAUDE.md), mistake-resurfacing-aware
+ * throughout via `selectQuestionIds`. Domain counts are rounded with any
+ * remainder absorbed by the largest-share domain so the total always equals
+ * `count` exactly; each domain's own count is then split across Easy/Medium/
+ * Hard the same way. Sampling stays scoped to real domain+difficulty buckets
+ * (rather than one flat unscoped pull) so the resurfacing rule and the real
+ * bank's shape both stay meaningful per bucket, not blurred across the whole
+ * subject.
  */
 export async function selectTieredQuestionIds(args: {
   subject: SubjectFilter;
@@ -796,36 +850,118 @@ export async function selectTieredQuestionIds(args: {
   const profile = await getTierDifficultyProfile(args.tier);
   // No profile row for this tier (shouldn't happen against the live schema,
   // but don't hard-fail a test start over it) — fall back to an even split.
+  const diffWeights = profile
+    ? { Easy: profile.easy_pct, Medium: profile.medium_pct, Hard: profile.hard_pct }
+    : { Easy: 33, Medium: 34, Hard: 33 };
+
+  const domainWeights = DOMAIN_WEIGHTS[args.subject];
+  const domains = Object.keys(domainWeights);
+  const totalDomainWeight = domains.reduce((sum, d) => sum + domainWeights[d], 0) || 1;
+
+  // Round each domain's share, then hand any drift from rounding to the
+  // largest-share domain so counts always sum to `count` exactly.
+  const rawDomainCounts = domains.map((d) => (domainWeights[d] / totalDomainWeight) * args.count);
+  const roundedDomainCounts = rawDomainCounts.map((n) => Math.round(n));
+  const drift = args.count - roundedDomainCounts.reduce((a, b) => a + b, 0);
+  if (drift !== 0) {
+    const largestIdx = domains.reduce((best, _, i) => (domainWeights[domains[i]] > domainWeights[domains[best]] ? i : best), 0);
+    roundedDomainCounts[largestIdx] += drift;
+  }
+
+  const ids: string[] = [];
+  for (let i = 0; i < domains.length; i++) {
+    const domainCount = roundedDomainCounts[i];
+    if (domainCount <= 0) continue;
+    for (const [difficulty, bandCount] of splitByDifficulty(diffWeights, domainCount)) {
+      if (bandCount <= 0) continue;
+      ids.push(
+        ...(await selectQuestionIds(
+          {
+            subject: args.subject,
+            domains: [domains[i]],
+            difficulty: [difficulty],
+            includeRetired: args.includeRetired ?? true,
+            resurfaceForUserId: args.resurfaceForUserId,
+            mistakeResurfaceDays: args.mistakeResurfaceDays,
+          },
+          bandCount
+        ))
+      );
+    }
+  }
+  return ids;
+}
+
+/**
+ * Same behavior as `selectQuestionIds`, except when the caller hasn't
+ * specified a difficulty filter — in that case, instead of pulling the
+ * unweighted pool (every difficulty equally likely regardless of the real
+ * bank's shape), it splits `count` across Easy/Medium/Hard using the same
+ * `tier_difficulty_profiles.module1` weights Full Test's Module 1 already
+ * uses, so an ad-hoc set "defaults" to the same difficulty ratio a real
+ * test module would rather than an arbitrary flat pull. If the caller *did*
+ * specify a difficulty filter, that explicit choice is respected as-is —
+ * this only fills in a sane default, it never overrides one.
+ */
+export async function selectQuestionIdsDefaultRatio(filters: QuestionFilters, count: number): Promise<string[]> {
+  if (filters.difficulty && filters.difficulty.length > 0) {
+    return selectQuestionIds(filters, count);
+  }
+  const profile = await getTierDifficultyProfile('module1');
   const weights = profile
     ? { Easy: profile.easy_pct, Medium: profile.medium_pct, Hard: profile.hard_pct }
     : { Easy: 33, Medium: 34, Hard: 33 };
   const totalWeight = weights.Easy + weights.Medium + weights.Hard || 1;
 
-  const easyCount = Math.round((weights.Easy / totalWeight) * args.count);
-  const hardCount = Math.round((weights.Hard / totalWeight) * args.count);
-  const mediumCount = Math.max(0, args.count - easyCount - hardCount); // absorbs rounding drift
+  const easyCount = Math.round((weights.Easy / totalWeight) * count);
+  const hardCount = Math.round((weights.Hard / totalWeight) * count);
+  const mediumCount = Math.max(0, count - easyCount - hardCount);
 
-  const bandCounts: [string, number][] = [
+  const ids: string[] = [];
+  for (const [difficulty, bandCount] of [
     ['Easy', easyCount],
     ['Medium', mediumCount],
     ['Hard', hardCount],
-  ];
-
-  const ids: string[] = [];
-  for (const [difficulty, bandCount] of bandCounts) {
+  ] as [string, number][]) {
     if (bandCount <= 0) continue;
-    ids.push(
-      ...(await selectQuestionIds(
-        {
-          subject: args.subject,
-          difficulty: [difficulty],
-          includeRetired: args.includeRetired ?? true,
-          resurfaceForUserId: args.resurfaceForUserId,
-          mistakeResurfaceDays: args.mistakeResurfaceDays,
-        },
-        bandCount
-      ))
-    );
+    ids.push(...(await selectQuestionIds({ ...filters, difficulty: [difficulty] }, bandCount)));
   }
   return ids;
+}
+
+/**
+ * Real official domain sequence within an R&W module — verified against
+ * College Board's own "Assessment Framework for the Digital SAT Suite"
+ * (Table 9, "Reading and Writing Section Question Sequence"; both modules
+ * follow the same order): Craft and Structure -> Information and Ideas ->
+ * Standard English Conventions -> Expression of Ideas. Math has no
+ * equivalent published sequence in that document — Math domains are left in
+ * whatever order they were selected/shuffled in.
+ */
+const RW_DOMAIN_SEQUENCE: Record<string, number> = {
+  'Craft and Structure': 0,
+  'Information and Ideas': 1,
+  'Standard English Conventions': 2,
+  'Expression of Ideas': 3,
+};
+
+/**
+ * Reorders an already-selected id list so any R&W questions in it fall into
+ * the real official domain sequence above, stably preserving the existing
+ * (already-shuffled) relative order within each domain and leaving any
+ * non-R&W (Math) ids exactly where they were. Safe to call on a
+ * Math-only or mixed list — it's a no-op for domains it doesn't recognize.
+ */
+export async function orderByOfficialSequence(ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return ids;
+  const { data, error } = await supabase.from('questions').select('id, domain').in('id', ids);
+  if (error) throw error;
+  const domainById = new Map((data ?? []).map((r) => [r.id, r.domain as string]));
+  // Array.prototype.sort is stable (guaranteed since ES2019), so ties (same
+  // rank, including two non-R&W ids both at -1) keep their original relative
+  // order — this only reshuffles the R&W ids among themselves into sequence.
+  return ids
+    .map((id) => ({ id, rank: RW_DOMAIN_SEQUENCE[domainById.get(id) ?? ''] ?? -1 }))
+    .sort((a, b) => a.rank - b.rank)
+    .map((x) => x.id);
 }

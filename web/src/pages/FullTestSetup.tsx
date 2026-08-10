@@ -6,6 +6,7 @@ import { useAuth } from '../lib/AuthContext';
 import {
   createPracticeSession,
   createSessionModule,
+  orderByOfficialSequence,
   selectTieredQuestionIds,
   MATH_MODULE_QUESTION_COUNT,
   RW_MODULE_QUESTION_COUNT,
@@ -65,13 +66,19 @@ export function FullTestSetup() {
       // Module 2 only), sampled per `tier_difficulty_profiles.module1` via
       // selectTieredQuestionIds, mistake-resurfacing-aware same as the
       // Ad-hoc Builder.
-      const rwM1Ids = await selectTieredQuestionIds({
+      const rwM1IdsRaw = await selectTieredQuestionIds({
         subject: 'Reading and Writing',
         tier: 'module1',
         count: RW_MODULE_QUESTION_COUNT,
         resurfaceForUserId: user.id,
         mistakeResurfaceDays,
       });
+      // Real official domain order within the module (Craft and Structure ->
+      // Information and Ideas -> Standard English Conventions -> Expression
+      // of Ideas), per College Board's Assessment Framework Table 9 — applied
+      // after difficulty-band sampling so the module's real 30/45/25
+      // easy/medium/hard mix is preserved, just resequenced by domain.
+      const rwM1Ids = await orderByOfficialSequence(rwM1IdsRaw);
 
       const session = await createPracticeSession({
         userId: user.id,

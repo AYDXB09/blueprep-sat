@@ -25,9 +25,29 @@
   background: var(--navy);
   color: #fff;
 }
+.ai-icon-mark {
+  width: 18px;
+  height: 18px;
+}
+/* Idle breathe — connected but no request in flight. Slower and subtler
+   than the thinking pulse below so the two states read as distinct. */
+.ai-icon-btn.connected .ai-icon-mark {
+  animation: ai-icon-idle 2.6s ease-in-out infinite;
+}
 .ai-icon-btn.thinking {
-  animation: ai-icon-pulse 1.1s ease-in-out infinite;
   cursor: default;
+}
+.ai-icon-btn.thinking .ai-icon-mark {
+  animation: ai-icon-pulse 1.1s ease-in-out infinite;
+}
+@keyframes ai-icon-idle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
 }
 @keyframes ai-icon-pulse {
   0%,
@@ -36,6 +56,12 @@
   }
   50% {
     opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-icon-btn.connected .ai-icon-mark,
+  .ai-icon-btn.thinking .ai-icon-mark {
+    animation: none;
   }
 }
 

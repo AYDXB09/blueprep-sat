@@ -7,6 +7,7 @@ import { getAiSettings, saveAiKey, disconnectAiKey, type AiSettings } from '../l
 import { testConnection, OpenRouterError } from '../lib/openrouter';
 import { getModels, type CachedModel } from '../lib/aiModels';
 import { AiModelPicker } from '../components/AiModelPicker';
+import { parseAttemptsCsv, importAttempts, type ImportSummary } from '../lib/importAttempts';
 import type { Database } from '../lib/database.types';
 import './Settings.css';
 
@@ -59,6 +60,29 @@ export function Settings() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiTestedOk, setAiTestedOk] = useState(false);
   const [aiReplacing, setAiReplacing] = useState(false);
+
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+
+  const handleImportFile = useCallback(
+    async (file: File) => {
+      if (!user) return;
+      setImportBusy(true);
+      setImportError(null);
+      setImportSummary(null);
+      try {
+        const rows = await parseAttemptsCsv(file);
+        const summary = await importAttempts(rows, user.id);
+        setImportSummary(summary);
+      } catch (e) {
+        setImportError(e instanceof Error ? e.message : 'Import failed.');
+      } finally {
+        setImportBusy(false);
+      }
+    },
+    [user]
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -337,13 +361,37 @@ export function Settings() {
               <option value="dark">Dark</option>
             </select>
           </div>
+        </div>
+
+        <div className="settings-card">
+          <p className="settings-label">Import past attempts</p>
+          <p className="settings-ai-hint">
+            Upload a CSV export of questions you've already attempted elsewhere. Rows are matched against this
+            bank by question ID (or its official source ID) — matched rows are added to your real attempt
+            history; anything that doesn't match is reported, never silently dropped.
+          </p>
           <div className="settings-row">
-            <span className="settings-row-label">Weekly email digest</span>
-            <button
-              className={`settings-switch${settings.weekly_email_digest ? ' on' : ''}`}
-              onClick={() => save({ weekly_email_digest: !settings.weekly_email_digest })}
+            <span className="settings-row-label">CSV file</span>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              disabled={importBusy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportFile(file);
+                e.target.value = '';
+              }}
             />
           </div>
+          {importBusy && <p className="settings-row-label">Importing…</p>}
+          {importError && <p style={{ color: 'var(--red)', fontSize: 12.5 }}>{importError}</p>}
+          {importSummary && (
+            <p className="settings-ai-hint">
+              {importSummary.imported} of {importSummary.totalRows} rows imported
+              {importSummary.unmatched.length > 0 && ` — ${importSummary.unmatched.length} row(s) didn't match a question in this bank`}
+              .
+            </p>
+          )}
         </div>
       </div>
     </AppShell>

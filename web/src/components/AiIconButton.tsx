@@ -60,7 +60,11 @@ export function AiIconButton({
           // 'thinking' — no-op, request already in flight.
         }}
       >
-        <span aria-hidden="true">✦</span>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="ai-icon-mark">
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+          <ellipse cx="12" cy="12" rx="9.2" ry="4.4" stroke="currentColor" strokeWidth="1.5" />
+          <ellipse cx="12" cy="12" rx="9.2" ry="4.4" stroke="currentColor" strokeWidth="1.5" transform="rotate(90 12 12)" />
+        </svg>
       </button>
       <AnchoredPortal anchorRef={wrapRef} active={showLockedPopover} placement={popoverPlacement}>
         <div className="ai-icon-popover" ref={popoverRef}>

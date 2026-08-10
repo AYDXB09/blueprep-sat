@@ -846,7 +846,6 @@ export type Database = {
           timer_mode_default: string
           updated_at: string
           user_id: string
-          weekly_email_digest: boolean
         }
         Insert: {
           explanation_verbosity?: string
@@ -861,7 +860,6 @@ export type Database = {
           timer_mode_default?: string
           updated_at?: string
           user_id: string
-          weekly_email_digest?: boolean
         }
         Update: {
           explanation_verbosity?: string
@@ -876,7 +874,6 @@ export type Database = {
           timer_mode_default?: string
           updated_at?: string
           user_id?: string
-          weekly_email_digest?: boolean
         }
         Relationships: [
           {
@@ -929,7 +926,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals["public"]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -1043,9 +1040,3 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const
