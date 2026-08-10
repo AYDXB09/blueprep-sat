@@ -9,6 +9,7 @@ import {
   type Mistake,
   type SubjectFilter,
 } from '../lib/practiceSessions';
+import { getAllNotesWithContext, type NotedQuestionContext } from '../lib/questionNotes';
 import { fmtDate } from '../lib/format';
 import { setSessionOrigin } from '../lib/sessionOrigin';
 import { ALL_DOMAINS, domainColor } from '../lib/domainColors';
@@ -61,6 +62,10 @@ export function MistakeLog() {
   const [domainFilter, setDomainFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [cuedQuestionIds, setCuedQuestionIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'mistakes' | 'notes'>('mistakes');
+  const [notes, setNotes] = useState<NotedQuestionContext[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [copiedNotes, setCopiedNotes] = useState(false);
   const [domainMenuOpen, setDomainMenuOpen] = useState(false);
   const domainMenuRef = useRef<HTMLDivElement | null>(null);
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
@@ -87,6 +92,30 @@ export function MistakeLog() {
       cancelled = true;
     };
   }, [user]);
+
+  // Every saved note with real context (domain, subject, stem, correct/
+  // incorrect) — NOT scoped to mistakes, so a note on a question the user
+  // got right still shows up here. Backs the note row indicator on the
+  // Mistakes tab and the whole "All my notes" tab.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setNotesLoading(true);
+    getAllNotesWithContext(user.id)
+      .then((n) => {
+        if (!cancelled) setNotes(n);
+      })
+      .catch(() => {
+        if (!cancelled) setNotes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setNotesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+  const notedQuestionIds = useMemo(() => new Set(notes.map((n) => n.questionId)), [notes]);
 
   // Which mistakes have any cues, for the row indicator.
   useEffect(() => {
@@ -137,6 +166,74 @@ export function MistakeLog() {
       return true;
     });
   }, [mistakes, subjectFilter, domainFilter, searchNorm]);
+
+  const notesFiltered = useMemo(() => {
+    return notes.filter((n) => {
+      if (subjectFilter !== 'all' && toSubjectShort(n.subject) !== subjectFilter) return false;
+      if (domainFilter !== 'all' && n.domain !== domainFilter) return false;
+      if (searchNorm) {
+        const idMatch = n.sourceExternalId?.toLowerCase().includes(searchNorm);
+        const stemMatch = n.stemPreview.toLowerCase().includes(searchNorm);
+        const noteMatch = n.note.toLowerCase().includes(searchNorm);
+        if (!idMatch && !stemMatch && !noteMatch) return false;
+      }
+      return true;
+    });
+  }, [notes, subjectFilter, domainFilter, searchNorm]);
+
+  function noteRowLabel(n: NotedQuestionContext): string {
+    return n.sourceExternalId ? `${n.domain} · ${n.sourceExternalId}` : n.domain || n.questionId;
+  }
+
+  const copyNotes = async () => {
+    if (notesFiltered.length === 0) return;
+    const text = notesFiltered
+      .map((n) => {
+        const status = n.lastAttemptCorrect === null ? 'Not yet answered' : n.lastAttemptCorrect ? 'Correct' : 'Incorrect';
+        return `${noteRowLabel(n)} — ${status}\n${n.stemPreview}\n${n.note}`;
+      })
+      .join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedNotes(true);
+      setTimeout(() => setCopiedNotes(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to copy notes.');
+    }
+  };
+
+  function csvField(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  const exportNotesCsv = () => {
+    if (notesFiltered.length === 0) return;
+    const header = ['date', 'subject', 'domain', 'status', 'question_id', 'stem_preview', 'note'];
+    const rows = notesFiltered.map((n) => {
+      const status = n.lastAttemptCorrect === null ? 'Not yet answered' : n.lastAttemptCorrect ? 'Correct' : 'Incorrect';
+      return [
+        n.lastAttemptedAt ? fmtDate(n.lastAttemptedAt) : '',
+        n.subject,
+        n.domain,
+        status,
+        n.sourceExternalId ?? n.questionId,
+        n.stemPreview,
+        n.note,
+      ]
+        .map(csvField)
+        .join(',');
+    });
+    const csv = [header.map(csvField).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'blueprep-notes.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const [startingQuestionId, setStartingQuestionId] = useState<string | null>(null);
 
@@ -203,6 +300,27 @@ export function MistakeLog() {
   return (
     <AppShell title="Mistake Log">
       {error && <p style={{ color: 'var(--red)' }}>{error}</p>}
+
+      <div className="ml-tabs" role="tablist" aria-label="Mistake Log view">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'mistakes'}
+          className={`ml-tab${activeTab === 'mistakes' ? ' active' : ''}`}
+          onClick={() => setActiveTab('mistakes')}
+        >
+          Mistakes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'notes'}
+          className={`ml-tab${activeTab === 'notes' ? ' active' : ''}`}
+          onClick={() => setActiveTab('notes')}
+        >
+          All my notes {notes.length > 0 && `(${notes.length})`}
+        </button>
+      </div>
 
       <div className="ml-filter-bar">
         <div className="ml-seg" role="group" aria-label="Filter by subject">
@@ -281,11 +399,61 @@ export function MistakeLog() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button className="ml-retry-btn" onClick={() => void retryAll()} disabled={filtered.length === 0 || retrying}>
-          {retrying ? 'Starting…' : `Retry all (${filtered.length})`}
-        </button>
+        {activeTab === 'notes' ? (
+          notesFiltered.length > 0 && (
+            <>
+              <button type="button" className="ml-copy-notes-btn" onClick={() => void copyNotes()}>
+                {copiedNotes ? 'Copied!' : `Copy (${notesFiltered.length})`}
+              </button>
+              <button type="button" className="ml-export-csv-btn" onClick={exportNotesCsv}>
+                Export CSV
+              </button>
+            </>
+          )
+        ) : (
+          <button className="ml-retry-btn" onClick={() => void retryAll()} disabled={filtered.length === 0 || retrying}>
+            {retrying ? 'Starting…' : `Retry all (${filtered.length})`}
+          </button>
+        )}
       </div>
 
+      {activeTab === 'notes' ? (
+        <div className="ml-card">
+          <p className="ml-label">Noted questions</p>
+          {notesLoading ? (
+            <p className="ml-empty">Loading…</p>
+          ) : notes.length === 0 ? (
+            <p className="ml-empty">No notes saved yet — add one from any question in the Practice Player.</p>
+          ) : notesFiltered.length === 0 ? (
+            <p className="ml-empty">No notes match these filters.</p>
+          ) : (
+            <div className="ml-note-list">
+              {notesFiltered.map((n) => {
+                const color = domainColor(n.domain);
+                const status = n.lastAttemptCorrect === null ? 'unanswered' : n.lastAttemptCorrect ? 'correct' : 'incorrect';
+                const statusLabel = status === 'unanswered' ? 'Not yet answered' : status === 'correct' ? 'Correct' : 'Incorrect';
+                return (
+                  <div key={n.questionId} className="ml-note-row">
+                    <div className="ml-note-row-head">
+                      <span className={`ml-note-status ${status}`}>{statusLabel}</span>
+                      <span
+                        className="ml-row-domain-chip"
+                        style={{ background: color.bg, color: color.text, borderColor: color.border }}
+                      >
+                        {n.domain}
+                      </span>
+                      {n.sourceExternalId && <span className="ml-row-cbid mono"> {n.sourceExternalId}</span>}
+                      <span className="ml-note-date">{n.lastAttemptedAt ? fmtDate(n.lastAttemptedAt) : fmtDate(n.updatedAt)}</span>
+                    </div>
+                    <p className="ml-note-stem">{n.stemPreview}</p>
+                    <p className="ml-note-body">{n.note}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="ml-card">
         <p className="ml-label">Mistake rows</p>
         {loading ? (
@@ -316,6 +484,7 @@ export function MistakeLog() {
                         </span>
                         {m.sourceExternalId && <span className="ml-row-cbid mono"> · {m.sourceExternalId}</span>}
                         {cuedQuestionIds.has(m.questionId) && <span title="Has trap/cue analysis"> 💡</span>}
+                        {notedQuestionIds.has(m.questionId) && <span title="Has your notes"> 📝</span>}
                       </span>
                       <span className="ml-row-stem">{m.stemPreview}</span>
                     </div>
@@ -367,6 +536,7 @@ export function MistakeLog() {
           </div>
         )}
       </div>
+      )}
     </AppShell>
   );
 }

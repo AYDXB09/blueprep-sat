@@ -5,6 +5,7 @@ import { useAuth } from '../lib/AuthContext';
 import { getAllAttemptsForUser, getRecentSessions, type AttemptWithQuestion } from '../lib/practiceSessions';
 import { fmtDate } from '../lib/format';
 import { domainColor } from '../lib/domainColors';
+import { SkillMap } from '../components/SkillMap';
 import type { Database } from '../lib/database.types';
 import './Progress.css';
 
@@ -268,6 +269,8 @@ export function Progress() {
           )}
         </div>
       </div>
+
+      {!loading && attempts && <SkillMap attempts={attempts} />}
 
       <div className="prog-card">
         <p className="prog-label">Full session history</p>

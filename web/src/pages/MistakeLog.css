@@ -1,3 +1,26 @@
+.ml-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.ml-tab {
+  padding: 8px 4px 10px;
+  margin-right: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.ml-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--navy);
+}
+
 .ml-filter-bar {
   display: flex;
   gap: 8px;
@@ -120,6 +143,82 @@
   color: var(--ink);
   font-size: 12.5px;
   min-width: 200px;
+}
+.ml-copy-notes-btn {
+  margin-left: auto;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ml-export-csv-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ml-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ml-note-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.ml-note-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.ml-note-status {
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.ml-note-status.correct {
+  background: var(--green-wash, #e3f6ea);
+  color: var(--green, #1a7f45);
+}
+.ml-note-status.incorrect {
+  background: var(--red-wash, #fbe7e7);
+  color: var(--red);
+}
+.ml-note-status.unanswered {
+  background: var(--bg);
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+}
+.ml-note-date {
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-left: auto;
+}
+.ml-note-stem {
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.ml-note-body {
+  font-size: 13.5px;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 .ml-retry-btn {
   margin-left: auto;

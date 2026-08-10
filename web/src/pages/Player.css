@@ -585,6 +585,54 @@ mark.cue-assumption {
   color: var(--ink);
 }
 
+.note-panel {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--panel);
+}
+.note-textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.note-textarea:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+.note-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.note-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.note-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  flex: 1;
+}
+.note-edit-btn {
+  flex-shrink: 0;
+}
+
 .cue-panel {
   margin-top: 22px;
   border: 1px solid var(--line);

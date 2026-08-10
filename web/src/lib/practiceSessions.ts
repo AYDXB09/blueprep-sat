@@ -303,18 +303,19 @@ export async function getRecentSessions(userId: string, limit: number): Promise<
 }
 
 export interface AttemptWithQuestion extends QuestionAttemptRow {
-  questions: Pick<QuestionRow, 'subject' | 'domain' | 'domain_code' | 'skill' | 'skill_code' | 'stem_markup'> | null;
+  questions: Pick<QuestionRow, 'subject' | 'domain' | 'domain_code' | 'skill' | 'skill_code' | 'stem_markup' | 'difficulty'> | null;
 }
 
 /**
  * Every question_attempts row for this user across all sessions, joined to
- * the question's subject/domain for accuracy aggregation. Ordered
- * oldest-first so callers can compute streaks/trends by walking forward.
+ * the question's subject/domain/skill/difficulty for accuracy aggregation
+ * (Progress's charts, the Skill map radars). Ordered oldest-first so callers
+ * can compute streaks/trends by walking forward.
  */
 export async function getAllAttemptsForUser(userId: string): Promise<AttemptWithQuestion[]> {
   const { data, error } = await supabase
     .from('question_attempts')
-    .select('*, questions(subject, domain, domain_code, skill, skill_code, stem_markup)')
+    .select('*, questions(subject, domain, domain_code, skill, skill_code, stem_markup, difficulty)')
     .eq('user_id', userId)
     .not('submitted_at', 'is', null)
     .order('submitted_at', { ascending: true });

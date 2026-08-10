@@ -1,0 +1,130 @@
+.skillmap-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.skillmap-toggle-caret {
+  transition: transform 0.15s ease;
+}
+.skillmap-toggle-caret.open {
+  transform: rotate(180deg);
+}
+
+.skillmap-body {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skillmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.skillmap-radar-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+.skillmap-radar-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.skillmap-bar-hint {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  margin: 0 0 10px;
+}
+
+.skillmap-section-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-dim);
+  margin: 4px 0 -4px;
+}
+
+.skillmap-two-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skillmap-bar-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.skillmap-bar-label {
+  font-size: 12px;
+  color: var(--ink);
+}
+.skillmap-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.skillmap-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+.skillmap-bar-pct {
+  font-size: 12px;
+  color: var(--ink-dim);
+  text-align: right;
+}
+
+.skillmap-rank-table {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+.skillmap-rank-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.skillmap-rank-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  border-top: 1px solid var(--line);
+}
+.skillmap-rank-row:first-of-type {
+  border-top: none;
+}
+.skillmap-rank-label {
+  color: var(--ink);
+}
+.skillmap-rank-pct.good {
+  color: var(--green, #1f8a5c);
+}
+.skillmap-rank-pct.bad {
+  color: var(--red);
+}
+
+.skillmap-actions {
+  display: flex;
+  gap: 8px;
+}
