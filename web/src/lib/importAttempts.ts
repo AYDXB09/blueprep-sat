@@ -61,11 +61,22 @@ export function parseAttemptsCsv(file: File): Promise<Record<string, string>[]> 
 
 /**
  * Resolves each row to a real question, then writes one question_attempts
- * row per matched row with `session_id: null` (real column, nullable) — an
- * imported attempt was never part of a BluePrep session and shouldn't
- * pretend to be one. `attempt_number` continues from whatever this user's
- * highest existing attempt number is for that question, so importing never
- * collides with attempts already on record.
+ * row per matched row, grouped into one real `practice_sessions` row per
+ * calendar day of `submitted_at` (mode: 'imported'). A first pass of this
+ * left `session_id: null` on the theory that an imported attempt was never
+ * part of a real BluePrep session and shouldn't pretend to be one — that
+ * was wrong in practice: `getMistakes()` requires a real `session_id`
+ * (`!row.session_id` skips the row), and Progress's Full Session History /
+ * Dashboard's streak and recent-sessions all read `practice_sessions`
+ * directly, so a null-session import was completely invisible everywhere
+ * except a raw DB query (confirmed live, 2026-08-10 — 294 real imported
+ * rows, zero mistakes/sessions/streak credit anywhere in the app).
+ * Day-grouping (not one giant session) mirrors how the source data actually
+ * clusters and keeps each session's size honest, matching the identical
+ * backfill this fix's own migration applied to the first import batch.
+ * `attempt_number` continues from whatever this user's highest existing
+ * attempt number is for that question, so importing never collides with
+ * attempts already on record.
  */
 export async function importAttempts(rows: Record<string, string>[], userId: string): Promise<ImportSummary> {
   const summary: ImportSummary = { totalRows: rows.length, matched: 0, imported: 0, unmatched: [], malformed: [] };
@@ -142,7 +153,8 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
     });
   }
 
-  const inserts: QuestionAttemptInsert[] = resolvedRows.map(({ row, questionId, responseType }) => {
+  type ResolvedInsert = { insert: Omit<QuestionAttemptInsert, 'session_id'>; submittedAtMs: number; isCorrect: boolean };
+  const resolvedInserts: ResolvedInsert[] = resolvedRows.map(({ row, questionId, responseType }) => {
     const attemptNumber = nextAttemptNumber.get(questionId) ?? 1;
     nextAttemptNumber.set(questionId, attemptNumber + 1);
 
@@ -155,23 +167,78 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
     const submittedAt = row.updatedAt || new Date().toISOString();
 
     return {
-      user_id: userId,
-      question_id: questionId,
-      session_id: null,
-      attempt_number: attemptNumber,
-      selected_choice_id: selectedChoiceId,
-      entered_value: enteredValue,
-      is_correct: isCorrect,
-      time_taken_seconds: timeTakenSeconds,
-      started_at: submittedAt,
-      submitted_at: submittedAt,
+      submittedAtMs: new Date(submittedAt).getTime(),
+      isCorrect,
+      insert: {
+        user_id: userId,
+        question_id: questionId,
+        attempt_number: attemptNumber,
+        selected_choice_id: selectedChoiceId,
+        entered_value: enteredValue,
+        is_correct: isCorrect,
+        time_taken_seconds: timeTakenSeconds,
+        started_at: submittedAt,
+        submitted_at: submittedAt,
+      },
     };
   });
 
+  // Gap-based grouping, not a flat calendar day: a real sitting is a run of
+  // attempts close together in time. Sorted by timestamp, a new session
+  // starts wherever the gap to the previous attempt exceeds 45 minutes —
+  // matches the same logic the backfill migration used for the first
+  // import batch (2026-08-10), so both produce comparably-sized sessions
+  // instead of one inflated day-long block.
+  const SESSION_GAP_MS = 45 * 60 * 1000;
+  const sorted = [...resolvedInserts].sort((a, b) => a.submittedAtMs - b.submittedAtMs);
+  const groups: ResolvedInsert[][] = [];
+  for (const r of sorted) {
+    const current = groups[groups.length - 1];
+    if (!current || r.submittedAtMs - current[current.length - 1].submittedAtMs > SESSION_GAP_MS) {
+      groups.push([r]);
+    } else {
+      current.push(r);
+    }
+  }
+
+  const finalInserts: QuestionAttemptInsert[] = [];
+  for (const group of groups) {
+    const questionIdsOrdered = group.map((r) => r.insert.question_id);
+    const correctCount = group.filter((r) => r.isCorrect).length;
+    const startedAt = new Date(group[0].submittedAtMs).toISOString();
+    const completedAt = new Date(group[group.length - 1].submittedAtMs).toISOString();
+    const { data: session, error: sessionErr } = await supabase
+      .from('practice_sessions')
+      .insert({
+        user_id: userId,
+        mode: 'imported',
+        question_ids: questionIdsOrdered,
+        requested_count: group.length,
+        actual_count: group.length,
+        timer_mode: 'none',
+        timer_basis: 'none',
+        feedback_mode: 'immediate',
+        include_retired: true,
+        started_at: startedAt,
+        completed_at: completedAt,
+        score_summary: {
+          total: group.length,
+          correct: correctCount,
+          answered: group.length,
+          pct: Math.round((correctCount / group.length) * 100),
+        },
+      })
+      .select('id')
+      .single();
+    if (sessionErr) throw sessionErr;
+
+    group.forEach((r) => finalInserts.push({ ...r.insert, session_id: session.id }));
+  }
+
   // Batched so one giant CSV doesn't hit a single request's size limit.
   const BATCH = 200;
-  for (let i = 0; i < inserts.length; i += BATCH) {
-    const batch = inserts.slice(i, i + BATCH);
+  for (let i = 0; i < finalInserts.length; i += BATCH) {
+    const batch = finalInserts.slice(i, i + BATCH);
     const { error } = await supabase.from('question_attempts').insert(batch);
     if (error) throw error;
     summary.imported += batch.length;
