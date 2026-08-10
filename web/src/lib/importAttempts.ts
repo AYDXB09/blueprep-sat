@@ -19,7 +19,32 @@ export interface ImportSummary {
   matched: number;
   imported: number;
   unmatched: { row: number; id?: string; code?: string }[];
+  /** Rows where `correct`/`type` held a value outside the schema's real
+   * enum (yes/no, mcq/spr) — a real signature of column-shifted CSV rows
+   * (see `chunk`'s doc comment: a 322-row real export had 28 rows where an
+   * unescaped comma inside an HTML/JSON field shifted every column after
+   * it). These are never imported with guessed/wrong data — reported here
+   * instead, distinct from a row that simply didn't match any question. */
+  malformed: { row: number; id?: string }[];
 }
+
+const VALID_CORRECT = new Set(['yes', 'no']);
+const VALID_RESPONSE_TYPES = new Set(['mcq', 'spr']);
+
+/** Splits an array into fixed-size chunks — used to keep every `.in()`
+ * lookup below a size that's safe to pack into a GET request's query
+ * string. A real 322-row import failed outright with no more detail than
+ * "Import failed" until this was traced to exactly this: one `.in('id', …)`
+ * call with 322 UUIDs (~12KB of query string) tripped a URL-length limit
+ * somewhere in the request path. 100 per chunk keeps every request small
+ * regardless of how large a real export gets. */
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+const LOOKUP_CHUNK_SIZE = 100;
 
 /** Parses the uploaded file into raw string-keyed rows — header names come
  * straight from the CSV, not normalized yet. */
@@ -43,30 +68,44 @@ export function parseAttemptsCsv(file: File): Promise<Record<string, string>[]> 
  * collides with attempts already on record.
  */
 export async function importAttempts(rows: Record<string, string>[], userId: string): Promise<ImportSummary> {
-  const summary: ImportSummary = { totalRows: rows.length, matched: 0, imported: 0, unmatched: [] };
+  const summary: ImportSummary = { totalRows: rows.length, matched: 0, imported: 0, unmatched: [], malformed: [] };
   if (rows.length === 0) return summary;
 
   const uuids = [...new Set(rows.map((r) => r.id).filter(Boolean))];
   const codes = [...new Set(rows.map((r) => r.code || r.questionId).filter(Boolean))];
 
-  const [uuidRes, codeRes] = await Promise.all([
-    uuids.length
-      ? supabase.from('questions').select('id, source_external_id, response_type').in('id', uuids)
-      : Promise.resolve({ data: [], error: null }),
-    codes.length
-      ? supabase.from('questions').select('id, source_external_id, response_type').in('source_external_id', codes)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (uuidRes.error) throw uuidRes.error;
-  if (codeRes.error) throw codeRes.error;
+  const questionById = new Map<string, { id: string; source_external_id: string | null; response_type: string }>();
+  const questionByCode = new Map<string, { id: string; source_external_id: string | null; response_type: string }>();
 
-  const questionById = new Map((uuidRes.data ?? []).map((q) => [q.id, q]));
-  const questionByCode = new Map((codeRes.data ?? []).map((q) => [q.source_external_id, q]));
+  for (const idChunk of chunk(uuids, LOOKUP_CHUNK_SIZE)) {
+    const { data, error } = await supabase.from('questions').select('id, source_external_id, response_type').in('id', idChunk);
+    if (error) throw error;
+    (data ?? []).forEach((q) => questionById.set(q.id, q));
+  }
+  for (const codeChunk of chunk(codes, LOOKUP_CHUNK_SIZE)) {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('id, source_external_id, response_type')
+      .in('source_external_id', codeChunk);
+    if (error) throw error;
+    (data ?? []).forEach((q) => questionByCode.set(q.source_external_id ?? '', q));
+  }
 
   const matchedQuestionIds = new Set<string>();
   const resolvedRows: { row: Record<string, string>; questionId: string; responseType: string }[] = [];
 
   rows.forEach((row, i) => {
+    // Column-shift guard: a row whose `correct`/`type` fell outside the
+    // real schema values almost certainly had its columns shifted by a
+    // CSV-quoting issue upstream (see ImportSummary.malformed) — skip it
+    // rather than import a guess dressed up as real history.
+    const correctVal = (row.correct || '').trim().toLowerCase();
+    const typeVal = (row.type || '').trim().toLowerCase();
+    if ((row.correct && !VALID_CORRECT.has(correctVal)) || (row.type && !VALID_RESPONSE_TYPES.has(typeVal))) {
+      summary.malformed.push({ row: i + 1, id: row.id || undefined });
+      return;
+    }
+
     const byId = row.id ? questionById.get(row.id) : undefined;
     const byCode = !byId ? questionByCode.get(row.code || row.questionId || '') : undefined;
     const match = byId ?? byCode;
@@ -81,25 +120,27 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
 
   if (resolvedRows.length === 0) return summary;
 
-  const [{ data: choiceRows, error: choiceErr }, { data: existing, error: existErr }] = await Promise.all([
-    supabase.from('choices').select('id, question_id, label').in('question_id', [...matchedQuestionIds]),
-    supabase
+  const matchedIdsArr = [...matchedQuestionIds];
+  const choiceByQuestionLabel = new Map<string, string>();
+  const nextAttemptNumber = new Map<string, number>();
+
+  for (const idChunk of chunk(matchedIdsArr, LOOKUP_CHUNK_SIZE)) {
+    const { data, error } = await supabase.from('choices').select('id, question_id, label').in('question_id', idChunk);
+    if (error) throw error;
+    (data ?? []).forEach((c) => choiceByQuestionLabel.set(`${c.question_id}:${c.label}`, c.id));
+  }
+  for (const idChunk of chunk(matchedIdsArr, LOOKUP_CHUNK_SIZE)) {
+    const { data, error } = await supabase
       .from('question_attempts')
       .select('question_id, attempt_number')
       .eq('user_id', userId)
-      .in('question_id', [...matchedQuestionIds]),
-  ]);
-  if (choiceErr) throw choiceErr;
-  if (existErr) throw existErr;
-
-  const choiceByQuestionLabel = new Map<string, string>();
-  (choiceRows ?? []).forEach((c) => choiceByQuestionLabel.set(`${c.question_id}:${c.label}`, c.id));
-
-  const nextAttemptNumber = new Map<string, number>();
-  (existing ?? []).forEach((a) => {
-    const cur = nextAttemptNumber.get(a.question_id) ?? 1;
-    nextAttemptNumber.set(a.question_id, Math.max(cur, a.attempt_number + 1));
-  });
+      .in('question_id', idChunk);
+    if (error) throw error;
+    (data ?? []).forEach((a) => {
+      const cur = nextAttemptNumber.get(a.question_id) ?? 1;
+      nextAttemptNumber.set(a.question_id, Math.max(cur, a.attempt_number + 1));
+    });
+  }
 
   const inserts: QuestionAttemptInsert[] = resolvedRows.map(({ row, questionId, responseType }) => {
     const attemptNumber = nextAttemptNumber.get(questionId) ?? 1;

@@ -76,7 +76,18 @@ export function Settings() {
         const summary = await importAttempts(rows, user.id);
         setImportSummary(summary);
       } catch (e) {
-        setImportError(e instanceof Error ? e.message : 'Import failed.');
+        // Supabase client errors (PostgrestError, StorageError, etc.) are
+        // plain objects with a `.message`, not real Error instances — an
+        // `e instanceof Error` check alone silently swallows their real
+        // message and falls through to the generic fallback every time.
+        const message =
+          e instanceof Error
+            ? e.message
+            : e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+              ? (e as { message: string }).message
+              : 'Import failed.';
+        setImportError(message);
+        console.error('CSV import failed:', e);
       } finally {
         setImportBusy(false);
       }
@@ -389,6 +400,8 @@ export function Settings() {
             <p className="settings-ai-hint">
               {importSummary.imported} of {importSummary.totalRows} rows imported
               {importSummary.unmatched.length > 0 && ` — ${importSummary.unmatched.length} row(s) didn't match a question in this bank`}
+              {importSummary.malformed.length > 0 &&
+                ` — ${importSummary.malformed.length} row(s) skipped (columns looked shifted in the source CSV, so we didn't guess)`}
               .
             </p>
           )}
