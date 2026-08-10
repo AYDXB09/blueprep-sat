@@ -471,6 +471,42 @@ export type Database = {
           },
         ]
       }
+      question_notes: {
+        Row: {
+          note: string
+          question_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          note: string
+          question_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          note?: string
+          question_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_notes_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_sources: {
         Row: {
           code: string

@@ -24,6 +24,7 @@ import {
   type SessionModuleRow,
 } from '../lib/practiceSessions';
 import { getOrCreateUserSettings } from '../lib/userSettings';
+import { getNote, saveNote } from '../lib/questionNotes';
 import { getSessionOrigin } from '../lib/sessionOrigin';
 import type { Database } from '../lib/database.types';
 
@@ -325,6 +326,54 @@ export function Player() {
       cancelled = true;
     };
   }, [questionId]);
+
+  // ---------------- per-question personal notes ----------------
+  // One note per (user, question), independent of session/attempt — see
+  // questionNotes.ts. `note === null` means none saved yet ("Add my notes");
+  // a real string (even "") mid-edit is the draft in the open editor.
+  const [note, setNote] = useState<string | null>(null);
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  useEffect(() => {
+    setNote(null);
+    setNoteEditing(false);
+    setNoteDraft('');
+    if (!questionId || !user) return;
+    let cancelled = false;
+    getNote(user.id, questionId)
+      .then((value) => {
+        if (!cancelled) setNote(value);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) console.warn('getNote failed:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [questionId, user]);
+
+  const openNoteEditor = useCallback(() => {
+    setNoteDraft(note ?? '');
+    setNoteEditing(true);
+  }, [note]);
+
+  const cancelNoteEditor = useCallback(() => setNoteEditing(false), []);
+
+  const submitNote = useCallback(async () => {
+    if (!user || !questionId) return;
+    setNoteSaving(true);
+    try {
+      await saveNote(user.id, questionId, noteDraft);
+      setNote(noteDraft.trim() || null);
+      setNoteEditing(false);
+    } catch (err) {
+      console.warn('saveNote failed:', err);
+    } finally {
+      setNoteSaving(false);
+    }
+  }, [user, questionId, noteDraft]);
 
   // Fetch once per session load — which of its questions have any cues,
   // for the nav grid's indicator.
@@ -1384,6 +1433,37 @@ export function Player() {
                       rationale), not user input — rationaleHtml only adds bold/
                       upsize spans around "Choice X" mentions, see above. */}
                   <div className="rationale-body" dangerouslySetInnerHTML={{ __html: rationaleHtml }} />
+                </div>
+              )}
+
+              {canRevealFeedback && (
+                <div className="note-panel">
+                  {noteEditing ? (
+                    <>
+                      <textarea
+                        className="note-textarea"
+                        value={noteDraft}
+                        onChange={(e) => setNoteDraft(e.target.value)}
+                        placeholder="Explain in your own words why this answer is right or why you got it wrong."
+                        autoFocus
+                      />
+                      <div className="note-actions">
+                        <button className="btn ghost" onClick={cancelNoteEditor} disabled={noteSaving}>
+                          Cancel
+                        </button>
+                        <button className="btn primary" style={{ margin: 0 }} onClick={() => void submitNote()} disabled={noteSaving}>
+                          {noteSaving ? 'Saving…' : 'Save notes'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="note-summary">
+                      {note && <span className="note-text">{note}</span>}
+                      <button className="btn ghost note-edit-btn" onClick={openNoteEditor}>
+                        {note ? 'Edit my notes' : 'Add my notes'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
