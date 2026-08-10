@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 import type { AttemptWithQuestion } from '../lib/practiceSessions';
 import {
   overallSkillAccuracy,
@@ -47,18 +47,21 @@ function RadarCard({
   id?: string;
   flash?: boolean;
 }) {
+  // Recharts' radar Tooltip only tracks continuous mouse hover — on a click
+  // or tap it freezes at whichever axis was last under the pointer instead
+  // of updating per-dimension, so it's not a reliable way to read every
+  // axis's value (confirmed: it visibly failed to refresh across clicks).
+  // Put the percentage directly in the axis label instead — every dimension
+  // is readable at a glance, no hover/tap required.
+  const axisData = data.map((d) => ({ ...d, axisLabel: `${d.label} — ${d.pct}%` }));
   return (
     <div id={id} className={`skillmap-radar-card${flash ? ' skillmap-flash' : ''}`}>
       <p className="skillmap-radar-title">{title}</p>
-      <ResponsiveContainer width="100%" height={220}>
-        <RadarChart data={data} outerRadius="72%">
+      <ResponsiveContainer width="100%" height={240}>
+        <RadarChart data={axisData} outerRadius="66%">
           <PolarGrid stroke="var(--line)" />
-          <PolarAngleAxis dataKey="label" tick={{ fill: 'var(--ink-dim)', fontSize: 10.5 }} />
+          <PolarAngleAxis dataKey="axisLabel" tick={{ fill: 'var(--ink-dim)', fontSize: 10.5 }} />
           <Radar dataKey="pct" stroke={color} fill={color} fillOpacity={0.28} strokeWidth={2} />
-          <Tooltip
-            formatter={((value: number) => [`${value}%`, 'Accuracy']) as never}
-            contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12 }}
-          />
         </RadarChart>
       </ResponsiveContainer>
     </div>
