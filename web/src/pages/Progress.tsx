@@ -130,6 +130,13 @@ export function Progress() {
   const [sessions, setSessions] = useState<PracticeSessionRow[] | null>(null);
   const [attempts, setAttempts] = useState<AttemptWithQuestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Clicking a domain row in "Accuracy by domain" jumps to that domain's
+  // radar in the Skill map section below (expanding it + scrolling into
+  // view) instead of starting a new practice session — the row is showing
+  // you data, not a shortcut to practice, and the Ad-hoc Builder already
+  // covers domain-scoped practice. `token` forces the effect to re-fire even
+  // when the same domain is clicked twice in a row.
+  const [focusDomain, setFocusDomain] = useState<{ domain: string; token: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -212,12 +219,8 @@ export function Progress() {
                     <button
                       key={d.label}
                       className="prog-domain-row"
-                      onClick={() =>
-                        navigate('/practice/new', {
-                          state: { presetSubject: d.subject, presetDomainLabel: d.label },
-                        })
-                      }
-                      title="Practice this domain"
+                      onClick={() => setFocusDomain({ domain: d.label, token: Date.now() })}
+                      title="See this domain's skill breakdown"
                     >
                       <span className="prog-domain-dot" style={{ background: color.border }} />
                       <span className="prog-domain-label">{d.label}</span>
@@ -231,7 +234,7 @@ export function Progress() {
               </div>
               {weakest && (
                 <p className="prog-hint">
-                  Weakest: {weakest.label} ({weakest.pct}%) — click any row to practice it.
+                  Weakest: {weakest.label} ({weakest.pct}%) — click any row to see its skill breakdown below.
                 </p>
               )}
             </>
@@ -270,7 +273,7 @@ export function Progress() {
         </div>
       </div>
 
-      {!loading && attempts && <SkillMap attempts={attempts} />}
+      {!loading && attempts && <SkillMap attempts={attempts} focusDomain={focusDomain} />}
 
       <div className="prog-card">
         <p className="prog-label">Full session history</p>

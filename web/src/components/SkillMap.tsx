@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import type { AttemptWithQuestion } from '../lib/practiceSessions';
 import {
@@ -23,11 +23,32 @@ import './SkillMap.css';
 // Standard English Conventions (2 real skills each — structural, not a data
 // gap) render as a simple 2-bar comparison instead, since a radar needs 3+
 // axes to be a real polygon.
+//
+// `focusDomain` (set by clicking a row in "Accuracy by domain" above) opens
+// this section and scrolls/flashes the matching domain card — replaces the
+// old behavior of that click starting a brand-new practice session, which
+// wasn't what a click on a DATA row should do.
 // ---------------------------------------------------------------------------
 
-function RadarCard({ title, data, color }: { title: string; data: { label: string; pct: number }[]; color: string }) {
+function domainCardId(domain: string): string {
+  return `skillmap-domain-${domain.replace(/\s+/g, '-').toLowerCase()}`;
+}
+
+function RadarCard({
+  title,
+  data,
+  color,
+  id,
+  flash,
+}: {
+  title: string;
+  data: { label: string; pct: number }[];
+  color: string;
+  id?: string;
+  flash?: boolean;
+}) {
   return (
-    <div className="skillmap-radar-card">
+    <div id={id} className={`skillmap-radar-card${flash ? ' skillmap-flash' : ''}`}>
       <p className="skillmap-radar-title">{title}</p>
       <ResponsiveContainer width="100%" height={220}>
         <RadarChart data={data} outerRadius="72%">
@@ -44,11 +65,21 @@ function RadarCard({ title, data, color }: { title: string; data: { label: strin
   );
 }
 
-function TwoBarCard({ domain, attempts }: { domain: string; attempts: AttemptWithQuestion[] }) {
+function TwoBarCard({
+  domain,
+  attempts,
+  id,
+  flash,
+}: {
+  domain: string;
+  attempts: AttemptWithQuestion[];
+  id?: string;
+  flash?: boolean;
+}) {
   const skills = skillAccuracyForDomain(attempts, domain);
   const color = domainColor(domain);
   return (
-    <div className="skillmap-radar-card">
+    <div id={id} className={`skillmap-radar-card${flash ? ' skillmap-flash' : ''}`}>
       <p className="skillmap-radar-title">{domain}</p>
       <p className="skillmap-bar-hint">Only 2 real skills in this domain — too few axes for a radar.</p>
       <div className="skillmap-two-bar">
@@ -86,11 +117,40 @@ function RankTable({ title, rows, good }: { title: string; rows: { key: string; 
   );
 }
 
-export function SkillMap({ attempts }: { attempts: AttemptWithQuestion[] }) {
+export interface FocusDomain {
+  domain: string;
+  token: number;
+}
+
+export function SkillMap({ attempts, focusDomain }: { attempts: AttemptWithQuestion[]; focusDomain?: FocusDomain | null }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [flashedDomain, setFlashedDomain] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
 
   const scoredCount = attempts.filter((a) => a.is_correct !== null).length;
+
+  // A row click in "Accuracy by domain" opens this section (if collapsed)
+  // and scrolls/flashes the matching card — runs whenever focusDomain's
+  // token changes, even if the same domain is clicked twice in a row.
+  useEffect(() => {
+    if (!focusDomain) return;
+    setOpen(true);
+    setFlashedDomain(focusDomain.domain);
+    const id = domainCardId(focusDomain.domain);
+    // Wait a frame for the (possibly newly-opened) section to render before
+    // scrolling to an element that may not have existed yet.
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const clear = setTimeout(() => setFlashedDomain(null), 1800);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(clear);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusDomain?.token]);
+
   if (scoredCount === 0) return null;
 
   const overall = overallSkillAccuracy(attempts);
@@ -113,14 +173,17 @@ export function SkillMap({ attempts }: { attempts: AttemptWithQuestion[] }) {
   return (
     <div className="prog-card">
       <button type="button" className="skillmap-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span>Skill map</span>
+        <span className="skillmap-toggle-text">
+          <span className="skillmap-toggle-title">Skill map</span>
+          <span className="skillmap-toggle-subtitle">Radar charts by domain and skill, rankings, and exports</span>
+        </span>
         <span className={`skillmap-toggle-caret${open ? ' open' : ''}`} aria-hidden="true">
           ▾
         </span>
       </button>
 
       {open && (
-        <div className="skillmap-body">
+        <div className="skillmap-body" ref={bodyRef}>
           <RadarCard title="Overall skill map" data={overall} color="var(--navy)" />
 
           <div className="skillmap-grid">
@@ -133,13 +196,21 @@ export function SkillMap({ attempts }: { attempts: AttemptWithQuestion[] }) {
             {RADAR_ELIGIBLE_DOMAINS.map((domain) => (
               <RadarCard
                 key={domain}
+                id={domainCardId(domain)}
                 title={domain}
                 data={skillAccuracyForDomain(attempts, domain)}
                 color={domainColor(domain).border}
+                flash={flashedDomain === domain}
               />
             ))}
             {BAR_ONLY_DOMAINS.map((domain) => (
-              <TwoBarCard key={domain} domain={domain} attempts={attempts} />
+              <TwoBarCard
+                key={domain}
+                id={domainCardId(domain)}
+                domain={domain}
+                attempts={attempts}
+                flash={flashedDomain === domain}
+              />
             ))}
           </div>
 
