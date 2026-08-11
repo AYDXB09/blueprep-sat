@@ -573,6 +573,20 @@ mark.user-hl-u-dotted {
   text-decoration-thickness: 2px;
 }
 
+/* Placeholder for a selection captured while the popover is open but not
+   yet turned into a real highlight — the browser's native selection paint
+   disappears the moment focus moves to a popover control, so this dashed
+   outline is what keeps the intended text visible while picking a color
+   and/or underline style. Neutral (not one of the 3 real highlighter
+   colors) so it never gets confused for a saved highlight. */
+mark.user-hl-pending {
+  background: transparent;
+  outline: 2px dashed var(--ink-dim);
+  outline-offset: 1px;
+  border-radius: 2px;
+  color: inherit;
+}
+
 .hl-popover {
   position: absolute;
   display: none;

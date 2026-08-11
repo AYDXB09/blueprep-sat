@@ -229,12 +229,50 @@ function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean 
  * exactly, which doesn't happen in practice (cues and highlights are drawn
  * independently by different parties over different substrings).
  */
-function withAllMarks(html: string, cues: CueWithCategory[], highlights: HighlightMark[]): string {
-  if (!html || (cues.length === 0 && highlights.length === 0)) return html;
+interface PendingHighlight {
+  scope: HighlightMark['scope'];
+  anchorText: string;
+  occurrence: number;
+}
+
+function withAllMarks(
+  html: string,
+  cues: CueWithCategory[],
+  highlights: HighlightMark[],
+  pending?: PendingHighlight | null,
+  pendingUnderline?: HighlightMark['underline'],
+): string {
+  if (!html || (cues.length === 0 && highlights.length === 0 && !pending)) return html;
   const container = document.createElement('div');
   container.innerHTML = html;
   for (const cue of cues) applyCueHighlight(container, cue);
   for (const hl of highlights) applyUserHighlight(container, hl);
+  // A visible placeholder for a selection that's been captured (popover is
+  // open) but not yet turned into a real HighlightMark — without this the
+  // browser's own native blue selection is the only cue for what's about to
+  // be highlighted, and it silently disappears the instant the user's mouse
+  // leaves the text to click a color swatch or the underline select (browser
+  // default: mousedown elsewhere collapses the current selection). Reported
+  // live, 2026-08-11: "I don't know what words did I previously intend to
+  // highlight." This dashed-outline mark is the substitute cue that survives
+  // that collapse, since it's baked into the render pass, not the live
+  // selection. It also renders whatever underline style has been picked so
+  // far, even before a color is chosen — picking "Dashed underline" with no
+  // color yet applied previously had zero visible effect anywhere, which is
+  // exactly what was reported as "the underline is not happening."
+  if (pending) {
+    applyAnchoredMark(
+      container,
+      pending.anchorText,
+      pending.occurrence,
+      () => {
+        const mark = document.createElement('mark');
+        mark.className = `user-hl-pending${pendingUnderline && pendingUnderline !== 'none' ? ` user-hl-u-${pendingUnderline}` : ''}`;
+        return mark;
+      },
+      'highlights',
+    );
+  }
   return container.innerHTML;
 }
 
@@ -1078,7 +1116,16 @@ export function Player() {
   // The highlight under the cursor when the popover opened, if any (clicking
   // an existing mark to edit/remove it rather than starting a new one).
   const [hlEditingId, setHlEditingId] = useState<string | null>(null);
-  const pendingHlRef = useRef<{ scope: HighlightMark['scope']; anchorText: string; occurrence: number } | null>(null);
+  // Kept as a ref (read synchronously by applyHighlightColor without waiting
+  // on a re-render) AND mirrored into state (pendingHl) purely so its
+  // presence can drive the visible placeholder mark in withAllMarks — see
+  // that function's doc comment for why a plain ref alone isn't enough here.
+  const pendingHlRef = useRef<PendingHighlight | null>(null);
+  const [pendingHl, setPendingHl] = useState<PendingHighlight | null>(null);
+  const setPendingHlBoth = useCallback((v: PendingHighlight | null) => {
+    pendingHlRef.current = v;
+    setPendingHl(v);
+  }, []);
   // Underline style for a NOT-YET-created highlight — picking it shouldn't
   // require applying a color first. Reset on every fresh selection; once a
   // highlight actually exists (editingHighlight set), the select reads/
@@ -1093,7 +1140,7 @@ export function Player() {
       const mark = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
       if (!mark || !mark.dataset.hlId) return;
       setHlEditingId(mark.dataset.hlId);
-      pendingHlRef.current = null;
+      setPendingHlBoth(null);
       const rect = mark.getBoundingClientRect();
       setHlPopoverPos({ top: window.scrollY + rect.top - 54, left: window.scrollX + rect.left + rect.width / 2 - 110 });
       setHlPopoverOpen(true);
@@ -1146,7 +1193,7 @@ export function Player() {
     const before = fullText.slice(0, selStart);
     const occurrence = before.split(anchorText).length; // 1-based count of prior matches + 1
 
-    pendingHlRef.current = { scope, anchorText, occurrence };
+    setPendingHlBoth({ scope, anchorText, occurrence });
     setHlEditingId(null);
     setPendingUnderline('none');
 
@@ -1156,7 +1203,7 @@ export function Player() {
       left: window.scrollX + rect.left + rect.width / 2 - 110,
     });
     setHlPopoverOpen(true);
-  }, []);
+  }, [setPendingHlBoth]);
 
   const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
 
@@ -1178,11 +1225,11 @@ export function Player() {
       const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: pendingUnderline };
       addHighlightMark(mark);
       setHlEditingId(mark.id);
-      pendingHlRef.current = null;
+      setPendingHlBoth(null);
       setPendingUnderline('none');
       window.getSelection()?.removeAllRanges();
     },
-    [editingHighlight, highlights, ensureMarkAttemptId, addHighlightMark, pendingUnderline],
+    [editingHighlight, highlights, ensureMarkAttemptId, addHighlightMark, pendingUnderline, setPendingHlBoth],
   );
 
   const applyHighlightUnderline = useCallback(
@@ -1214,11 +1261,15 @@ export function Player() {
     function onDocMouseDown(e: MouseEvent) {
       if (hlPopoverRef.current && !hlPopoverRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('mark.user-hl')) {
         setHlPopoverOpen(false);
+        // A pending (not-yet-colored) selection abandoned by clicking away
+        // should drop its placeholder mark too, not leave it visibly "stuck"
+        // highlighted with no popover left to act on it.
+        setPendingHlBoth(null);
       }
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, []);
+  }, [setPendingHlBoth]);
 
   // ---------------- trap/cue reveal + DOM highlight pass ----------------
   // Cues are a spoiler until the student has committed an answer to THIS
@@ -1279,24 +1330,49 @@ export function Player() {
   }, [highlights]);
 
   const stimulusHtml = useMemo(
-    () => (question?.stimulus_markup ? withAllMarks(question.stimulus_markup, stimulusCues, stimulusHighlights) : ''),
-    [question?.stimulus_markup, stimulusCues, stimulusHighlights],
+    () =>
+      question?.stimulus_markup
+        ? withAllMarks(
+            question.stimulus_markup,
+            stimulusCues,
+            stimulusHighlights,
+            pendingHl?.scope === 'stimulus' ? pendingHl : null,
+            pendingUnderline,
+          )
+        : '',
+    [question?.stimulus_markup, stimulusCues, stimulusHighlights, pendingHl, pendingUnderline],
   );
   const stemHtml = useMemo(
-    () => (question?.stem_markup ? withAllMarks(question.stem_markup, stemCues, stemHighlights) : ''),
-    [question?.stem_markup, stemCues, stemHighlights],
+    () =>
+      question?.stem_markup
+        ? withAllMarks(
+            question.stem_markup,
+            stemCues,
+            stemHighlights,
+            pendingHl?.scope === 'stem' ? pendingHl : null,
+            pendingUnderline,
+          )
+        : '',
+    [question?.stem_markup, stemCues, stemHighlights, pendingHl, pendingUnderline],
   );
   const choiceHtmlById = useMemo(() => {
     const map = new Map<string, string>();
     if (!question) return map;
     for (const c of question.choices) {
+      const scope = `choice:${c.label}` as const;
       map.set(
         c.id,
-        withAllMarks(c.content_markup, choiceCuesByChoiceId.get(c.id) ?? [], highlightsByChoiceLabel.get(c.label) ?? [])
+        withAllMarks(
+          c.content_markup,
+          choiceCuesByChoiceId.get(c.id) ?? [],
+          highlightsByChoiceLabel.get(c.label) ?? [],
+          pendingHl?.scope === scope ? pendingHl : null,
+          pendingUnderline,
+        )
       );
     }
     return map;
-  }, [question, choiceCuesByChoiceId, highlightsByChoiceLabel]);
+  }, [question, choiceCuesByChoiceId, highlightsByChoiceLabel, pendingHl, pendingUnderline]);
 
   // Plain-text summary handed to the AI as prompt context — stripped of
   // markup since the model doesn't need HTML, just the real content. The
@@ -1651,6 +1727,15 @@ export function Player() {
         className={`hl-popover${hlPopoverOpen ? ' open' : ''}`}
         ref={hlPopoverRef}
         style={{ top: hlPopoverPos.top, left: hlPopoverPos.left }}
+        // Clicking a swatch/button would otherwise collapse the browser's
+        // live text selection first — standard toolbar behavior elsewhere
+        // too, kept as a second line of defense alongside the
+        // .user-hl-pending placeholder mark. Excludes the <select> itself:
+        // canceling its mousedown would also cancel the browser's default
+        // action of opening its dropdown.
+        onMouseDown={(e) => {
+          if ((e.target as HTMLElement).tagName !== 'SELECT') e.preventDefault();
+        }}
       >
         {(['yellow', 'blue', 'pink'] as const).map((color) => (
           <button
