@@ -445,12 +445,14 @@ export type Database = {
           attempt_number: number
           created_at: string
           entered_value: string | null
+          highlights: Json
           id: string
           is_correct: boolean | null
           question_id: string
           selected_choice_id: string | null
           session_id: string | null
           started_at: string | null
+          struck_choice_ids: string[]
           submitted_at: string | null
           time_taken_seconds: number | null
           user_id: string
@@ -459,12 +461,14 @@ export type Database = {
           attempt_number: number
           created_at?: string
           entered_value?: string | null
+          highlights?: Json
           id?: string
           is_correct?: boolean | null
           question_id: string
           selected_choice_id?: string | null
           session_id?: string | null
           started_at?: string | null
+          struck_choice_ids?: string[]
           submitted_at?: string | null
           time_taken_seconds?: number | null
           user_id: string
@@ -473,12 +477,14 @@ export type Database = {
           attempt_number?: number
           created_at?: string
           entered_value?: string | null
+          highlights?: Json
           id?: string
           is_correct?: boolean | null
           question_id?: string
           selected_choice_id?: string | null
           session_id?: string | null
           started_at?: string | null
+          struck_choice_ids?: string[]
           submitted_at?: string | null
           time_taken_seconds?: number | null
           user_id?: string

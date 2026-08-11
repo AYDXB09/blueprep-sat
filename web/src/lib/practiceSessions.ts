@@ -256,6 +256,41 @@ export async function submitQuestionAttempt(
   if (error) throw error;
 }
 
+/**
+ * One highlight the student drew on a question's own content. Anchored by
+ * `anchorText` + `occurrence` (which n-th match of that exact substring),
+ * not raw character offsets — mirrors `cues.anchor_text`/`occurrence`
+ * exactly, so both the system-drawn cue marks and these student-drawn
+ * highlights can be re-applied to the same rendered text by one shared pass
+ * (see `applyMarksToScope` in Player.tsx) instead of two incompatible
+ * mechanisms.
+ */
+export interface HighlightMark {
+  id: string;
+  scope: 'stimulus' | 'stem' | `choice:${string}`;
+  anchorText: string;
+  occurrence: number;
+  color: 'yellow' | 'blue' | 'pink';
+  underline: 'none' | 'solid' | 'dashed' | 'dotted';
+}
+
+/** Persists this attempt's current highlight set. Called on every add/
+ * edit/remove — small payload, no batching needed. */
+export async function saveAttemptHighlights(attemptId: string, highlights: HighlightMark[]): Promise<void> {
+  const { error } = await supabase
+    .from('question_attempts')
+    .update({ highlights: highlights as unknown as Json })
+    .eq('id', attemptId);
+  if (error) throw error;
+}
+
+/** Persists this attempt's current struck-choice set. Independent of
+ * `selected_choice_id` — striking a choice never changes the answer. */
+export async function saveAttemptStruckChoices(attemptId: string, struckChoiceIds: string[]): Promise<void> {
+  const { error } = await supabase.from('question_attempts').update({ struck_choice_ids: struckChoiceIds }).eq('id', attemptId);
+  if (error) throw error;
+}
+
 export async function completeSession(
   sessionId: string,
   args: { actualCount: number; overtimeSeconds?: number; scoreSummary?: Json }

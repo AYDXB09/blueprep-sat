@@ -12,6 +12,8 @@ import {
   getSessionModules,
   getSessionWithAttempts,
   isSprAnswerCorrect,
+  saveAttemptHighlights,
+  saveAttemptStruckChoices,
   startQuestionAttempt,
   submitQuestionAttempt,
   MATH_MODULE_QUESTION_COUNT,
@@ -20,6 +22,7 @@ import {
   RW_MODULE_SECONDS,
   type AttemptWithQuestion,
   type CueWithCategory,
+  type HighlightMark,
   type QuestionWithChoices,
   type SessionModuleRow,
 } from '../lib/practiceSessions';
@@ -89,16 +92,25 @@ function collectMeaningfulTextNodes(container: HTMLElement): Text[] {
 }
 
 /**
- * Finds the nth occurrence (cue.occurrence, 1-based) of cue.anchor_text as a
- * verbatim substring of the container's concatenated meaningful text, and
- * wraps the matched span in a <mark class="cue-mark cue-{type}"> carrying
- * data-cue-id, without disturbing surrounding markup. Returns false (and
- * console.warns) if the anchor can't be found or the wrap fails — callers
- * must treat that as "skip this cue's highlight," never a crash.
+ * Finds the nth occurrence (1-based) of `anchorText` as a verbatim
+ * substring of the container's concatenated meaningful text, wraps it in a
+ * <mark> built by `buildMark`, and returns true — or false (with a
+ * console.warn tagged by `logTag`) if the anchor can't be found or the wrap
+ * fails, which callers must treat as "skip this mark," never a crash.
+ * Shared by both the system-drawn cue marks and the student's own
+ * highlights below — same anchor-by-text-match strategy either way, since
+ * `cues.anchor_text`/`occurrence` and `HighlightMark.anchorText`/
+ * `occurrence` are the same shape by design (see HighlightMark's doc
+ * comment in practiceSessions.ts).
  */
-function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolean {
-  const target = cue.anchor_text;
-  if (!target) return false;
+function applyAnchoredMark(
+  container: HTMLElement,
+  anchorText: string,
+  occurrence: number,
+  buildMark: () => HTMLElement,
+  logTag: string
+): boolean {
+  if (!anchorText) return false;
 
   const textNodes = collectMeaningfulTextNodes(container);
   if (textNodes.length === 0) return false;
@@ -111,25 +123,25 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
     concatenated += text;
   }
 
-  const occurrence = Math.max(1, cue.occurrence || 1);
+  const occ = Math.max(1, occurrence || 1);
   let searchFrom = 0;
   let matchIndex = -1;
-  for (let i = 0; i < occurrence; i++) {
-    matchIndex = concatenated.indexOf(target, searchFrom);
+  for (let i = 0; i < occ; i++) {
+    matchIndex = concatenated.indexOf(anchorText, searchFrom);
     if (matchIndex === -1) break;
     searchFrom = matchIndex + 1;
   }
   if (matchIndex === -1) {
-    console.warn(`[cues] anchor_text not found for cue ${cue.id} (question ${cue.question_id}): "${target}"`);
+    console.warn(`[${logTag}] anchor text not found: "${anchorText}"`);
     return false;
   }
 
   const matchStart = matchIndex;
-  const matchEnd = matchIndex + target.length;
+  const matchEnd = matchIndex + anchorText.length;
   const startEntry = offsets.find((o) => matchStart >= o.start && matchStart < o.end);
   const endEntry = offsets.find((o) => matchEnd > o.start && matchEnd <= o.end);
   if (!startEntry || !endEntry) {
-    console.warn(`[cues] could not map anchor_text offsets for cue ${cue.id}`);
+    console.warn(`[${logTag}] could not map anchor offsets for "${anchorText}"`);
     return false;
   }
 
@@ -137,22 +149,48 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
     const range = document.createRange();
     range.setStart(startEntry.node, matchStart - startEntry.start);
     range.setEnd(endEntry.node, matchEnd - endEntry.start);
-
-    const mark = document.createElement('mark');
-    mark.className = `cue-mark cue-${cue.cue_type}`;
-    mark.dataset.cueId = cue.id;
-    mark.tabIndex = 0;
-    range.surroundContents(mark);
+    range.surroundContents(buildMark());
     return true;
   } catch (err) {
-    console.warn(`[cues] failed to wrap anchor for cue ${cue.id}:`, err);
+    console.warn(`[${logTag}] failed to wrap anchor "${anchorText}":`, err);
     return false;
   }
 }
 
+function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolean {
+  return applyAnchoredMark(
+    container,
+    cue.anchor_text,
+    cue.occurrence,
+    () => {
+      const mark = document.createElement('mark');
+      mark.className = `cue-mark cue-${cue.cue_type}`;
+      mark.dataset.cueId = cue.id;
+      mark.tabIndex = 0;
+      return mark;
+    },
+    'cues'
+  );
+}
+
+function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean {
+  return applyAnchoredMark(
+    container,
+    hl.anchorText,
+    hl.occurrence,
+    () => {
+      const mark = document.createElement('mark');
+      mark.className = `user-hl user-hl-${hl.color}${hl.underline !== 'none' ? ` user-hl-u-${hl.underline}` : ''}`;
+      mark.dataset.hlId = hl.id;
+      return mark;
+    },
+    'highlights'
+  );
+}
+
 /**
- * Returns `html` with every applicable cue's anchor wrapped in a
- * <mark class="cue-mark"> span, as a STRING — not a live-DOM mutation.
+ * Returns `html` with every applicable cue AND user highlight anchor
+ * wrapped in a <mark>, as a STRING — not a live-DOM mutation.
  *
  * This exists because React resets a dangerouslySetInnerHTML node's real
  * innerHTML back to its declared prop value on every re-render it processes
@@ -166,12 +204,20 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
  * back into React as the dangerouslySetInnerHTML value itself, memoized by
  * caller — so it's part of what React renders, not something bolted on
  * after, and it can never be wiped by an unrelated re-render again.
+ *
+ * Cues are applied before highlights — both only ever wrap text nodes in
+ * <mark> elements (never add/remove text), so the second pass's own text-
+ * node walk still sees the same concatenated text either way; order only
+ * affects which mark ends up as the outer element when two spans overlap
+ * exactly, which doesn't happen in practice (cues and highlights are drawn
+ * independently by different parties over different substrings).
  */
-function withCueMarks(html: string, cues: CueWithCategory[]): string {
-  if (!html || cues.length === 0) return html;
+function withAllMarks(html: string, cues: CueWithCategory[], highlights: HighlightMark[]): string {
+  if (!html || (cues.length === 0 && highlights.length === 0)) return html;
   const container = document.createElement('div');
   container.innerHTML = html;
   for (const cue of cues) applyCueHighlight(container, cue);
+  for (const hl of highlights) applyUserHighlight(container, hl);
   return container.innerHTML;
 }
 
@@ -487,9 +533,14 @@ export function Player() {
   // Reset per-question answer/attempt state whenever the question changes.
   // In review mode, pre-fill from the existing (already-submitted) attempt
   // instead of starting blank — reviewing a finished session should show
-  // what was actually answered, not prompt for a fresh answer.
+  // what was actually answered, not prompt for a fresh answer. Highlights
+  // and struck choices load from ANY existing attempt for this question
+  // (test mode or review mode alike) — both can now be created before an
+  // answer is ever submitted (see ensureMarkAttemptId below), so "existing
+  // attempt" no longer implies "already answered" the way it used to.
   useEffect(() => {
     setCurrentAttemptId(null);
+    const existingAttempt = attempts.find((a) => a.question_id === questionId);
     if (isReviewMode) {
       const priorAttempt = attempts.find((a) => a.question_id === questionId && a.submitted_at);
       setSelectedChoiceId(priorAttempt?.selected_choice_id ?? null);
@@ -498,7 +549,8 @@ export function Player() {
       setSelectedChoiceId(null);
       setEnteredValue('');
     }
-    setStruck(new Set());
+    setStruck(new Set(existingAttempt?.struck_choice_ids ?? []));
+    setHighlights((existingAttempt?.highlights as unknown as HighlightMark[]) ?? []);
     setMarkedForReview(false);
     setQSeconds(0);
     setActiveCueId(null);
@@ -590,11 +642,11 @@ export function Player() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
 
-  // ---------------- choices / strikethrough / mark for review ----------------
+  // ---------------- choices / strikethrough / highlights / mark for review ----------------
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [enteredValue, setEnteredValue] = useState('');
   const [struck, setStruck] = useState<Set<string>>(new Set());
-  const [strikeMode, setStrikeMode] = useState(false);
+  const [highlights, setHighlights] = useState<HighlightMark[]>([]);
   const [markedForReview, setMarkedForReview] = useState(false);
   // Flagged-for-review state isn't persisted in the schema (no column for it)
   // — kept as in-memory state per session, keyed by question position.
@@ -610,18 +662,66 @@ export function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markedForReview]);
 
+  // Resolves the attempt row that highlights/strikethrough save to —
+  // separate from ensureAttemptStarted (which only fires on actually
+  // answering) because both marks are now reachable before an answer is
+  // ever submitted, and both stay editable in review mode, where
+  // ensureAttemptStarted is a no-op by design. Prefers any attempt already
+  // on record for this question (review mode's submitted one, or test
+  // mode's in-progress one from a prior visit); creates a fresh one only if
+  // neither exists yet.
+  const ensureMarkAttemptId = useCallback(async (): Promise<string | null> => {
+    if (currentAttemptId) return currentAttemptId;
+    const existing = attempts.find((a) => a.question_id === questionId);
+    if (existing) {
+      setCurrentAttemptId(existing.id);
+      return existing.id;
+    }
+    if (!user || !sessionId || !questionId) return null;
+    try {
+      const row = await startQuestionAttempt({ userId: user.id, sessionId, questionId, attemptNumber: 1 });
+      setCurrentAttemptId(row.id);
+      return row.id;
+    } catch (err) {
+      console.warn('ensureMarkAttemptId failed:', err);
+      return null;
+    }
+  }, [currentAttemptId, attempts, questionId, user, sessionId]);
+
   const toggleStruck = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      if (!strikeMode) return;
+    async (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      setStruck((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
+      const next = new Set(struck);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      setStruck(next);
+      const attemptId = await ensureMarkAttemptId();
+      if (!attemptId) return;
+      saveAttemptStruckChoices(attemptId, [...next]).catch((err) => console.warn('saveAttemptStruckChoices failed:', err));
     },
-    [strikeMode],
+    [struck, ensureMarkAttemptId],
+  );
+
+  const addHighlightMark = useCallback(
+    async (mark: HighlightMark) => {
+      const next = [...highlights, mark];
+      setHighlights(next);
+      const attemptId = await ensureMarkAttemptId();
+      if (!attemptId) return;
+      saveAttemptHighlights(attemptId, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
+    },
+    [highlights, ensureMarkAttemptId],
+  );
+
+  const removeHighlightMark = useCallback(
+    async (id: string) => {
+      const next = highlights.filter((h) => h.id !== id);
+      setHighlights(next);
+      const attemptId = await ensureMarkAttemptId();
+      if (!attemptId) return;
+      saveAttemptHighlights(attemptId, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
+    },
+    [highlights, ensureMarkAttemptId],
   );
 
   const selectChoice = useCallback(
@@ -948,70 +1048,138 @@ export function Player() {
     }
   }, [isReviewMode, navigate, sessionId]);
 
-  // ---------------- highlighter (real Selection/Range API, kept imperative
-  // via refs — this mirrors the mockup's actual DOM-surgery behavior, which
-  // is the one part of this port that's legitimately not idiomatic React
-  // state, matching the existing app's own highlighter mechanism). ----------
+  // ---------------- highlighter — real Selection/Range API to CAPTURE the
+  // selection (anchor text + occurrence + which scope), but the actual mark
+  // is never drawn by mutating that DOM directly — it's persisted to state,
+  // then rendered the same safe string-transform way as cue marks (see
+  // withAllMarks' doc comment for why a live-DOM "wrap it once" pass doesn't
+  // survive React re-renders). ----------------------------------------------
   const stimulusRef = useRef<HTMLDivElement | null>(null);
   const hlPopoverRef = useRef<HTMLDivElement | null>(null);
-  const activeRangeRef = useRef<Range | null>(null);
   const [hlPopoverOpen, setHlPopoverOpen] = useState(false);
   const [hlPopoverPos, setHlPopoverPos] = useState({ top: 0, left: 0 });
-  const [hlIsRemove, setHlIsRemove] = useState(false);
+  // The highlight under the cursor when the popover opened, if any (clicking
+  // an existing mark to edit/remove it rather than starting a new one).
+  const [hlEditingId, setHlEditingId] = useState<string | null>(null);
+  const pendingHlRef = useRef<{ scope: HighlightMark['scope']; anchorText: string; occurrence: number } | null>(null);
 
-  const onStimulusMouseUp = useCallback(() => {
+  const onSelectableMouseUp = useCallback((e: React.MouseEvent) => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
-      setHlPopoverOpen(false);
+      // Not a fresh selection — but a plain click landing directly on an
+      // existing mark should still open the popover, in "edit" mode.
+      const mark = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
+      if (!mark || !mark.dataset.hlId) return;
+      setHlEditingId(mark.dataset.hlId);
+      pendingHlRef.current = null;
+      const rect = mark.getBoundingClientRect();
+      setHlPopoverPos({ top: window.scrollY + rect.top - 54, left: window.scrollX + rect.left + rect.width / 2 - 110 });
+      setHlPopoverOpen(true);
       return;
     }
     const range = sel.getRangeAt(0);
-    const stimulus = stimulusRef.current;
-    if (!stimulus || !stimulus.contains(range.commonAncestorContainer)) return;
-    activeRangeRef.current = range;
+    const container = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+      ? (range.commonAncestorContainer as Element)
+      : range.commonAncestorContainer.parentElement
+    )?.closest('[data-hl-scope]') as HTMLElement | null;
+    if (!container) return;
+    const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
+    if (!scope) return;
+
+    // Build anchorText from the SAME meaningful-text-node concatenation
+    // applyAnchoredMark's search uses — NOT range.toString()/textContent.
+    // Selection.toString() inserts its own synthetic newlines at certain
+    // element boundaries (confirmed live: a boundary next to inline MathML
+    // content produced a "\n" toString() doesn't put there when re-walked
+    // node-by-node), which silently broke every highlight whose selection
+    // crossed one of those boundaries — the anchor just never matched on
+    // render, with no visible error beyond a console.warn.
+    const textNodes = collectMeaningfulTextNodes(container);
+    let fullText = '';
+    const offsets: Array<{ node: Text; start: number; end: number }> = [];
+    for (const node of textNodes) {
+      const text = node.nodeValue ?? '';
+      offsets.push({ node, start: fullText.length, end: fullText.length + text.length });
+      fullText += text;
+    }
+    const posOf = (node: Node, nodeOffset: number): number | null => {
+      const entry = offsets.find((o) => o.node === node);
+      if (entry) return entry.start + nodeOffset;
+      // Selection boundary landed on an element node (e.g. selection starts
+      // right at a tag boundary) rather than inside a text node directly —
+      // fall back to the start of the first meaningful text node at or
+      // after it in document order.
+      for (const o of offsets) {
+        if (node.compareDocumentPosition(o.node) & Node.DOCUMENT_POSITION_FOLLOWING) return o.start;
+      }
+      return null;
+    };
+    const selStart = posOf(range.startContainer, range.startOffset);
+    const selEnd = posOf(range.endContainer, range.endOffset);
+    if (selStart === null || selEnd === null || selEnd <= selStart) return;
+
+    const anchorText = fullText.slice(selStart, selEnd);
+    // Occurrence = which n-th match of this exact text within the scope's
+    // own meaningful text (same convention as cues).
+    const before = fullText.slice(0, selStart);
+    const occurrence = before.split(anchorText).length; // 1-based count of prior matches + 1
+
+    pendingHlRef.current = { scope, anchorText, occurrence };
+    setHlEditingId(null);
 
     const rect = range.getBoundingClientRect();
     setHlPopoverPos({
-      top: window.scrollY + rect.top - 42,
-      left: window.scrollX + rect.left + rect.width / 2 - 40,
+      top: window.scrollY + rect.top - 54,
+      left: window.scrollX + rect.left + rect.width / 2 - 110,
     });
-
-    const parentEl = range.commonAncestorContainer.parentElement;
-    const parentMark = parentEl ? parentEl.closest('mark.hl') : null;
-    setHlIsRemove(!!parentMark);
     setHlPopoverOpen(true);
   }, []);
 
-  const addHighlight = useCallback(() => {
-    const range = activeRangeRef.current;
-    if (!range) return;
-    const mark = document.createElement('mark');
-    mark.className = 'hl';
-    try {
-      range.surroundContents(mark);
-    } catch {
-      // selection spans multiple elements — acceptable, matches mockup behavior
-    }
-    setHlPopoverOpen(false);
-    window.getSelection()?.removeAllRanges();
-  }, []);
+  const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
 
-  const removeHighlight = useCallback(() => {
-    const range = activeRangeRef.current;
-    const el = range && range.commonAncestorContainer.parentElement;
-    const mark = el ? el.closest('mark.hl') : null;
-    if (mark && mark.parentNode) {
-      const parent = mark.parentNode;
-      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
-      parent.removeChild(mark);
-    }
+  const applyHighlightColor = useCallback(
+    (color: HighlightMark['color']) => {
+      if (editingHighlight) {
+        const next = highlights.map((h) => (h.id === editingHighlight.id ? { ...h, color } : h));
+        setHighlights(next);
+        ensureMarkAttemptId().then((id) => {
+          if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
+        });
+        return;
+      }
+      const pending = pendingHlRef.current;
+      if (!pending) return;
+      const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: 'none' };
+      addHighlightMark(mark);
+      setHlEditingId(mark.id);
+      pendingHlRef.current = null;
+      window.getSelection()?.removeAllRanges();
+    },
+    [editingHighlight, highlights, ensureMarkAttemptId, addHighlightMark],
+  );
+
+  const applyHighlightUnderline = useCallback(
+    (underline: HighlightMark['underline']) => {
+      if (!editingHighlight) return;
+      const next = highlights.map((h) => (h.id === editingHighlight.id ? { ...h, underline } : h));
+      setHighlights(next);
+      ensureMarkAttemptId().then((id) => {
+          if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
+        });
+    },
+    [editingHighlight, highlights, ensureMarkAttemptId],
+  );
+
+  const deleteEditingHighlight = useCallback(() => {
+    if (!editingHighlight) return;
+    removeHighlightMark(editingHighlight.id);
     setHlPopoverOpen(false);
-    window.getSelection()?.removeAllRanges();
-  }, []);
+    setHlEditingId(null);
+  }, [editingHighlight, removeHighlightMark]);
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
-      if (hlPopoverRef.current && !hlPopoverRef.current.contains(e.target as Node)) {
+      if (hlPopoverRef.current && !hlPopoverRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('mark.user-hl')) {
         setHlPopoverOpen(false);
       }
     }
@@ -1043,7 +1211,7 @@ export function Player() {
   }, [question?.source_rationale_markup]);
 
   // Marked-up HTML, computed as plain strings (not a live-DOM mutation —
-  // see withCueMarks' doc comment for why that approach doesn't survive
+  // see withAllMarks' doc comment for why that approach doesn't survive
   // React re-renders). Recomputed only when the relevant cues/content
   // actually change, so this stays cheap on every unrelated re-render.
   const stimulusCues = useMemo(
@@ -1063,22 +1231,39 @@ export function Player() {
     return map;
   }, [showCues, cues]);
 
+  const stimulusHighlights = useMemo(() => highlights.filter((h) => h.scope === 'stimulus'), [highlights]);
+  const stemHighlights = useMemo(() => highlights.filter((h) => h.scope === 'stem'), [highlights]);
+  const highlightsByChoiceLabel = useMemo(() => {
+    const map = new Map<string, HighlightMark[]>();
+    for (const h of highlights) {
+      if (!h.scope.startsWith('choice:')) continue;
+      const label = h.scope.slice('choice:'.length);
+      const arr = map.get(label) ?? [];
+      arr.push(h);
+      map.set(label, arr);
+    }
+    return map;
+  }, [highlights]);
+
   const stimulusHtml = useMemo(
-    () => (question?.stimulus_markup ? withCueMarks(question.stimulus_markup, stimulusCues) : ''),
-    [question?.stimulus_markup, stimulusCues],
+    () => (question?.stimulus_markup ? withAllMarks(question.stimulus_markup, stimulusCues, stimulusHighlights) : ''),
+    [question?.stimulus_markup, stimulusCues, stimulusHighlights],
   );
   const stemHtml = useMemo(
-    () => (question?.stem_markup ? withCueMarks(question.stem_markup, stemCues) : ''),
-    [question?.stem_markup, stemCues],
+    () => (question?.stem_markup ? withAllMarks(question.stem_markup, stemCues, stemHighlights) : ''),
+    [question?.stem_markup, stemCues, stemHighlights],
   );
   const choiceHtmlById = useMemo(() => {
     const map = new Map<string, string>();
     if (!question) return map;
     for (const c of question.choices) {
-      map.set(c.id, withCueMarks(c.content_markup, choiceCuesByChoiceId.get(c.id) ?? []));
+      map.set(
+        c.id,
+        withAllMarks(c.content_markup, choiceCuesByChoiceId.get(c.id) ?? [], highlightsByChoiceLabel.get(c.label) ?? [])
+      );
     }
     return map;
-  }, [question, choiceCuesByChoiceId]);
+  }, [question, choiceCuesByChoiceId, highlightsByChoiceLabel]);
 
   // Plain-text summary handed to the AI as prompt context — stripped of
   // markup since the model doesn't need HTML, just the real content. The
@@ -1139,6 +1324,20 @@ export function Player() {
     return positions;
   }, [attempts, session]);
 
+  // Review-mode only: per-position correct/incorrect, for the question
+  // navigator's Bluebook-style modal (real exam review shows this; the live
+  // navigator during an active section never does, matching the reference).
+  const positionCorrectness = useMemo(() => {
+    if (!session) return new Map<number, boolean>();
+    const map = new Map<number, boolean>();
+    for (const a of attempts) {
+      if (!a.submitted_at || a.is_correct === null) continue;
+      const idx = session.question_ids.indexOf(a.question_id);
+      if (idx >= 0) map.set(idx + 1, a.is_correct);
+    }
+    return map;
+  }, [attempts, session]);
+
   const isMath = question?.subject === 'Math';
   const subjectLabel = question ? (isMath ? 'Math' : 'R&W') : '';
 
@@ -1193,46 +1392,105 @@ export function Player() {
           >
             Q{CURRENT_Q} of {TOTAL_Q} ▾
           </button>
-          <div className={`nav-popover${navOpen ? ' open' : ''}`} ref={navRef}>
-            <p className="nhead">Jump to question</p>
-            <div className="nav-grid">
-              {Array.from({ length: TOTAL_Q }, (_, i) => i + 1).map((pos) => {
-                const isAnswered = answeredPositions.has(pos);
-                const isFlagged = flaggedPositions.has(pos);
-                const isCurrent = pos === CURRENT_Q;
-                const hasCue = !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
-                return (
-                  <div
-                    key={pos}
-                    className={`nav-cell${isAnswered ? ' answered' : ''}${isCurrent ? ' current' : ''}${
-                      isFlagged ? ' flagged' : ''
-                    }${hasCue ? ' has-cue' : ''}`}
-                    title={`Question ${pos}${isAnswered ? ' — answered' : ' — unanswered'}${
-                      isFlagged ? ', flagged' : ''
-                    }${hasCue ? ' — has trap/cue analysis' : ''}`}
+          {navOpen && (
+            <div
+              className="nav-modal-backdrop"
+              onClick={() => setNavOpen(false)}
+            >
+              <div className="nav-modal" ref={navRef} onClick={(e) => e.stopPropagation()}>
+                <div className="nav-modal-head">
+                  <h2>
+                    {subjectLabel} Questions{isReviewMode ? ' — Review' : ''}
+                  </h2>
+                  <button className="nav-modal-close" aria-label="Close" onClick={() => setNavOpen(false)}>
+                    ✕
+                  </button>
+                </div>
+                <div className="nav-legend">
+                  {isReviewMode ? (
+                    <>
+                      <span>
+                        <span className="nav-ico current-ico">📍</span>Current
+                      </span>
+                      <span>
+                        <span className="nav-ico correct-ico">✓</span>Correct
+                      </span>
+                      <span>
+                        <span className="nav-ico incorrect-ico">✕</span>Incorrect
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        <span className="nav-ico current-ico">📍</span>Current
+                      </span>
+                      <span>
+                        <span className="sw" />
+                        Unanswered
+                      </span>
+                      <span>🔖 For Review</span>
+                    </>
+                  )}
+                </div>
+                <div className="nav-grid">
+                  {/* Scoped to the CURRENT MODULE only (real full-test sessions span
+                      up to 98 questions across 4 modules) — matches the real exam's
+                      own per-section navigator. Ad-hoc/practice sessions have no
+                      module concept (currentModuleRange is undefined for them), so
+                      the grid falls back to the whole session, same as before. */}
+                  {Array.from(
+                    { length: (currentModuleRange?.end ?? TOTAL_Q) - (currentModuleRange?.start ?? 1) + 1 },
+                    (_, i) => (currentModuleRange?.start ?? 1) + i
+                  ).map((pos) => {
+                    const isAnswered = answeredPositions.has(pos);
+                    const isFlagged = flaggedPositions.has(pos);
+                    const isCurrent = pos === CURRENT_Q;
+                    const hasCue = !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
+                    const correctness = isReviewMode ? positionCorrectness.get(pos) : undefined;
+                    return (
+                      <div
+                        key={pos}
+                        className={`nav-cell${isAnswered ? ' answered' : !isReviewMode ? ' unanswered' : ''}${
+                          isCurrent ? ' current' : ''
+                        }${isFlagged ? ' flagged' : ''}${hasCue ? ' has-cue' : ''}${correctness === true ? ' correct' : ''}${
+                          correctness === false ? ' incorrect' : ''
+                        }`}
+                        title={`Question ${pos}${
+                          isReviewMode
+                            ? correctness === true
+                              ? ' — correct'
+                              : correctness === false
+                                ? ' — incorrect'
+                                : ' — not answered'
+                            : isAnswered
+                              ? ' — answered'
+                              : ' — unanswered'
+                        }${isFlagged ? ', flagged' : ''}${hasCue ? ' — has trap/cue analysis' : ''}`}
+                        onClick={() => {
+                          setNavOpen(false);
+                          if (sessionId) navigate(`/practice/${sessionId}/q/${pos}`);
+                        }}
+                      >
+                        {isCurrent && <span className="nav-cell-pin">📍</span>}
+                        {pos}
+                      </div>
+                    );
+                  })}
+                </div>
+                {sessionId && (
+                  <button
+                    className="nav-modal-review-btn"
                     onClick={() => {
                       setNavOpen(false);
-                      if (sessionId) navigate(`/practice/${sessionId}/q/${pos}`);
+                      navigate(`/sessions/${sessionId}`);
                     }}
                   >
-                    {pos}
-                  </div>
-                );
-              })}
+                    Go to Session Summary
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="nav-legend">
-              <span>
-                <span className="sw a" />
-                Answered
-              </span>
-              <span>
-                <span className="sw" />
-                Unanswered
-              </span>
-              <span>🔖 Flagged</span>
-              <span>💡 Has cue analysis</span>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="timers">
@@ -1361,12 +1619,46 @@ export function Player() {
         ref={hlPopoverRef}
         style={{ top: hlPopoverPos.top, left: hlPopoverPos.left }}
       >
-        <button style={{ display: hlIsRemove ? 'none' : 'inline-block' }} onClick={addHighlight}>
-          Highlight
+        {(['yellow', 'blue', 'pink'] as const).map((color) => (
+          <button
+            key={color}
+            type="button"
+            className={`hl-swatch hl-swatch-${color}${editingHighlight?.color === color ? ' active' : ''}`}
+            aria-label={`${color} highlight`}
+            onClick={() => applyHighlightColor(color)}
+          />
+        ))}
+        <span className="hl-sep" />
+        <select
+          className="hl-underline-select"
+          value={editingHighlight?.underline ?? 'none'}
+          disabled={!editingHighlight}
+          onChange={(e) => applyHighlightUnderline(e.target.value as HighlightMark['underline'])}
+          title="Underline style"
+        >
+          <option value="none">No underline</option>
+          <option value="solid">Solid underline</option>
+          <option value="dashed">Dashed underline</option>
+          <option value="dotted">Dotted underline</option>
+        </select>
+        <span className="hl-sep" />
+        <button
+          type="button"
+          className="hl-icon-btn"
+          title="Add a note to this question"
+          onClick={() => {
+            setHlPopoverOpen(false);
+            openNoteEditor();
+            document.getElementById('note-panel-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+        >
+          ✎ Note
         </button>
-        <button style={{ display: hlIsRemove ? 'inline-block' : 'none' }} onClick={removeHighlight}>
-          Remove highlight
-        </button>
+        {editingHighlight && (
+          <button type="button" className="hl-icon-btn" title="Remove this highlight" onClick={deleteEditingHighlight}>
+            🗑
+          </button>
+        )}
       </div>
 
       {view === 'main' && (
@@ -1389,15 +1681,16 @@ export function Player() {
                   </span>
                 )}
               </div>
-              <div className="stimulus serif" ref={stimulusRef} onMouseUp={onStimulusMouseUp}>
+              <div className="stimulus serif" ref={stimulusRef} onMouseUp={onSelectableMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user
                   // input — stimulusHtml is that same content with cue <mark> spans woven
-                  // in as a string (see withCueMarks), so it survives every re-render.
-                  <div dangerouslySetInnerHTML={{ __html: stimulusHtml }} />
+                  // in as a string (see withAllMarks). data-hl-scope tags this block so a
+                  // selection inside it anchors as a "stimulus" highlight, not "stem".
+                  <div data-hl-scope="stimulus" dangerouslySetInnerHTML={{ __html: stimulusHtml }} />
                 )}
                 {/* eslint-disable-next-line react/no-danger */}
-                <div dangerouslySetInnerHTML={{ __html: stemHtml }} />
+                <div data-hl-scope="stem" dangerouslySetInnerHTML={{ __html: stemHtml }} />
               </div>
             </div>
 
@@ -1426,7 +1719,7 @@ export function Player() {
                   )}
                 </div>
               ) : (
-                <div className="choices">
+                <div className="choices" onMouseUp={onSelectableMouseUp}>
                   {question.choices.map((c) => {
                     const showFeedback = isReviewMode && !!selectedChoiceId;
                     const feedbackClass = showFeedback
@@ -1436,10 +1729,11 @@ export function Player() {
                           ? ' incorrect'
                           : ''
                       : '';
+                    const isStruck = struck.has(c.id);
                     return (
                       <div
                         key={c.id}
-                        className={`choice${selectedChoiceId === c.id ? ' selected' : ''}${struck.has(c.id) ? ' struck' : ''}${feedbackClass}`}
+                        className={`choice${selectedChoiceId === c.id ? ' selected' : ''}${isStruck ? ' struck' : ''}${feedbackClass}`}
                         onClick={(e) => {
                           if (isReviewMode) return;
                           // A cue-marked word inside this choice's text has its own
@@ -1448,17 +1742,43 @@ export function Player() {
                           // answer, which visually swallows the mark's underline
                           // under the "selected" style and looks like a bug.
                           if ((e.target as HTMLElement).closest('mark.cue-mark')) return;
+                          if ((e.target as HTMLElement).closest('.strike-btn')) return;
                           selectChoice(c.id);
                         }}
                         style={isReviewMode ? { cursor: 'default' } : undefined}
                       >
-                        <span className="letter" onClick={(e) => toggleStruck(c.id, e)}>
-                          {c.label}
-                        </span>
+                        <span className="letter">{c.label}</span>
                         {/* Trusted first-party content from our own `choices` table, not user
                             input — choiceHtmlById carries the same cue-mark treatment as the
                             stimulus/stem above. */}
-                        <span className="ctext" dangerouslySetInnerHTML={{ __html: choiceHtmlById.get(c.id) ?? c.content_markup }} />
+                        <span
+                          className="ctext"
+                          data-hl-scope={`choice:${c.label}`}
+                          dangerouslySetInnerHTML={{ __html: choiceHtmlById.get(c.id) ?? c.content_markup }}
+                        />
+                        {/* Bluebook-style per-choice strikethrough — independent of which
+                            choice is selected as the answer, works in test AND review mode
+                            (real persisted state, see toggleStruck/ensureMarkAttemptId). */}
+                        {isStruck ? (
+                          <button
+                            type="button"
+                            className="strike-btn undo"
+                            onClick={(e) => toggleStruck(c.id, e)}
+                            title="Restore this choice"
+                          >
+                            Undo
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="strike-btn"
+                            onClick={(e) => toggleStruck(c.id, e)}
+                            title="Cross out this choice"
+                            aria-label={`Cross out choice ${c.label}`}
+                          >
+                            ⊘
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -1475,8 +1795,14 @@ export function Player() {
                 </div>
               )}
 
-              {canRevealFeedback && (
-                <div className="note-panel">
+              {
+                // Reachable anytime, not just after answering — real change,
+                // 2026-08-11 (Bluebook parity): notes used to be gated on
+                // canRevealFeedback, so a question you hadn't answered yet
+                // had no note panel at all. The gate is gone; canRevealFeedback
+                // still controls the rationale/cues panels above, unrelated.
+              }
+              <div className="note-panel" id="note-panel-anchor">
                   {noteEditing ? (
                     <>
                       <textarea
@@ -1504,7 +1830,6 @@ export function Player() {
                     </div>
                   )}
                 </div>
-              )}
 
               {showCues && cues.length > 0 && (
                 <div className="cue-panel">
@@ -1555,9 +1880,6 @@ export function Player() {
             </button>
             <button className={`btn ghost${markedForReview ? ' active' : ''}`} onClick={() => setMarkedForReview((m) => !m)}>
               🔖 Mark for Review
-            </button>
-            <button className={`btn ghost${strikeMode ? ' active' : ''}`} onClick={() => setStrikeMode((s) => !s)}>
-              ✎ Strikethrough tool
             </button>
             <div style={{ marginLeft: 'auto' }}>
               <AskAiPanel isConnected={!!aiSettings} model={aiSettings?.model ?? null} questionContext={questionContextText} />

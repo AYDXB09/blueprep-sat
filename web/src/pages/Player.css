@@ -291,11 +291,49 @@
   color: var(--navy);
   background: var(--bg);
 }
-.choice.struck {
-  opacity: 0.45;
-}
-.choice.struck .ctext {
+/* No blanket opacity on .choice.struck — that would also fade the Undo
+   link into illegibility (opacity creates a compositing layer a child
+   can't opt back out of). Dim just the text/letter instead. */
+.choice.struck .ctext,
+.choice.struck .letter {
   text-decoration: line-through;
+  color: var(--ink-dim);
+}
+
+/* Bluebook-style per-choice strike control — a small circle icon, replaced
+   by an "Undo" text link once struck. Persisted (question_attempts.
+   struck_choice_ids), works identically in review mode. */
+.strike-btn {
+  flex: none;
+  margin-left: auto;
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--ink-dim);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.strike-btn:hover {
+  border-color: var(--ink-dim);
+}
+.strike-btn.undo {
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 2px 4px;
 }
 
 /* Review-mode correct/incorrect feedback — distinct from the live
@@ -470,52 +508,138 @@
   text-align: center;
 }
 
-/* ---------- highlighter ---------- */
-mark.hl {
-  background: #ffe066;
+/* ---------- highlighter — 3 real colors + underline style, persisted ---------- */
+mark.user-hl {
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
+  cursor: pointer;
+}
+mark.user-hl-yellow {
+  background: #ffe066;
+}
+mark.user-hl-blue {
+  background: #a8c8f5;
+}
+mark.user-hl-pink {
+  background: #f5b8d8;
 }
 @media (prefers-color-scheme: dark) {
-  mark.hl {
+  mark.user-hl-yellow {
     background: #7a6318;
   }
+  mark.user-hl-blue {
+    background: #24466e;
+  }
+  mark.user-hl-pink {
+    background: #5c2a45;
+  }
 }
-:root[data-theme='dark'] mark.hl {
+:root[data-theme='dark'] mark.user-hl-yellow {
   background: #7a6318;
 }
-:root[data-theme='light'] mark.hl {
+:root[data-theme='dark'] mark.user-hl-blue {
+  background: #24466e;
+}
+:root[data-theme='dark'] mark.user-hl-pink {
+  background: #5c2a45;
+}
+:root[data-theme='light'] mark.user-hl-yellow {
   background: #ffe066;
+}
+:root[data-theme='light'] mark.user-hl-blue {
+  background: #a8c8f5;
+}
+:root[data-theme='light'] mark.user-hl-pink {
+  background: #f5b8d8;
+}
+mark.user-hl-u-solid {
+  text-decoration: underline;
+  text-decoration-style: solid;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
+}
+mark.user-hl-u-dashed {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
+}
+mark.user-hl-u-dotted {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
 }
 
 .hl-popover {
   position: absolute;
   display: none;
+  align-items: center;
   z-index: 60;
-  background: var(--ink);
-  color: var(--bg);
-  border-radius: 7px;
-  padding: 5px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  gap: 4px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  gap: 6px;
 }
 .hl-popover.open {
   display: flex;
 }
-.hl-popover button {
+.hl-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.hl-swatch-yellow {
+  background: #ffe066;
+}
+.hl-swatch-blue {
+  background: #a8c8f5;
+}
+.hl-swatch-pink {
+  background: #f5b8d8;
+}
+.hl-swatch.active {
+  border-color: var(--navy);
+}
+.hl-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  flex: none;
+}
+.hl-underline-select {
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 3px 4px;
+}
+.hl-underline-select:disabled {
+  opacity: 0.5;
+}
+.hl-icon-btn {
   background: transparent;
   border: none;
-  color: inherit;
-  font-size: 11.5px;
+  color: var(--ink-dim);
+  font-size: 12px;
   font-weight: 700;
-  padding: 5px 9px;
-  border-radius: 5px;
+  padding: 5px 8px;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
 }
-.hl-popover button:hover {
-  background: rgba(255, 255, 255, 0.15);
+.hl-icon-btn:hover {
+  background: var(--panel);
+  color: var(--ink);
 }
 
 /* ---------- trap/cue review (system-driven, distinct from mark.hl above) --
@@ -817,47 +941,93 @@ mark.cue-assumption {
   text-decoration: none;
 }
 
-/* ---------- question navigator ---------- */
-.nav-popover {
-  position: absolute;
-  top: 46px;
-  left: 50%;
-  transform: translateX(-50%);
+/* ---------- question navigator — Bluebook-style centered modal ---------- */
+.nav-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 20, 0.4);
   z-index: 55;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 90px;
+}
+.nav-modal {
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
-  padding: 14px;
-  width: 300px;
-  display: none;
+  border-radius: 14px;
+  width: 460px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 22px 26px;
 }
-.nav-popover.open {
-  display: block;
+.nav-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
-.nav-popover .nhead {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.nav-modal-head h2 {
+  font-size: 18px;
+  margin: 0;
+  line-height: 1.25;
+}
+.nav-modal-close {
+  background: none;
+  border: none;
+  font-size: 16px;
   color: var(--ink-dim);
-  margin: 0 0 10px;
+  cursor: pointer;
+  flex: none;
+}
+.nav-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+  margin-bottom: 16px;
+}
+.nav-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.nav-ico {
+  display: inline-flex;
+  width: 14px;
+  font-size: 12px;
+}
+.nav-ico.correct-ico {
+  color: var(--green);
+}
+.nav-ico.incorrect-ico {
+  color: var(--red);
+}
+.nav-legend .sw {
+  width: 12px;
+  height: 12px;
+  border: 1.5px dashed var(--ink-dim);
+  border-radius: 3px;
+  display: inline-block;
 }
 .nav-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
 }
 .nav-cell {
   position: relative;
-  height: 32px;
+  height: 38px;
   border-radius: 6px;
   border: 1.5px solid var(--line);
   background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   color: var(--ink);
@@ -865,50 +1035,67 @@ mark.cue-assumption {
 .nav-cell:hover {
   border-color: var(--navy);
 }
+/* Fill = exactly ONE meaning per mode (test: answered/unanswered; review:
+   correct/incorrect) — "current" is a ring + pin layered on top, never its
+   own fill color, so a cell that's both current and answered/correct still
+   reads as one clear color instead of a confusing third blue. */
+.nav-cell.unanswered {
+  border-style: dashed;
+}
 .nav-cell.answered {
   background: var(--navy-wash);
   border-color: var(--navy);
   color: var(--navy);
 }
+.nav-cell.correct {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  border-color: var(--green);
+  color: var(--green);
+}
+.nav-cell.incorrect {
+  background: var(--red-wash);
+  border-color: var(--red);
+  color: var(--red);
+}
 .nav-cell.current {
+  box-shadow: 0 0 0 2px var(--navy);
   border-color: var(--navy);
-  border-width: 2px;
+}
+.nav-cell-pin {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 .nav-cell.flagged::after {
   content: '🔖';
   position: absolute;
-  top: -6px;
-  right: -5px;
-  font-size: 9px;
+  bottom: -7px;
+  right: -6px;
+  font-size: 10px;
 }
 .nav-cell.has-cue::before {
   content: '💡';
   position: absolute;
-  top: -6px;
-  left: -5px;
-  font-size: 9px;
-}
-.nav-legend {
-  display: flex;
-  gap: 12px;
-  margin-top: 10px;
+  bottom: -7px;
+  left: -6px;
   font-size: 10px;
-  color: var(--ink-dim);
 }
-.nav-legend span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.nav-modal-review-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--navy);
+  background: none;
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
 }
-.nav-legend .sw {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  border: 1.5px solid var(--line);
-}
-.nav-legend .sw.a {
+.nav-modal-review-btn:hover {
   background: var(--navy-wash);
-  border-color: var(--navy);
 }
 
 .demo-controls {
