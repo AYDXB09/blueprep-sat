@@ -145,6 +145,23 @@ function applyAnchoredMark(
     return false;
   }
 
+  // Real bug found live, 2026-08-11: a match spanning across list-item
+  // (<li>) boundaries — e.g. a selection that drags from one bullet into
+  // the next — reached range.surroundContents() below, which can partially
+  // mutate this shared detached container before it throws on a malformed
+  // range. Since every mark in a withAllMarks() pass walks the SAME
+  // container in sequence, one such partial mutation silently shifted or
+  // corrupted the text-node offsets for every mark applied after it in the
+  // same pass — symptoms reported live: a highlight rendering several
+  // words offset from the real selection, and other marks vanishing
+  // outright. A <mark> can't legally wrap sibling <li> elements anyway, so
+  // this is refused up front rather than attempted.
+  const closestLi = (node: Node) => (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement)?.closest('li') ?? null;
+  if (closestLi(startEntry.node) !== closestLi(endEntry.node)) {
+    console.warn(`[${logTag}] anchor spans multiple list items — skipping to avoid corrupting the shared render pass: "${anchorText}"`);
+    return false;
+  }
+
   try {
     const range = document.createRange();
     range.setStart(startEntry.node, matchStart - startEntry.start);
@@ -1062,6 +1079,11 @@ export function Player() {
   // an existing mark to edit/remove it rather than starting a new one).
   const [hlEditingId, setHlEditingId] = useState<string | null>(null);
   const pendingHlRef = useRef<{ scope: HighlightMark['scope']; anchorText: string; occurrence: number } | null>(null);
+  // Underline style for a NOT-YET-created highlight — picking it shouldn't
+  // require applying a color first. Reset on every fresh selection; once a
+  // highlight actually exists (editingHighlight set), the select reads/
+  // writes that highlight's own `underline` field instead of this.
+  const [pendingUnderline, setPendingUnderline] = useState<HighlightMark['underline']>('none');
 
   const onSelectableMouseUp = useCallback((e: React.MouseEvent) => {
     const sel = window.getSelection();
@@ -1126,6 +1148,7 @@ export function Player() {
 
     pendingHlRef.current = { scope, anchorText, occurrence };
     setHlEditingId(null);
+    setPendingUnderline('none');
 
     const rect = range.getBoundingClientRect();
     setHlPopoverPos({
@@ -1149,23 +1172,33 @@ export function Player() {
       }
       const pending = pendingHlRef.current;
       if (!pending) return;
-      const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: 'none' };
+      // Underline may already have been picked (select is never disabled —
+      // see applyHighlightUnderline) before a color was chosen for a brand
+      // new selection; use whatever's pending instead of always 'none'.
+      const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: pendingUnderline };
       addHighlightMark(mark);
       setHlEditingId(mark.id);
       pendingHlRef.current = null;
+      setPendingUnderline('none');
       window.getSelection()?.removeAllRanges();
     },
-    [editingHighlight, highlights, ensureMarkAttemptId, addHighlightMark],
+    [editingHighlight, highlights, ensureMarkAttemptId, addHighlightMark, pendingUnderline],
   );
 
   const applyHighlightUnderline = useCallback(
     (underline: HighlightMark['underline']) => {
-      if (!editingHighlight) return;
-      const next = highlights.map((h) => (h.id === editingHighlight.id ? { ...h, underline } : h));
-      setHighlights(next);
-      ensureMarkAttemptId().then((id) => {
+      if (editingHighlight) {
+        const next = highlights.map((h) => (h.id === editingHighlight.id ? { ...h, underline } : h));
+        setHighlights(next);
+        ensureMarkAttemptId().then((id) => {
           if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
         });
+        return;
+      }
+      // No highlight created yet — a fresh selection can still set its
+      // underline style ahead of picking a color (the select is never
+      // disabled). Stashed here and consumed by applyHighlightColor.
+      setPendingUnderline(underline);
     },
     [editingHighlight, highlights, ensureMarkAttemptId],
   );
@@ -1631,8 +1664,7 @@ export function Player() {
         <span className="hl-sep" />
         <select
           className="hl-underline-select"
-          value={editingHighlight?.underline ?? 'none'}
-          disabled={!editingHighlight}
+          value={editingHighlight?.underline ?? pendingUnderline}
           onChange={(e) => applyHighlightUnderline(e.target.value as HighlightMark['underline'])}
           title="Underline style"
         >
