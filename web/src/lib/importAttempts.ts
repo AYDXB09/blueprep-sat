@@ -85,25 +85,26 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
   const uuids = [...new Set(rows.map((r) => r.id).filter(Boolean))];
   const codes = [...new Set(rows.map((r) => r.code || r.questionId).filter(Boolean))];
 
-  const questionById = new Map<string, { id: string; source_external_id: string | null; response_type: string }>();
-  const questionByCode = new Map<string, { id: string; source_external_id: string | null; response_type: string }>();
+  type QuestionLookup = { id: string; source_external_id: string | null; response_type: string; subject: string };
+  const questionById = new Map<string, QuestionLookup>();
+  const questionByCode = new Map<string, QuestionLookup>();
 
   for (const idChunk of chunk(uuids, LOOKUP_CHUNK_SIZE)) {
-    const { data, error } = await supabase.from('questions').select('id, source_external_id, response_type').in('id', idChunk);
+    const { data, error } = await supabase.from('questions').select('id, source_external_id, response_type, subject').in('id', idChunk);
     if (error) throw error;
     (data ?? []).forEach((q) => questionById.set(q.id, q));
   }
   for (const codeChunk of chunk(codes, LOOKUP_CHUNK_SIZE)) {
     const { data, error } = await supabase
       .from('questions')
-      .select('id, source_external_id, response_type')
+      .select('id, source_external_id, response_type, subject')
       .in('source_external_id', codeChunk);
     if (error) throw error;
     (data ?? []).forEach((q) => questionByCode.set(q.source_external_id ?? '', q));
   }
 
   const matchedQuestionIds = new Set<string>();
-  const resolvedRows: { row: Record<string, string>; questionId: string; responseType: string }[] = [];
+  const resolvedRows: { row: Record<string, string>; questionId: string; responseType: string; subject: string }[] = [];
 
   rows.forEach((row, i) => {
     // Column-shift guard: a row whose `correct`/`type` fell outside the
@@ -123,7 +124,7 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
     if (match) {
       summary.matched++;
       matchedQuestionIds.add(match.id);
-      resolvedRows.push({ row, questionId: match.id, responseType: match.response_type });
+      resolvedRows.push({ row, questionId: match.id, responseType: match.response_type, subject: match.subject });
     } else {
       summary.unmatched.push({ row: i + 1, id: row.id || undefined, code: row.code || row.questionId || undefined });
     }
@@ -153,8 +154,8 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
     });
   }
 
-  type ResolvedInsert = { insert: Omit<QuestionAttemptInsert, 'session_id'>; submittedAtMs: number; isCorrect: boolean };
-  const resolvedInserts: ResolvedInsert[] = resolvedRows.map(({ row, questionId, responseType }) => {
+  type ResolvedInsert = { insert: Omit<QuestionAttemptInsert, 'session_id'>; submittedAtMs: number; isCorrect: boolean; subject: string };
+  const resolvedInserts: ResolvedInsert[] = resolvedRows.map(({ row, questionId, responseType, subject }) => {
     const attemptNumber = nextAttemptNumber.get(questionId) ?? 1;
     nextAttemptNumber.set(questionId, attemptNumber + 1);
 
@@ -169,6 +170,7 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
     return {
       submittedAtMs: new Date(submittedAt).getTime(),
       isCorrect,
+      subject,
       insert: {
         user_id: userId,
         question_id: questionId,
@@ -183,56 +185,71 @@ export async function importAttempts(rows: Record<string, string>[], userId: str
     };
   });
 
-  // Gap-based grouping, not a flat calendar day: a real sitting is a run of
-  // attempts close together in time. Sorted by timestamp, a new session
-  // starts wherever the gap to the previous attempt exceeds 45 minutes —
-  // matches the same logic the backfill migration used for the first
-  // import batch (2026-08-10), so both produce comparably-sized sessions
-  // instead of one inflated day-long block.
+  // Split by subject first, then gap-group within each subject's own
+  // timeline — not a flat calendar day, and not mixed-subject either. A
+  // first pass grouped purely by time gap across both subjects at once,
+  // which produced sessions with no single subject and therefore no real
+  // `subject_filter` — Dashboard's Math/R&W score trend tiles (and
+  // anything else keyed off subject_filter) both filter on
+  // `subject_filter === 'Math' | 'Reading and Writing'` exactly, so a null
+  // subject_filter meant those tiles stayed empty despite 322 real
+  // imported attempts existing (confirmed live, 2026-08-11). Splitting by
+  // subject before gap-grouping makes every imported session subject-pure,
+  // matching what subject_filter means everywhere else in the schema.
   const SESSION_GAP_MS = 45 * 60 * 1000;
-  const sorted = [...resolvedInserts].sort((a, b) => a.submittedAtMs - b.submittedAtMs);
-  const groups: ResolvedInsert[][] = [];
-  for (const r of sorted) {
-    const current = groups[groups.length - 1];
-    if (!current || r.submittedAtMs - current[current.length - 1].submittedAtMs > SESSION_GAP_MS) {
-      groups.push([r]);
-    } else {
-      current.push(r);
-    }
-  }
+  const bySubject = new Map<string, ResolvedInsert[]>();
+  resolvedInserts.forEach((r) => {
+    const list = bySubject.get(r.subject) ?? [];
+    list.push(r);
+    bySubject.set(r.subject, list);
+  });
 
   const finalInserts: QuestionAttemptInsert[] = [];
-  for (const group of groups) {
-    const questionIdsOrdered = group.map((r) => r.insert.question_id);
-    const correctCount = group.filter((r) => r.isCorrect).length;
-    const startedAt = new Date(group[0].submittedAtMs).toISOString();
-    const completedAt = new Date(group[group.length - 1].submittedAtMs).toISOString();
-    const { data: session, error: sessionErr } = await supabase
-      .from('practice_sessions')
-      .insert({
-        user_id: userId,
-        mode: 'imported',
-        question_ids: questionIdsOrdered,
-        requested_count: group.length,
-        actual_count: group.length,
-        timer_mode: 'none',
-        timer_basis: 'none',
-        feedback_mode: 'immediate',
-        include_retired: true,
-        started_at: startedAt,
-        completed_at: completedAt,
-        score_summary: {
-          total: group.length,
-          correct: correctCount,
-          answered: group.length,
-          pct: Math.round((correctCount / group.length) * 100),
-        },
-      })
-      .select('id')
-      .single();
-    if (sessionErr) throw sessionErr;
+  for (const [subject, subjectRows] of bySubject) {
+    const sorted = [...subjectRows].sort((a, b) => a.submittedAtMs - b.submittedAtMs);
+    const groups: ResolvedInsert[][] = [];
+    for (const r of sorted) {
+      const current = groups[groups.length - 1];
+      if (!current || r.submittedAtMs - current[current.length - 1].submittedAtMs > SESSION_GAP_MS) {
+        groups.push([r]);
+      } else {
+        current.push(r);
+      }
+    }
 
-    group.forEach((r) => finalInserts.push({ ...r.insert, session_id: session.id }));
+    for (const group of groups) {
+      const questionIdsOrdered = group.map((r) => r.insert.question_id);
+      const correctCount = group.filter((r) => r.isCorrect).length;
+      const startedAt = new Date(group[0].submittedAtMs).toISOString();
+      const completedAt = new Date(group[group.length - 1].submittedAtMs).toISOString();
+      const { data: session, error: sessionErr } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: userId,
+          mode: 'imported',
+          subject_filter: subject,
+          question_ids: questionIdsOrdered,
+          requested_count: group.length,
+          actual_count: group.length,
+          timer_mode: 'none',
+          timer_basis: 'none',
+          feedback_mode: 'immediate',
+          include_retired: true,
+          started_at: startedAt,
+          completed_at: completedAt,
+          score_summary: {
+            total: group.length,
+            correct: correctCount,
+            answered: group.length,
+            pct: Math.round((correctCount / group.length) * 100),
+          },
+        })
+        .select('id')
+        .single();
+      if (sessionErr) throw sessionErr;
+
+      group.forEach((r) => finalInserts.push({ ...r.insert, session_id: session.id }));
+    }
   }
 
   // Batched so one giant CSV doesn't hit a single request's size limit.
