@@ -92,37 +92,86 @@ function collectMeaningfulTextNodes(container: HTMLElement): Text[] {
   return nodes;
 }
 
+// Collapses any run of whitespace (space, tab, newline) to a single space
+// and trims the ends. Used on BOTH sides of every anchor-text comparison in
+// this file (capture and render) so that whitespace differences — multiple
+// spaces in source markup, or the synthetic newlines Selection.toString()
+// is known to insert at some element boundaries — can never desync an
+// anchor that's otherwise the same visible text.
+function normalizeWs(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+interface TextIndexEntry {
+  node: Text;
+  offset: number;
+}
+
+// Builds a whitespace-NORMALIZED concatenation of a container's meaningful
+// text, plus a 1:1 map from each character of that normalized string back
+// to its real (Text node, offset) source position. Rewritten 2026-08-13
+// after the previous raw (non-normalized) concatenation + manual offset
+// arithmetic kept producing "highlighting a few characters highlights the
+// whole passage from the beginning" — multiple targeted fixes to that
+// arithmetic (comparePoint-based boundary resolution, a self-verification
+// check) still didn't fully eliminate it. This replaces that whole
+// approach: every consumer (cue marks AND user highlights, capture AND
+// render) now goes through this single normalized index, so there's one
+// definition of "position" instead of several manual ones that could
+// disagree with each other.
+function buildNormalizedTextIndex(container: HTMLElement): { text: string; positions: TextIndexEntry[] } {
+  const textNodes = collectMeaningfulTextNodes(container);
+  let text = '';
+  const positions: TextIndexEntry[] = [];
+  let pendingSpace = false;
+  for (const node of textNodes) {
+    const val = node.nodeValue ?? '';
+    for (let i = 0; i < val.length; i++) {
+      const ch = val[i];
+      if (/\s/.test(ch)) {
+        if (!pendingSpace && text.length > 0) {
+          text += ' ';
+          positions.push({ node, offset: i });
+          pendingSpace = true;
+        }
+        continue;
+      }
+      pendingSpace = false;
+      text += ch;
+      positions.push({ node, offset: i });
+    }
+  }
+  if (text.endsWith(' ')) {
+    text = text.slice(0, -1);
+    positions.pop();
+  }
+  return { text, positions };
+}
+
 /**
- * Finds the nth occurrence (1-based) of `anchorText` as a verbatim
- * substring of the container's concatenated meaningful text, wraps it in a
- * <mark> built by `buildMark`, and returns true — or false (with a
- * console.warn tagged by `logTag`) if the anchor can't be found or the wrap
- * fails, which callers must treat as "skip this mark," never a crash.
- * Shared by both the system-drawn cue marks and the student's own
- * highlights below — same anchor-by-text-match strategy either way, since
- * `cues.anchor_text`/`occurrence` and `HighlightMark.anchorText`/
- * `occurrence` are the same shape by design (see HighlightMark's doc
- * comment in practiceSessions.ts).
+ * Finds the nth occurrence (1-based) of `anchorTextRaw` (whitespace-
+ * normalized before searching) within the container's normalized meaningful
+ * text, wraps it in a <mark> built by `buildMark`, and returns true — or
+ * false (with a console.warn tagged by `logTag`) if the anchor can't be
+ * found or the wrap fails, which callers must treat as "skip this mark,"
+ * never a crash. Shared by both the system-drawn cue marks and the
+ * student's own highlights below — same anchor-by-text-match strategy
+ * either way, since `cues.anchor_text`/`occurrence` and
+ * `HighlightMark.anchorText`/`occurrence` are the same shape by design (see
+ * HighlightMark's doc comment in practiceSessions.ts).
  */
 function applyAnchoredMark(
   container: HTMLElement,
-  anchorText: string,
+  anchorTextRaw: string,
   occurrence: number,
   buildMark: () => HTMLElement,
   logTag: string
 ): boolean {
+  const anchorText = normalizeWs(anchorTextRaw);
   if (!anchorText) return false;
 
-  const textNodes = collectMeaningfulTextNodes(container);
-  if (textNodes.length === 0) return false;
-
-  let concatenated = '';
-  const offsets: Array<{ node: Text; start: number; end: number }> = [];
-  for (const node of textNodes) {
-    const text = node.nodeValue ?? '';
-    offsets.push({ node, start: concatenated.length, end: concatenated.length + text.length });
-    concatenated += text;
-  }
+  const { text: concatenated, positions } = buildNormalizedTextIndex(container);
+  if (positions.length === 0) return false;
 
   const occ = Math.max(1, occurrence || 1);
   let searchFrom = 0;
@@ -139,9 +188,9 @@ function applyAnchoredMark(
 
   const matchStart = matchIndex;
   const matchEnd = matchIndex + anchorText.length;
-  const startEntry = offsets.find((o) => matchStart >= o.start && matchStart < o.end);
-  const endEntry = offsets.find((o) => matchEnd > o.start && matchEnd <= o.end);
-  if (!startEntry || !endEntry) {
+  const startPos = positions[matchStart];
+  const endPos = positions[matchEnd - 1];
+  if (!startPos || !endPos) {
     console.warn(`[${logTag}] could not map anchor offsets for "${anchorText}"`);
     return false;
   }
@@ -158,15 +207,15 @@ function applyAnchoredMark(
   // outright. A <mark> can't legally wrap sibling <li> elements anyway, so
   // this is refused up front rather than attempted.
   const closestLi = (node: Node) => (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement)?.closest('li') ?? null;
-  if (closestLi(startEntry.node) !== closestLi(endEntry.node)) {
+  if (closestLi(startPos.node) !== closestLi(endPos.node)) {
     console.warn(`[${logTag}] anchor spans multiple list items — skipping to avoid corrupting the shared render pass: "${anchorText}"`);
     return false;
   }
 
   try {
     const range = document.createRange();
-    range.setStart(startEntry.node, matchStart - startEntry.start);
-    range.setEnd(endEntry.node, matchEnd - endEntry.start);
+    range.setStart(startPos.node, startPos.offset);
+    range.setEnd(endPos.node, endPos.offset + 1);
     range.surroundContents(buildMark());
     return true;
   } catch (err) {
@@ -1156,110 +1205,58 @@ export function Player() {
     const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
     if (!scope) return;
 
-    // Build anchorText from the SAME meaningful-text-node concatenation
-    // applyAnchoredMark's search uses — NOT range.toString()/textContent.
-    // Selection.toString() inserts its own synthetic newlines at certain
-    // element boundaries (confirmed live: a boundary next to inline MathML
-    // content produced a "\n" toString() doesn't put there when re-walked
-    // node-by-node), which silently broke every highlight whose selection
-    // crossed one of those boundaries — the anchor just never matched on
-    // render, with no visible error beyond a console.warn.
-    const textNodes = collectMeaningfulTextNodes(container);
-    let fullText = '';
-    const offsets: Array<{ node: Text; start: number; end: number }> = [];
-    for (const node of textNodes) {
-      const text = node.nodeValue ?? '';
-      offsets.push({ node, start: fullText.length, end: fullText.length + text.length });
-      fullText += text;
-    }
-    const posOf = (node: Node, nodeOffset: number): number | null => {
-      const entry = offsets.find((o) => o.node === node);
-      if (entry) return entry.start + nodeOffset;
-      // Selection boundary landed on an element node (e.g. dragging a
-      // selection that starts right next to an existing cue/highlight
-      // <mark>, or right at any other tag boundary — common in these
-      // heavily-marked-up passages) rather than directly inside a text
-      // node. Real bug found live, 2026-08-11: the previous fallback used
-      // `node.compareDocumentPosition(o.node) & DOCUMENT_POSITION_FOLLOWING`
-      // to find "the next text node after node" — but when `node` is an
-      // ANCESTOR of the text nodes (which it usually is here, since it's
-      // often the whole stimulus/stem/choice container itself), EVERY
-      // descendant text node satisfies "follows node" in document-order
-      // terms, so the scan always returned the very FIRST text node in the
-      // entire container — i.e. the selection anchor silently snapped back
-      // to the start of the passage regardless of where the user actually
-      // dragged from. That's what was reported as "select a few words in
-      // the middle, the highlight covers from the beginning" — and the
-      // resulting huge/misplaced anchor also explains highlights (and
-      // their underline) appearing to vanish on a later render: with the
-      // wrong anchor+occurrence, a subsequent re-render's text-node walk
-      // can easily fail to find the same match again.
-      //
-      // Fixed by resolving the exact (node, nodeOffset) boundary to a real
-      // collapsed Range and using Range.comparePoint against each
-      // candidate's actual position, which correctly accounts for
-      // ancestor/descendant relationships instead of just "anywhere later
-      // in the whole document."
-      let boundary: Range;
-      try {
-        boundary = document.createRange();
-        boundary.setStart(node, nodeOffset);
-        boundary.collapse(true);
-      } catch (err) {
-        console.warn('[highlights] posOf: setStart failed, skipping capture', err);
-        return null;
-      }
-      for (const o of offsets) {
-        // comparePoint(refNode, refOffset) returns -1 if that point comes
-        // before this (collapsed) range, 0 if exactly at it, 1 if after —
-        // the first candidate that isn't BEFORE the boundary is the
-        // nearest real text position at or after where the selection
-        // actually started/ended.
-        try {
-          if (boundary.comparePoint(o.node, 0) >= 0) return o.start;
-        } catch (err) {
-          console.warn('[highlights] posOf: comparePoint failed, skipping capture', err);
-          return null;
-        }
-      }
-      return null;
-    };
-    const selStart = posOf(range.startContainer, range.startOffset);
-    const selEnd = posOf(range.endContainer, range.endOffset);
-    if (selStart === null || selEnd === null || selEnd <= selStart) return;
-
-    const anchorText = fullText.slice(selStart, selEnd);
-    // Occurrence = which n-th match of this exact text within the scope's
-    // own meaningful text (same convention as cues).
-    const before = fullText.slice(0, selStart);
-    const occurrence = before.split(anchorText).length; // 1-based count of prior matches + 1
-
-    // Self-verification safety net, added 2026-08-12. The FIRST version of
-    // this check was worthless and shipped by mistake: it re-derived
-    // matchStart by searching fullText for anchorText — but anchorText is
-    // ITSELF `fullText.slice(selStart, selEnd)`, so that search trivially
-    // finds it starting back at selStart even when selStart is wrong (e.g.
-    // wrongly snapped to 0) — it was checking the math was internally
-    // consistent with itself, not that it matched what the user actually
-    // selected. Confirmed live: it never once rejected anything and the
-    // wrong-whole-passage bug kept happening after it shipped.
+    // Rewritten 2026-08-13 — the previous approach (manually resolving
+    // range.startContainer/endContainer to offsets into a hand-built
+    // concatenation, via progressively more elaborate DOM-position
+    // arithmetic) kept producing "highlighting a few characters highlights
+    // the whole passage from the beginning" despite multiple targeted
+    // fixes. Replaced with something structurally simpler and far less
+    // prone to this class of bug: let the BROWSER resolve both pieces we
+    // need, via its own battle-tested Range.toString().
     //
-    // Real fix: cross-check anchorText against sel.toString() — the
-    // BROWSER'S OWN stringification of the live selection, computed via a
-    // completely different code path (native Range API, not our manual
-    // text-node walk) — so it can't fail for the same reason our own math
-    // might be wrong. Whitespace-normalized on both sides since
-    // Selection.toString() is known to insert its own synthetic newlines
-    // at some element boundaries that don't exist in the real concatenated
-    // text (see the anchorText-computation comment above) — an exact
-    // byte-for-byte match would false-reject those legitimate cases.
-    const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
-    const rawSelStr = sel.toString();
-    if (normalize(anchorText) !== normalize(rawSelStr)) {
-      console.warn(
-        '[highlights] capture self-check failed — computed anchor does not match the actual browser selection, refusing to create a possibly-corrupt highlight.',
-        { anchorText, rawSelStr, selStart, selEnd, occurrence }
-      );
+    // 1. anchorText = the selection's own text (normalized — see
+    //    normalizeWs's doc comment for why).
+    // 2. occurrence = count how many times that normalized text already
+    //    appears in EVERYTHING BEFORE the selection start — built the same
+    //    way, via a second Range spanning from the top of the container to
+    //    the selection's start point, again using native toString()
+    //    instead of manual offset math.
+    //
+    // This still lands on the exact same normalized-text-index that
+    // applyAnchoredMark uses to search at render time (see
+    // buildNormalizedTextIndex), so capture and render are guaranteed
+    // consistent — but capture itself no longer does any manual DOM
+    // position resolution at all, eliminating the whole bug class rather
+    // than patching another edge case of it.
+    const anchorText = normalizeWs(sel.toString());
+    if (!anchorText) return;
+
+    let beforeRange: Range;
+    try {
+      beforeRange = document.createRange();
+      beforeRange.selectNodeContents(container);
+      beforeRange.setEnd(range.startContainer, range.startOffset);
+    } catch (err) {
+      console.warn('[highlights] failed to build the "before" range for occurrence counting, skipping capture', err);
+      return;
+    }
+    const beforeText = normalizeWs(beforeRange.toString());
+    const occurrence = beforeText.split(anchorText).length; // 1-based count of prior matches + 1
+
+    // Sanity check: this now exercises the SAME algorithm (and the SAME
+    // normalized index) applyAnchoredMark will use at render time, so it's
+    // a real consistency check — not the earlier tautological version that
+    // re-derived from the same numbers it was supposed to be validating.
+    const { text: fullNormalized } = buildNormalizedTextIndex(container);
+    let verifyFrom = 0;
+    let verifyMatch = -1;
+    for (let i = 0; i < Math.max(1, occurrence); i++) {
+      verifyMatch = fullNormalized.indexOf(anchorText, verifyFrom);
+      if (verifyMatch === -1) break;
+      verifyFrom = verifyMatch + 1;
+    }
+    if (verifyMatch === -1) {
+      console.warn('[highlights] capture could not be relocated in the render-time index, skipping', { anchorText, occurrence });
       return;
     }
 
