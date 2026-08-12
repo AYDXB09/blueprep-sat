@@ -1205,7 +1205,8 @@ export function Player() {
         boundary = document.createRange();
         boundary.setStart(node, nodeOffset);
         boundary.collapse(true);
-      } catch {
+      } catch (err) {
+        console.warn('[highlights] posOf: setStart failed, skipping capture', err);
         return null;
       }
       for (const o of offsets) {
@@ -1214,7 +1215,12 @@ export function Player() {
         // the first candidate that isn't BEFORE the boundary is the
         // nearest real text position at or after where the selection
         // actually started/ended.
-        if (boundary.comparePoint(o.node, 0) >= 0) return o.start;
+        try {
+          if (boundary.comparePoint(o.node, 0) >= 0) return o.start;
+        } catch (err) {
+          console.warn('[highlights] posOf: comparePoint failed, skipping capture', err);
+          return null;
+        }
       }
       return null;
     };
@@ -1227,6 +1233,33 @@ export function Player() {
     // own meaningful text (same convention as cues).
     const before = fullText.slice(0, selStart);
     const occurrence = before.split(anchorText).length; // 1-based count of prior matches + 1
+
+    // Self-verification safety net, added 2026-08-12 after this anchor
+    // capture kept producing a wrong "highlight the whole passage" result
+    // despite the posOf fix above — root cause not fully pinned down (best
+    // lead: something invalidating node references between the drag
+    // starting and mouseup firing), so this is a belt-and-suspenders check
+    // rather than a replacement for that fix. Re-run the EXACT same
+    // occurrence-based search applyAnchoredMark will later use at render
+    // time, right now, against this same fullText — if it doesn't land
+    // back on the span the user actually dragged, refuse to create the
+    // mark instead of silently producing a huge/wrong one. A missed
+    // highlight is a minor annoyance; a giant wrong one covering the whole
+    // passage is the actual reported bug.
+    let verifyFrom = 0;
+    let verifyMatch = -1;
+    for (let i = 0; i < Math.max(1, occurrence); i++) {
+      verifyMatch = fullText.indexOf(anchorText, verifyFrom);
+      if (verifyMatch === -1) break;
+      verifyFrom = verifyMatch + 1;
+    }
+    if (verifyMatch !== selStart) {
+      console.warn(
+        '[highlights] capture self-check failed — refusing to create a possibly-corrupt highlight.',
+        { anchorText, occurrence, selStart, selEnd, resolvedTo: verifyMatch, fullTextLength: fullText.length }
+      );
+      return;
+    }
 
     setPendingHlBoth({ scope, anchorText, occurrence });
     setHlEditingId(null);
