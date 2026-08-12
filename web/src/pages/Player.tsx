@@ -1234,29 +1234,31 @@ export function Player() {
     const before = fullText.slice(0, selStart);
     const occurrence = before.split(anchorText).length; // 1-based count of prior matches + 1
 
-    // Self-verification safety net, added 2026-08-12 after this anchor
-    // capture kept producing a wrong "highlight the whole passage" result
-    // despite the posOf fix above — root cause not fully pinned down (best
-    // lead: something invalidating node references between the drag
-    // starting and mouseup firing), so this is a belt-and-suspenders check
-    // rather than a replacement for that fix. Re-run the EXACT same
-    // occurrence-based search applyAnchoredMark will later use at render
-    // time, right now, against this same fullText — if it doesn't land
-    // back on the span the user actually dragged, refuse to create the
-    // mark instead of silently producing a huge/wrong one. A missed
-    // highlight is a minor annoyance; a giant wrong one covering the whole
-    // passage is the actual reported bug.
-    let verifyFrom = 0;
-    let verifyMatch = -1;
-    for (let i = 0; i < Math.max(1, occurrence); i++) {
-      verifyMatch = fullText.indexOf(anchorText, verifyFrom);
-      if (verifyMatch === -1) break;
-      verifyFrom = verifyMatch + 1;
-    }
-    if (verifyMatch !== selStart) {
+    // Self-verification safety net, added 2026-08-12. The FIRST version of
+    // this check was worthless and shipped by mistake: it re-derived
+    // matchStart by searching fullText for anchorText — but anchorText is
+    // ITSELF `fullText.slice(selStart, selEnd)`, so that search trivially
+    // finds it starting back at selStart even when selStart is wrong (e.g.
+    // wrongly snapped to 0) — it was checking the math was internally
+    // consistent with itself, not that it matched what the user actually
+    // selected. Confirmed live: it never once rejected anything and the
+    // wrong-whole-passage bug kept happening after it shipped.
+    //
+    // Real fix: cross-check anchorText against sel.toString() — the
+    // BROWSER'S OWN stringification of the live selection, computed via a
+    // completely different code path (native Range API, not our manual
+    // text-node walk) — so it can't fail for the same reason our own math
+    // might be wrong. Whitespace-normalized on both sides since
+    // Selection.toString() is known to insert its own synthetic newlines
+    // at some element boundaries that don't exist in the real concatenated
+    // text (see the anchorText-computation comment above) — an exact
+    // byte-for-byte match would false-reject those legitimate cases.
+    const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
+    const rawSelStr = sel.toString();
+    if (normalize(anchorText) !== normalize(rawSelStr)) {
       console.warn(
-        '[highlights] capture self-check failed — refusing to create a possibly-corrupt highlight.',
-        { anchorText, occurrence, selStart, selEnd, resolvedTo: verifyMatch, fullTextLength: fullText.length }
+        '[highlights] capture self-check failed — computed anchor does not match the actual browser selection, refusing to create a possibly-corrupt highlight.',
+        { anchorText, rawSelStr, selStart, selEnd, occurrence }
       );
       return;
     }
