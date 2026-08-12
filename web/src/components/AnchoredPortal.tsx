@@ -39,11 +39,19 @@ export function AnchoredPortal({
   anchorRef,
   active,
   placement,
+  align = 'right',
   children,
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   active: boolean;
   placement: 'above' | 'below';
+  // 'right' (default) keeps the existing AI-popover behavior (right edge
+  // flush with the anchor's right edge). 'center' centers the popover on
+  // the anchor's horizontal midpoint instead — used by the bottombar
+  // question-navigator trigger, which (like Bluebook's own) needs to open
+  // dead-center above a pill sitting in the middle of the bar, not flush
+  // to one edge.
+  align?: 'right' | 'center';
   children: ReactNode;
 }) {
   const rect = useAnchorRect(anchorRef, active);
@@ -51,9 +59,14 @@ export function AnchoredPortal({
 
   const style: CSSProperties = {
     position: 'fixed',
-    right: Math.max(8, window.innerWidth - rect.right),
     zIndex: 1000,
   };
+  if (align === 'center') {
+    style.left = rect.left + rect.width / 2;
+    style.transform = 'translateX(-50%)';
+  } else {
+    style.right = Math.max(8, window.innerWidth - rect.right);
+  }
   if (placement === 'above') style.bottom = window.innerHeight - rect.top + 8;
   else style.top = rect.bottom + 8;
 

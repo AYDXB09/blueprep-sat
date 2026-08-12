@@ -31,6 +31,7 @@ import { getNote, saveNote } from '../lib/questionNotes';
 import { getSessionOrigin } from '../lib/sessionOrigin';
 import { getAiSettings, type AiSettings } from '../lib/aiSettings';
 import { AskAiPanel } from '../components/AskAiPanel';
+import { AnchoredPortal } from '../components/AnchoredPortal';
 import type { Database } from '../lib/database.types';
 
 // Real full-test module sequence — R&W M1 → R&W M2 → (break) → Math M1 →
@@ -1174,12 +1175,46 @@ export function Player() {
     const posOf = (node: Node, nodeOffset: number): number | null => {
       const entry = offsets.find((o) => o.node === node);
       if (entry) return entry.start + nodeOffset;
-      // Selection boundary landed on an element node (e.g. selection starts
-      // right at a tag boundary) rather than inside a text node directly —
-      // fall back to the start of the first meaningful text node at or
-      // after it in document order.
+      // Selection boundary landed on an element node (e.g. dragging a
+      // selection that starts right next to an existing cue/highlight
+      // <mark>, or right at any other tag boundary — common in these
+      // heavily-marked-up passages) rather than directly inside a text
+      // node. Real bug found live, 2026-08-11: the previous fallback used
+      // `node.compareDocumentPosition(o.node) & DOCUMENT_POSITION_FOLLOWING`
+      // to find "the next text node after node" — but when `node` is an
+      // ANCESTOR of the text nodes (which it usually is here, since it's
+      // often the whole stimulus/stem/choice container itself), EVERY
+      // descendant text node satisfies "follows node" in document-order
+      // terms, so the scan always returned the very FIRST text node in the
+      // entire container — i.e. the selection anchor silently snapped back
+      // to the start of the passage regardless of where the user actually
+      // dragged from. That's what was reported as "select a few words in
+      // the middle, the highlight covers from the beginning" — and the
+      // resulting huge/misplaced anchor also explains highlights (and
+      // their underline) appearing to vanish on a later render: with the
+      // wrong anchor+occurrence, a subsequent re-render's text-node walk
+      // can easily fail to find the same match again.
+      //
+      // Fixed by resolving the exact (node, nodeOffset) boundary to a real
+      // collapsed Range and using Range.comparePoint against each
+      // candidate's actual position, which correctly accounts for
+      // ancestor/descendant relationships instead of just "anywhere later
+      // in the whole document."
+      let boundary: Range;
+      try {
+        boundary = document.createRange();
+        boundary.setStart(node, nodeOffset);
+        boundary.collapse(true);
+      } catch {
+        return null;
+      }
       for (const o of offsets) {
-        if (node.compareDocumentPosition(o.node) & Node.DOCUMENT_POSITION_FOLLOWING) return o.start;
+        // comparePoint(refNode, refOffset) returns -1 if that point comes
+        // before this (collapsed) range, 0 if exactly at it, 1 if after —
+        // the first candidate that isn't BEFORE the boundary is the
+        // nearest real text position at or after where the selection
+        // actually started/ended.
+        if (boundary.comparePoint(o.node, 0) >= 0) return o.start;
       }
       return null;
     };
@@ -1488,118 +1523,6 @@ export function Player() {
         <span className={`subj-badge${isMath ? '' : ' rw'}`}>{subjectLabel}</span>
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progressPct}%` }} />
-        </div>
-        <div style={{ position: 'relative' }}>
-          <button
-            ref={jumpBtnRef}
-            className="progress-label mono"
-            id="jumpBtn"
-            onClick={(e) => {
-              e.stopPropagation();
-              setNavOpen((o) => !o);
-            }}
-          >
-            Q{CURRENT_Q} of {TOTAL_Q} ▾
-          </button>
-          {navOpen && (
-            <div
-              className="nav-modal-backdrop"
-              onClick={() => setNavOpen(false)}
-            >
-              <div className="nav-modal" ref={navRef} onClick={(e) => e.stopPropagation()}>
-                <div className="nav-modal-head">
-                  <h2>
-                    {subjectLabel} Questions{isReviewMode ? ' — Review' : ''}
-                  </h2>
-                  <button className="nav-modal-close" aria-label="Close" onClick={() => setNavOpen(false)}>
-                    ✕
-                  </button>
-                </div>
-                <div className="nav-legend">
-                  {isReviewMode ? (
-                    <>
-                      <span>
-                        <span className="nav-ico current-ico">📍</span>Current
-                      </span>
-                      <span>
-                        <span className="nav-ico correct-ico">✓</span>Correct
-                      </span>
-                      <span>
-                        <span className="nav-ico incorrect-ico">✕</span>Incorrect
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span>
-                        <span className="nav-ico current-ico">📍</span>Current
-                      </span>
-                      <span>
-                        <span className="sw" />
-                        Unanswered
-                      </span>
-                      <span>🔖 For Review</span>
-                    </>
-                  )}
-                </div>
-                <div className="nav-grid">
-                  {/* Scoped to the CURRENT MODULE only (real full-test sessions span
-                      up to 98 questions across 4 modules) — matches the real exam's
-                      own per-section navigator. Ad-hoc/practice sessions have no
-                      module concept (currentModuleRange is undefined for them), so
-                      the grid falls back to the whole session, same as before. */}
-                  {Array.from(
-                    { length: (currentModuleRange?.end ?? TOTAL_Q) - (currentModuleRange?.start ?? 1) + 1 },
-                    (_, i) => (currentModuleRange?.start ?? 1) + i
-                  ).map((pos) => {
-                    const isAnswered = answeredPositions.has(pos);
-                    const isFlagged = flaggedPositions.has(pos);
-                    const isCurrent = pos === CURRENT_Q;
-                    const hasCue = !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
-                    const correctness = isReviewMode ? positionCorrectness.get(pos) : undefined;
-                    return (
-                      <div
-                        key={pos}
-                        className={`nav-cell${isAnswered ? ' answered' : !isReviewMode ? ' unanswered' : ''}${
-                          isCurrent ? ' current' : ''
-                        }${isFlagged ? ' flagged' : ''}${hasCue ? ' has-cue' : ''}${correctness === true ? ' correct' : ''}${
-                          correctness === false ? ' incorrect' : ''
-                        }`}
-                        title={`Question ${pos}${
-                          isReviewMode
-                            ? correctness === true
-                              ? ' — correct'
-                              : correctness === false
-                                ? ' — incorrect'
-                                : ' — not answered'
-                            : isAnswered
-                              ? ' — answered'
-                              : ' — unanswered'
-                        }${isFlagged ? ', flagged' : ''}${hasCue ? ' — has trap/cue analysis' : ''}`}
-                        onClick={() => {
-                          setNavOpen(false);
-                          if (sessionId) navigate(`/practice/${sessionId}/q/${pos}`);
-                        }}
-                      >
-                        {isCurrent && <span className="nav-cell-pin">📍</span>}
-                        {pos}
-                      </div>
-                    );
-                  })}
-                </div>
-                {sessionId && (
-                  <button
-                    className="nav-modal-review-btn"
-                    onClick={() => {
-                      setNavOpen(false);
-                      navigate(`/sessions/${sessionId}`);
-                    }}
-                  >
-                    Go to Session Summary
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="timers">
@@ -1998,6 +1921,24 @@ export function Player() {
             <button className={`btn ghost${markedForReview ? ' active' : ''}`} onClick={() => setMarkedForReview((m) => !m)}>
               🔖 Mark for Review
             </button>
+            {/* Bluebook-style question navigator trigger — moved here from
+                the topbar (2026-08-12, explicit request) to match the real
+                exam's own bottom-bar placement. Popover renders through
+                AnchoredPortal (see that file's doc comment) since this
+                button lives inside .bottombar, which forces overflow-y:auto
+                via its own overflow-x:auto — a plain absolutely-positioned
+                popover here would be silently clipped the same way the
+                Ask-AI popover originally was. */}
+            <button
+              ref={jumpBtnRef}
+              className="nav-trigger-pill mono"
+              onClick={(e) => {
+                e.stopPropagation();
+                setNavOpen((o) => !o);
+              }}
+            >
+              Question {CURRENT_Q} of {TOTAL_Q} <span className="nav-trigger-caret">⌄</span>
+            </button>
             <div style={{ marginLeft: 'auto' }}>
               <AskAiPanel isConnected={!!aiSettings} model={aiSettings?.model ?? null} questionContext={questionContextText} />
             </div>
@@ -2005,6 +1946,101 @@ export function Player() {
               {CURRENT_Q >= TOTAL_Q ? (isReviewMode ? 'Back to Summary →' : 'Finish →') : 'Next →'}
             </button>
           </div>
+
+          <AnchoredPortal anchorRef={jumpBtnRef} active={navOpen} placement="above" align="center">
+            <div className="nav-modal" ref={navRef} onClick={(e) => e.stopPropagation()}>
+              <div className="nav-modal-head">
+                <h2>
+                  {subjectLabel} Questions{isReviewMode ? ' — Review' : ''}
+                </h2>
+                <button className="nav-modal-close" aria-label="Close" onClick={() => setNavOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <div className="nav-legend">
+                {isReviewMode ? (
+                  <>
+                    <span>
+                      <span className="nav-ico current-ico">📍</span>Current
+                    </span>
+                    <span>
+                      <span className="nav-ico correct-ico">✓</span>Correct
+                    </span>
+                    <span>
+                      <span className="nav-ico incorrect-ico">✕</span>Incorrect
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      <span className="nav-ico current-ico">📍</span>Current
+                    </span>
+                    <span>
+                      <span className="sw" />
+                      Unanswered
+                    </span>
+                    <span>🔖 For Review</span>
+                  </>
+                )}
+              </div>
+              <div className="nav-grid">
+                {/* Scoped to the CURRENT MODULE only (real full-test sessions span
+                    up to 98 questions across 4 modules) — matches the real exam's
+                    own per-section navigator. Ad-hoc/practice sessions have no
+                    module concept (currentModuleRange is undefined for them), so
+                    the grid falls back to the whole session, same as before. */}
+                {Array.from(
+                  { length: (currentModuleRange?.end ?? TOTAL_Q) - (currentModuleRange?.start ?? 1) + 1 },
+                  (_, i) => (currentModuleRange?.start ?? 1) + i
+                ).map((pos) => {
+                  const isAnswered = answeredPositions.has(pos);
+                  const isFlagged = flaggedPositions.has(pos);
+                  const isCurrent = pos === CURRENT_Q;
+                  const hasCue = !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
+                  const correctness = isReviewMode ? positionCorrectness.get(pos) : undefined;
+                  return (
+                    <div
+                      key={pos}
+                      className={`nav-cell${isAnswered ? ' answered' : !isReviewMode ? ' unanswered' : ''}${
+                        isCurrent ? ' current' : ''
+                      }${isFlagged ? ' flagged' : ''}${hasCue ? ' has-cue' : ''}${correctness === true ? ' correct' : ''}${
+                        correctness === false ? ' incorrect' : ''
+                      }`}
+                      title={`Question ${pos}${
+                        isReviewMode
+                          ? correctness === true
+                            ? ' — correct'
+                            : correctness === false
+                              ? ' — incorrect'
+                              : ' — not answered'
+                          : isAnswered
+                            ? ' — answered'
+                            : ' — unanswered'
+                      }${isFlagged ? ', flagged' : ''}${hasCue ? ' — has trap/cue analysis' : ''}`}
+                      onClick={() => {
+                        setNavOpen(false);
+                        if (sessionId) navigate(`/practice/${sessionId}/q/${pos}`);
+                      }}
+                    >
+                      {isCurrent && <span className="nav-cell-pin">📍</span>}
+                      {pos}
+                    </div>
+                  );
+                })}
+              </div>
+              {sessionId && (
+                <button
+                  className="nav-modal-review-btn"
+                  onClick={() => {
+                    setNavOpen(false);
+                    navigate(`/sessions/${sessionId}`);
+                  }}
+                >
+                  Go to Session Summary
+                </button>
+              )}
+            </div>
+          </AnchoredPortal>
         </>
       )}
 
