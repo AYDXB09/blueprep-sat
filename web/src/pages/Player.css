@@ -96,6 +96,12 @@
 .timer-block .tval {
   font-size: 15px;
   font-weight: 800;
+  /* Real bug found live, 2026-08-12: unlike .tlabel, this <p> had no margin
+     reset, so the browser's default UA margin (1em top+bottom, ~15px each
+     at this font-size) inflated .timer-block to ~67px tall against ~35-40px
+     siblings (the AI/pause icon buttons) — visually the whole header read
+     as misaligned even though .topbar's own flex centering was correct. */
+  margin: 0;
 }
 #sessionTime.low {
   color: var(--red);
@@ -366,6 +372,7 @@
 
 /* ---------- bottom bar ---------- */
 .bottombar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -959,6 +966,14 @@ mark.cue-assumption {
    so this card is a small popover with its own tail arrow pointing down at
    the pill, not a dimmed full-screen modal. ---------- */
 .nav-trigger-pill {
+  /* Real bug found live, 2026-08-12: this button had no actual centering —
+     it just sat in normal flex order between "Mark for Review" and "Next",
+     so its apparent position depended entirely on how wide its neighbors
+     were, not the bar's true center. .bottombar now establishes a
+     positioning context (position:relative) and this is pinned to it. */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1055,6 +1070,12 @@ mark.cue-assumption {
   border-radius: 3px;
   display: inline-block;
 }
+.nav-ico.flag-ico {
+  width: 11px;
+  height: 11px;
+  background: var(--red);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+}
 .nav-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -1112,12 +1133,21 @@ mark.cue-assumption {
   font-size: 13px;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
+/* Real bug found live, 2026-08-12: the 🔖 emoji glyph ignores CSS `color`
+   entirely (color-emoji presentation ships its own fixed palette), so this
+   badge rendered pale/washed-out with no way to darken it. Replaced with a
+   plain CSS-drawn ribbon shape (a rotated square + notch) using var(--red),
+   the same accent this app already uses for warnings/flags elsewhere —
+   guaranteed visible and themeable in both light and dark mode. */
 .nav-cell.flagged::after {
-  content: '🔖';
+  content: '';
   position: absolute;
-  bottom: -7px;
-  right: -6px;
-  font-size: 10px;
+  bottom: -6px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  background: var(--red);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
 }
 .nav-cell.has-cue::before {
   content: '💡';

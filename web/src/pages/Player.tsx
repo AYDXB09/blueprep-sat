@@ -1998,7 +1998,10 @@ export function Player() {
                       <span className="sw" />
                       Unanswered
                     </span>
-                    <span>🔖 For Review</span>
+                    <span>
+                      <span className="nav-ico flag-ico" />
+                      For Review
+                    </span>
                   </>
                 )}
               </div>
@@ -2015,7 +2018,13 @@ export function Player() {
                   const isAnswered = answeredPositions.has(pos);
                   const isFlagged = flaggedPositions.has(pos);
                   const isCurrent = pos === CURRENT_Q;
-                  const hasCue = !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
+                  // Real bug found live, 2026-08-12: this was showing in TEST
+                  // mode too — a lit-up 💡 on a not-yet-answered question is a
+                  // flat-out spoiler ("this one has a trap"), the exact thing
+                  // canRevealFeedback exists elsewhere to prevent. Cue/trap
+                  // analysis is review-only information now, matching every
+                  // other cue reveal in this app.
+                  const hasCue = isReviewMode && !!session && cuedQuestionIds.has(session.question_ids[pos - 1]);
                   const correctness = isReviewMode ? positionCorrectness.get(pos) : undefined;
                   return (
                     <div
