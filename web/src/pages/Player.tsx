@@ -1514,18 +1514,28 @@ export function Player() {
   return (
     <div className="player-root">
       <div className="topbar">
-        <button className="iconbtn" title="Exit to Dashboard" aria-label="Exit to Dashboard" onClick={exitToDashboard}>
-          ←
-        </button>
-        <div className="brand">
-          <b>Blue</b>Prep
-        </div>
-        <span className={`subj-badge${isMath ? '' : ' rw'}`}>{subjectLabel}</span>
-        <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+        <div className="tb-left">
+          <button className="iconbtn" title="Exit to Dashboard" aria-label="Exit to Dashboard" onClick={exitToDashboard}>
+            ←
+          </button>
+          <div className="brand">
+            <b>Blue</b>Prep
+          </div>
+          <span className={`subj-badge${isMath ? '' : ' rw'}`}>{subjectLabel}</span>
         </div>
 
-        <div className="timers">
+        {/* Fills the space between the two fixed-width clusters — previously
+            capped at max-width:260px with the right side pushed off via
+            margin-left:auto, which left one big dead gap instead of the bar
+            reading as evenly composed. Fixed 2026-08-12 per explicit
+            feedback ("properly align the top bar"). */}
+        <div className="tb-progress">
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+
+        <div className="tb-right">
           {isReviewMode ? (
             <div className="timer-block">
               <p className="tlabel">Status</p>
@@ -1534,7 +1544,7 @@ export function Player() {
           ) : hasSessionCountdown ? (
             <div className="timer-block">
               <p className="tlabel" style={isOvertime ? { color: 'var(--red)' } : undefined}>
-                {isOvertime ? 'Overtime — session' : 'Time left, session'}
+                {isOvertime ? 'Overtime' : 'Session'}
               </p>
               <p className={`tval mono${sessionLow ? ' low' : ''}${isOvertime ? ' over' : ''}`}>{sessionDisplay}</p>
             </div>
@@ -1546,7 +1556,7 @@ export function Player() {
           )}
           {showQuestionTimer && (
           <div className="timer-block">
-            <p className="tlabel">Time on this question</p>
+            <p className="tlabel">Question</p>
             <p className="tval mono" id="qTime">
               {fmt(qSeconds)}
             </p>
@@ -1562,10 +1572,19 @@ export function Player() {
               Desmos
             </button>
           )}
+          <div className="tb-divider" />
+          {/* Real Ask-AI panel — moved up here from the bottombar (2026-08-12,
+              explicit request), replacing what used to be just a placeholder
+              icon that toasted a stub message. placement="below" since the
+              header sits too close to the viewport top for the panel to open
+              upward the way it does from the bottombar. */}
           {!isReviewMode && (
-          <button className="iconbtn" title="Ask AI" aria-label="Ask AI about this question" onClick={() => toast('Would open the live Ask AI chat for this question.')}>
-            ✨
-          </button>
+            <AskAiPanel
+              isConnected={!!aiSettings}
+              model={aiSettings?.model ?? null}
+              questionContext={questionContextText}
+              placement="below"
+            />
           )}
           {!isReviewMode && (
           <button className="iconbtn" title="Pause" aria-label="Pause session" onClick={pause}>
@@ -1939,10 +1958,10 @@ export function Player() {
             >
               Question {CURRENT_Q} of {TOTAL_Q} <span className="nav-trigger-caret">⌄</span>
             </button>
-            <div style={{ marginLeft: 'auto' }}>
-              <AskAiPanel isConnected={!!aiSettings} model={aiSettings?.model ?? null} questionContext={questionContextText} />
-            </div>
-            <button className="btn primary" onClick={goNext} disabled={navBusy}>
+            {/* Ask-AI moved up to the header (2026-08-12, explicit request)
+                — Next is now the only thing on the right, no longer sharing
+                this margin-left:auto slot with the AI icon. */}
+            <button className="btn primary" style={{ marginLeft: 'auto' }} onClick={goNext} disabled={navBusy}>
               {CURRENT_Q >= TOTAL_Q ? (isReviewMode ? 'Back to Summary →' : 'Finish →') : 'Next →'}
             </button>
           </div>

@@ -23,10 +23,15 @@ export function AskAiPanel({
   isConnected,
   model,
   questionContext,
+  placement = 'above',
 }: {
   isConnected: boolean;
   model: string | null;
   questionContext: string;
+  // 'above' (default) suits the bottombar it originally lived in; the
+  // header sits too close to the viewport top for that to have room, so
+  // Player passes 'below' when rendering this up there instead.
+  placement?: 'above' | 'below';
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -72,9 +77,9 @@ export function AskAiPanel({
         state={iconState}
         label="Ask AI about this question"
         onOpen={() => setOpen((o) => !o)}
-        popoverPlacement="above"
+        popoverPlacement={placement}
       />
-      <AnchoredPortal anchorRef={wrapRef} active={open && isConnected} placement="above">
+      <AnchoredPortal anchorRef={wrapRef} active={open && isConnected} placement={placement}>
         <div className="ask-ai-panel">
           <div className="ask-ai-head">
             <span>Ask AI about this question</span>
