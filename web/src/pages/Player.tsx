@@ -1221,6 +1221,23 @@ export function Player() {
   const [pendingUnderline, setPendingUnderline] = useState<HighlightMark['underline']>('none');
 
   const onSelectableMouseUp = useCallback((e: React.MouseEvent) => {
+    // Real bug found live, 2026-08-13, watched happen in real time: picking
+    // an underline style from the popover's <select> (a NATIVE form
+    // control, rendered by the OS, not the page) was ALSO triggering this
+    // handler as if the user had just made a brand-new text selection on
+    // the passage underneath — closing a native <select>'s option list
+    // apparently lands a real mouseup on whatever page element sits at
+    // that screen position once the OS-level dropdown closes, and the
+    // popover sits visually over the passage/choices text it's editing.
+    // Confirmed live: window.getSelection() at that moment still held
+    // whatever range was last captured, and this handler dutifully
+    // re-processed it — including rejecting it via the "too large"/
+    // cross-block/coordinate-drift guards below, which is exactly the toast
+    // the user watched pop up from just touching the underline dropdown.
+    // While the popover is open, no mouseup on stimulus/choices should
+    // ever be treated as a fresh selection attempt — the user is editing
+    // an existing mark, not starting a new one.
+    if (hlPopoverOpen) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
       // Not a fresh selection — but a plain click landing directly on an
@@ -1373,7 +1390,7 @@ export function Player() {
       left: window.scrollX + rect.left + rect.width / 2 - 110,
     });
     setHlPopoverOpen(true);
-  }, [setPendingHlBoth, toast]);
+  }, [setPendingHlBoth, toast, hlPopoverOpen]);
 
   const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
 
