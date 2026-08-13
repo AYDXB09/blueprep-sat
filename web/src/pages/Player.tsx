@@ -240,7 +240,25 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
   );
 }
 
+// Mirrors the capture-time cap in onSelectableMouseUp (MAX_HIGHLIGHT_CHARS)
+// — a render-time guard too, since a highlight created BEFORE that cap
+// existed can still be sitting in saved data. Applying a huge anchor's
+// range.surroundContents() risks the same partial-mutation corruption the
+// cross-<li> guard above exists for (just not scoped to list-item
+// boundaries specifically), which was the likely cause of other marks —
+// including underlines — appearing to "vanish" shortly after: a giant
+// prior highlight silently corrupting the shared render pass for every
+// mark applied after it.
+const MAX_RENDERED_HIGHLIGHT_CHARS = 300;
+
 function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean {
+  if (hl.anchorText.length > MAX_RENDERED_HIGHLIGHT_CHARS) {
+    console.warn('[highlights] skipping render of an oversized saved highlight (likely a pre-fix selection artifact)', {
+      id: hl.id,
+      length: hl.anchorText.length,
+    });
+    return false;
+  }
   return applyAnchoredMark(
     container,
     hl.anchorText,
@@ -1231,6 +1249,32 @@ export function Player() {
     const anchorText = normalizeWs(sel.toString());
     if (!anchorText) return;
 
+    // Hard cap, added 2026-08-13 after live screenshots showed the
+    // NATIVE browser selection (the OS-level blue highlight, visible
+    // before any of our code runs) itself spanning from the very top of
+    // the passage down to a point the student only meant to click near —
+    // e.g. in Safari, clicking close to an existing <mark> or across list
+    // markup can occasionally make the browser's own selection anchor
+    // somewhere earlier than intended. That's not something our anchor
+    // capture logic can detect or correct (by the time we read
+    // window.getSelection(), the browser has already decided what's
+    // selected) — but we CAN refuse to turn an implausibly large
+    // selection into a highlight, so "highlight two words" can never
+    // again silently become "the whole passage got highlighted." A
+    // student highlighting a genuine full sentence or two stays well
+    // under this; anything past it is far more likely a selection
+    // artifact than an intentional highlight.
+    const MAX_HIGHLIGHT_CHARS = 300;
+    if (anchorText.length > MAX_HIGHLIGHT_CHARS) {
+      console.warn('[highlights] selection too large, refusing to create — likely a browser selection artifact, not an intentional highlight', {
+        length: anchorText.length,
+        preview: anchorText.slice(0, 60) + '…',
+      });
+      toast('That selection was too large to highlight — try selecting just the words you want.');
+      sel.removeAllRanges();
+      return;
+    }
+
     let beforeRange: Range;
     try {
       beforeRange = document.createRange();
@@ -1270,7 +1314,7 @@ export function Player() {
       left: window.scrollX + rect.left + rect.width / 2 - 110,
     });
     setHlPopoverOpen(true);
-  }, [setPendingHlBoth]);
+  }, [setPendingHlBoth, toast]);
 
   const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
 
