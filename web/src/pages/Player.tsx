@@ -92,6 +92,21 @@ function collectMeaningfulTextNodes(container: HTMLElement): Text[] {
   return nodes;
 }
 
+// Finds the nearest BLOCK-level ancestor (paragraph, list item, table cell,
+// etc.) of a node — walking up PAST inline elements like <mark>/<b>/<span>,
+// so two points on either side of an inline tag boundary still count as
+// "the same block." Used to reject a selection that spans two DIFFERENT
+// blocks: the length cap in onSelectableMouseUp only catches implausibly
+// LONG selections, but a selection that jumps from an earlier paragraph to
+// a later one can still be short in characters if the earlier paragraph is
+// short too — this catches that case regardless of length. A genuine
+// "highlight a few words" selection is, without exception, entirely inside
+// one paragraph or one list item.
+function closestBlock(node: Node): Element | null {
+  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  return el?.closest('p, li, td, th, blockquote, figcaption, dd, dt') ?? null;
+}
+
 // Collapses any run of whitespace (space, tab, newline) to a single space
 // and trims the ends. Used on BOTH sides of every anchor-text comparison in
 // this file (capture and render) so that whitespace differences — multiple
@@ -195,20 +210,25 @@ function applyAnchoredMark(
     return false;
   }
 
-  // Real bug found live, 2026-08-11: a match spanning across list-item
-  // (<li>) boundaries — e.g. a selection that drags from one bullet into
-  // the next — reached range.surroundContents() below, which can partially
-  // mutate this shared detached container before it throws on a malformed
-  // range. Since every mark in a withAllMarks() pass walks the SAME
-  // container in sequence, one such partial mutation silently shifted or
-  // corrupted the text-node offsets for every mark applied after it in the
-  // same pass — symptoms reported live: a highlight rendering several
-  // words offset from the real selection, and other marks vanishing
-  // outright. A <mark> can't legally wrap sibling <li> elements anyway, so
-  // this is refused up front rather than attempted.
-  const closestLi = (node: Node) => (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement)?.closest('li') ?? null;
-  if (closestLi(startPos.node) !== closestLi(endPos.node)) {
-    console.warn(`[${logTag}] anchor spans multiple list items — skipping to avoid corrupting the shared render pass: "${anchorText}"`);
+  // Real bug found live, 2026-08-11 (generalized 2026-08-13 from <li>-only
+  // to any block boundary — see closestBlock's doc comment): a match
+  // spanning across block-element boundaries — e.g. a selection that drags
+  // from one bullet/paragraph into the next — reached
+  // range.surroundContents() below, which can partially mutate this shared
+  // detached container before it throws on a malformed range. Since every
+  // mark in a withAllMarks() pass walks the SAME container in sequence,
+  // one such partial mutation silently shifted or corrupted the text-node
+  // offsets for every mark applied after it in the same pass — symptoms
+  // reported live: a highlight rendering several words offset from the
+  // real selection, other marks (including underlines) vanishing
+  // outright, and on the capture side, "highlight a few words" landing on
+  // an entirely different, earlier paragraph. A <mark> can't legally wrap
+  // sibling block elements anyway, so this is refused up front rather than
+  // attempted. This is defense-in-depth for data saved before the matching
+  // capture-time check existed — the capture path should already prevent
+  // this from ever being saved for new highlights.
+  if (closestBlock(startPos.node) !== closestBlock(endPos.node)) {
+    console.warn(`[${logTag}] anchor spans multiple blocks — skipping to avoid corrupting the shared render pass: "${anchorText}"`);
     return false;
   }
 
@@ -1222,6 +1242,20 @@ export function Player() {
     if (!container) return;
     const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
     if (!scope) return;
+
+    // Added 2026-08-13 — reported live: "highlighting a few words goes all
+    // the way to the beginning, in SOME cases (not all)." The length cap
+    // below only rejects implausibly LONG selections; it doesn't catch a
+    // selection that jumps from an early paragraph to a later one but
+    // stays short overall (e.g. the earlier paragraph itself is short).
+    // Reject outright if start and end land in different blocks — a real
+    // "highlight a few words" selection never does.
+    if (closestBlock(range.startContainer) !== closestBlock(range.endContainer)) {
+      console.warn('[highlights] selection spans multiple paragraphs/list items, refusing to create — likely a browser selection artifact');
+      toast('Try selecting within a single sentence or line.');
+      sel.removeAllRanges();
+      return;
+    }
 
     // Rewritten 2026-08-13 — the previous approach (manually resolving
     // range.startContainer/endContainer to offsets into a hand-built
