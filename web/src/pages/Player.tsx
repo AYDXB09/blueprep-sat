@@ -1243,6 +1243,31 @@ export function Player() {
     const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
     if (!scope) return;
 
+    // Added 2026-08-13 — independent, COORDINATE-based check, orthogonal to
+    // the block-boundary one below. That check only helps when the passage
+    // actually uses separate <p>/<li> per sentence — a passage that's just
+    // one long <p> (no per-sentence block boundaries at all) gets zero
+    // protection from it if the browser's selection anchors to an earlier
+    // point WITHIN that same paragraph. This catches that case too: the
+    // mouseup's own screen position (e.clientY) is ground truth for where
+    // the user's hand actually was, completely independent of any DOM
+    // structure or text-content computation — so unlike every previous
+    // fix, it can't be fooled by markup shape. If the rendered selection's
+    // bounding box starts far above where the mouse actually came up, the
+    // browser anchored the selection somewhere the user's hand never was.
+    const selectionRect = range.getBoundingClientRect();
+    const MAX_VERTICAL_DRIFT_PX = 120; // ~3-4 lines of body text
+    if (selectionRect.height > 0 && e.clientY - selectionRect.top > MAX_VERTICAL_DRIFT_PX) {
+      console.warn('[highlights] selection extends far above where the mouse actually released — refusing, likely a browser selection anchoring artifact', {
+        mouseUpY: e.clientY,
+        selectionTop: selectionRect.top,
+        selectionHeight: selectionRect.height,
+      });
+      toast('Try selecting within a single sentence or line.');
+      sel.removeAllRanges();
+      return;
+    }
+
     // Added 2026-08-13 — reported live: "highlighting a few words goes all
     // the way to the beginning, in SOME cases (not all)." The length cap
     // below only rejects implausibly LONG selections; it doesn't catch a
