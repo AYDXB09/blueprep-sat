@@ -52,12 +52,20 @@
   background: var(--line);
   flex: none;
 }
-.brand {
+/* Real bug found live, 2026-08-13: named plain ".brand" with no scoping —
+   PracticeBuilder.css defines its OWN unrelated ".brand" (margin-bottom:
+   22px, for its vertical page-header layout), and since neither file uses
+   CSS Modules, both selectors land in the same global stylesheet and that
+   margin leaked in here, pushing the topbar's "BluePrep" text out of
+   vertical center against its siblings. Renamed to a scoped class instead
+   of trying to out-specificity the other file's rule, which would just be
+   fragile against import-order changes. */
+.topbar-brand {
   font-weight: 800;
   font-size: 12.5px;
   letter-spacing: -0.01em;
 }
-.brand b {
+.topbar-brand b {
   color: var(--navy);
 }
 .subj-badge {

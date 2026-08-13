@@ -1594,7 +1594,7 @@ export function Player() {
           <button className="iconbtn" title="Exit to Dashboard" aria-label="Exit to Dashboard" onClick={exitToDashboard}>
             ←
           </button>
-          <div className="brand">
+          <div className="topbar-brand">
             <b>Blue</b>Prep
           </div>
           <span className={`subj-badge${isMath ? '' : ' rw'}`}>{subjectLabel}</span>
