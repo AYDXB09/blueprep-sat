@@ -1274,11 +1274,23 @@ export function Player() {
     // browser anchored the selection somewhere the user's hand never was.
     const selectionRect = range.getBoundingClientRect();
     const MAX_VERTICAL_DRIFT_PX = 120; // ~3-4 lines of body text
-    if (selectionRect.height > 0 && e.clientY - selectionRect.top > MAX_VERTICAL_DRIFT_PX) {
-      console.warn('[highlights] selection extends far above where the mouse actually released — refusing, likely a browser selection anchoring artifact', {
+    // Real gap found live, 2026-08-13: this only checked whether the
+    // selection's TOP was too far ABOVE the mouseup point — catching the
+    // "anchored way earlier than intended" case, but not the mirror case
+    // where the browser's selection overshoots BELOW where the mouse
+    // actually released (rect.bottom far past e.clientY, rect.top still
+    // roughly correct). distanceFromRect is 0 when the release point falls
+    // inside the rendered selection's own vertical span, and the distance
+    // to the nearest edge otherwise — symmetric in both directions.
+    const distanceFromRect = selectionRect.height > 0
+      ? Math.max(0, selectionRect.top - e.clientY, e.clientY - selectionRect.bottom)
+      : 0;
+    if (distanceFromRect > MAX_VERTICAL_DRIFT_PX) {
+      console.warn('[highlights] selection extends far from where the mouse actually released — refusing, likely a browser selection anchoring artifact', {
         mouseUpY: e.clientY,
         selectionTop: selectionRect.top,
-        selectionHeight: selectionRect.height,
+        selectionBottom: selectionRect.bottom,
+        distanceFromRect,
       });
       toast('Try selecting within a single sentence or line.');
       sel.removeAllRanges();
