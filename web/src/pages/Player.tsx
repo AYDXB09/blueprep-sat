@@ -1243,14 +1243,21 @@ export function Player() {
     // re-processed it — including rejecting it via the "too large"/
     // cross-block/coordinate-drift guards below, which is exactly the toast
     // the user watched pop up from just touching the underline dropdown.
-    // While the popover is open, no mouseup on stimulus/choices should
-    // ever be treated as a fresh selection attempt — the user is editing
-    // an existing mark, not starting a new one.
-    if (hlPopoverOpen) return;
+    // While the popover is open, a mouseup that ISN'T a real click on some
+    // (possibly different) mark should never be treated as a fresh
+    // selection attempt — real regression, found live right after the fix
+    // above shipped: gating this whole handler on hlPopoverOpen also
+    // blocked clicking a DIFFERENT mark to switch to editing it, since
+    // that legitimately fires this same handler while a popover is
+    // already open. The narrower, correct condition: only skip when
+    // there's no real selection AND the click didn't land on a mark —
+    // that's specifically the synthetic-mouseup-from-closing-a-select
+    // artifact, not a legitimate interaction.
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
       // Not a fresh selection — but a plain click landing directly on an
-      // existing mark should still open the popover, in "edit" mode.
+      // existing mark should still open the popover, in "edit" mode, even
+      // if a DIFFERENT mark's popover is already open.
       const mark = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
       if (!mark || !mark.dataset.hlId) return;
       setHlEditingId(mark.dataset.hlId);
@@ -1260,6 +1267,7 @@ export function Player() {
       setHlPopoverOpen(true);
       return;
     }
+    if (hlPopoverOpen) return;
     const range = sel.getRangeAt(0);
     const container = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
       ? (range.commonAncestorContainer as Element)
