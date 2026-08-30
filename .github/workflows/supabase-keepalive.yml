@@ -1,0 +1,68 @@
+name: Supabase keep-alive
+
+# Supabase free-tier projects pause after 7 consecutive days with no API
+# activity. This job makes a real PostgREST request (which runs a query against
+# Postgres) on a schedule so the project never crosses that threshold.
+#
+# It also doubles as a cheap uptime check: if Supabase is unreachable the run
+# fails and GitHub emails you.
+#
+# Cadence is every 6 days, one day inside the 7-day window. If a run ever fails
+# (Supabase or GitHub Actions outage), the next attempt is 6 days later, so a
+# single missed run can let the project pause. Trigger a manual run from the
+# Actions tab if you get a failure email, or tighten the cron.
+#
+# The URL and key below are the *publishable* (anon) key already committed in
+# web/.env.example — safe to expose, RLS is the real access boundary. If you'd
+# rather not have them in plain YAML, set repo secrets SUPABASE_URL /
+# SUPABASE_ANON_KEY and swap the `env:` values for ${{ secrets.* }}.
+
+on:
+  schedule:
+    - cron: "37 6 */6 * *" # every 6 days, 06:37 UTC
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: "https://qjoeqscehyjyrhtfexyg.supabase.co"
+      SUPABASE_ANON_KEY: "sb_publishable_pqZ68xbWQitUrPRFJ17DBA_vLcZ9J2H"
+    steps:
+      - name: Query the database via PostgREST
+        run: |
+          set -euo pipefail
+
+          endpoint="$SUPABASE_URL/rest/v1/questions?select=id&limit=1"
+          attempts=3
+          for i in $(seq 1 "$attempts"); do
+            code=$(curl -sS -m 30 -o /tmp/body.txt -w '%{http_code}' \
+              "$endpoint" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+              -H "Accept: application/json" || echo "000")
+
+            echo "attempt $i/$attempts -> HTTP $code"
+
+            # 2xx = query ran. 401/403/404 = reached PostgREST + Postgres but RLS
+            # or schema said no; still counts as activity, so treat as success.
+            case "$code" in
+              2??|401|403|404)
+                echo "Supabase is awake. Response body:"
+                head -c 500 /tmp/body.txt || true
+                exit 0
+                ;;
+            esac
+
+            echo "  unhealthy response, retrying in 15s..."
+            sleep 15
+          done
+
+          echo "::error::Supabase did not return a healthy response after $attempts attempts (last: HTTP $code)"
+          head -c 500 /tmp/body.txt || true
+          exit 1
