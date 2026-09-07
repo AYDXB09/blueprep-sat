@@ -1372,15 +1372,6 @@ export function Player() {
   // highlight actually exists (editingHighlight set), the select reads/
   // writes that highlight's own `underline` field instead of this.
   const [pendingUnderline, setPendingUnderline] = useState<HighlightMark['underline']>('none');
-  // Where the drag actually STARTED — needed because a same-line, same-
-  // block, short mis-anchor (e.g. drag "table to" but the browser selects
-  // "Which choice ... table" instead) doesn't move the mouseup point far
-  // from the (wrong) selection's rect at all, so checking only the mouseup
-  // point was blind to it. Tracked via a real mousedown, not inferred.
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const onSelectableMouseDown = useCallback((e: React.MouseEvent) => {
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-  }, []);
 
   const onSelectableMouseUp = useCallback((e: React.MouseEvent) => {
     // Real bug found live, 2026-08-13, watched happen in real time: picking
@@ -1430,95 +1421,15 @@ export function Player() {
     const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
     if (!scope) return;
 
-    // Added 2026-08-13, then found live to still have TWO gaps, each fixed
-    // after watching it fail live — independent, COORDINATE-based check,
-    // orthogonal to the block-boundary one below (which only helps across
-    // separate <p>/<li> boundaries — a mis-anchor confined to one sentence
-    // gets zero protection from it). Ground truth for where the user's
-    // hand actually was is the real mousedown/mouseup screen positions —
-    // completely independent of DOM structure or text content, so unlike
-    // every earlier fix it can't be fooled by markup shape.
-    //
-    // v1 only checked the mouseup point against the selection's vertical
-    // span (caught cross-paragraph jumps, missed same-line mis-anchors).
-    // v2 checked 2-D distance from both drag endpoints to the selection's
-    // bounding box — still wrong: "does the box CONTAIN both endpoints" is
-    // a weak test, because a WIDE wrong selection (e.g. capturing an
-    // entire sentence when the user dragged two words in the middle of
-    // it) trivially contains both endpoints as an interior subset of its
-    // own oversized span. Watched exactly this happen live: dragging ~90px
-    // across two words produced a selection spanning the whole sentence,
-    // and v2 didn't reject it because both drag endpoints still fell
-    // inside that wide box.
-    //
-    // The real signal: how much does the rendered selection's box exceed
-    // the drag gesture's OWN bounding box (from mousedown to mouseup), not
-    // whether it contains it. A genuine selection is at most a little
-    // larger than the physical drag (word-boundary snapping adds a little
-    // slack); a mis-anchored one is dramatically larger in some direction.
-    const selectionRect = range.getBoundingClientRect();
-    const dragStart = dragStartRef.current;
-    // A selection that legitimately spans multiple LINES (natural text
-    // wrapping) has a bounding box that's the union of each line's own
-    // rect — always much wider than the straight-line pixel distance
-    // between mousedown and mouseup, purely because of how wrapped text
-    // renders, not because anything went wrong. The strict overshoot check
-    // below is only meaningful for a SINGLE-line selection; applying it to
-    // a multi-line one would false-reject completely valid drags. Real
-    // line-height (not a guess) decides which mode applies.
-    const lineHeightRaw = parseFloat(getComputedStyle(container).lineHeight);
-    const lineHeight = Number.isFinite(lineHeightRaw) && lineHeightRaw > 0 ? lineHeightRaw : 24;
-    const isSingleLine = selectionRect.height <= lineHeight * 1.6;
-    let overshoot = 0;
-    if (dragStart && (selectionRect.width > 0 || selectionRect.height > 0)) {
-      const dragBox = {
-        left: Math.min(dragStart.x, e.clientX),
-        right: Math.max(dragStart.x, e.clientX),
-        top: Math.min(dragStart.y, e.clientY),
-        bottom: Math.max(dragStart.y, e.clientY),
-      };
-      if (isSingleLine) {
-        // Single line: a genuine selection is at most a little larger than
-        // the physical drag (word-boundary snapping); a mis-anchored one
-        // is dramatically larger in some direction — check all 4 edges.
-        overshoot = Math.max(
-          0,
-          dragBox.left - selectionRect.left,
-          selectionRect.right - dragBox.right,
-          dragBox.top - selectionRect.top,
-          selectionRect.bottom - dragBox.bottom,
-        );
-      } else {
-        // Multi-line: only the VERTICAL extent is meaningful — a valid
-        // multi-line selection's top/bottom should still land close to
-        // where the drag actually started/ended vertically, even though
-        // its horizontal width naturally varies line to line.
-        overshoot = Math.max(0, dragBox.top - selectionRect.top, selectionRect.bottom - dragBox.bottom);
-      }
-    }
-    const MAX_OVERSHOOT_PX = 50; // word-boundary-snap slack, not a "close enough" margin
-    if (overshoot > MAX_OVERSHOOT_PX) {
-      console.warn('[highlights] rendered selection extends well beyond the actual drag gesture — refusing, likely a browser selection anchoring artifact', {
-        dragStart, mouseUp: { x: e.clientX, y: e.clientY }, selectionRect: selectionRect.toJSON?.() ?? selectionRect, overshoot, isSingleLine, lineHeight,
-      });
-      toast('Try selecting within a single sentence or line.');
-      sel.removeAllRanges();
-      return;
-    }
-
-    // Added 2026-08-13 — reported live: "highlighting a few words goes all
-    // the way to the beginning, in SOME cases (not all)." The length cap
-    // below only rejects implausibly LONG selections; it doesn't catch a
-    // selection that jumps from an early paragraph to a later one but
-    // stays short overall (e.g. the earlier paragraph itself is short).
-    // Reject outright if start and end land in different blocks — a real
-    // "highlight a few words" selection never does.
-    if (closestBlock(range.startContainer) !== closestBlock(range.endContainer)) {
-      console.warn('[highlights] selection spans multiple paragraphs/list items, refusing to create — likely a browser selection artifact');
-      toast('Try selecting within a single sentence or line.');
-      sel.removeAllRanges();
-      return;
-    }
+    // NOTE: the pixel-based "overshoot" heuristic and the cross-block
+    // rejection that used to sit here were removed 2026-09-07. They existed
+    // only to catch a mis-anchored selection under the old anchorText +
+    // occurrence model, and they false-rejected ordinary small selections
+    // ("Try selecting within a single sentence or line" on a two-word drag).
+    // With offset anchoring there's nothing to mis-anchor from a recurring
+    // phrase, and `applyOffsetMark` silently declines a range it genuinely
+    // can't wrap (crosses a block, straddles an inline element) at render
+    // time — no scary toast, no fighting the browser's selection.
 
     // Anchor by raw text-node offsets into this scope's container (see
     // `allTextNodes`' doc comment). Computed against the LIVE rendered DOM —
@@ -2075,7 +1986,7 @@ export function Player() {
                   </span>
                 )}
               </div>
-              <div className="stimulus serif" ref={stimulusRef} onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
+              <div className="stimulus serif" ref={stimulusRef} onMouseUp={onSelectableMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user
                   // input — stimulusHtml is that same content with cue <mark> spans woven
@@ -2113,7 +2024,7 @@ export function Player() {
                   )}
                 </div>
               ) : (
-                <div className="choices" onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
+                <div className="choices" onMouseUp={onSelectableMouseUp}>
                   {question.choices.map((c) => {
                     const showFeedback = isReviewMode && !!selectedChoiceId;
                     const feedbackClass = showFeedback
