@@ -993,6 +993,14 @@ export function Player() {
   const [enteredValue, setEnteredValue] = useState('');
   const [struck, setStruck] = useState<Set<string>>(new Set());
   const [highlights, setHighlights] = useState<HighlightMark[]>([]);
+  // Live mirror of `highlights` so the highlight handlers can read and update
+  // the set synchronously (see commitHighlights / hlEditingIdRef). Kept in
+  // sync with state here for the paths that call setHighlights directly (the
+  // per-question load effect); commitHighlights updates it ahead of this.
+  const highlightsRef = useRef<HighlightMark[]>([]);
+  useEffect(() => {
+    highlightsRef.current = highlights;
+  }, [highlights]);
   const [markedForReview, setMarkedForReview] = useState(false);
   // Flagged-for-review state isn't persisted in the schema (no column for it)
   // — kept as in-memory state per session, keyed by question position.
@@ -1016,22 +1024,34 @@ export function Player() {
   // on record for this question (review mode's submitted one, or test
   // mode's in-progress one from a prior visit); creates a fresh one only if
   // neither exists yet.
-  const ensureMarkAttemptId = useCallback(async (): Promise<string | null> => {
-    if (currentAttemptId) return currentAttemptId;
+  // De-dupes concurrent callers (picking a colour then an underline fires two
+  // ensureMarkAttemptId calls in the same tick) so they don't each create a
+  // separate attempt row and then race their saves — which is how an
+  // underline could survive in the UI but be missing after a reload.
+  const markAttemptPromiseRef = useRef<Promise<string | null> | null>(null);
+  const ensureMarkAttemptId = useCallback((): Promise<string | null> => {
+    if (currentAttemptId) return Promise.resolve(currentAttemptId);
     const existing = attempts.find((a) => a.question_id === questionId);
     if (existing) {
       setCurrentAttemptId(existing.id);
-      return existing.id;
+      return Promise.resolve(existing.id);
     }
-    if (!user || !sessionId || !questionId) return null;
-    try {
-      const row = await startQuestionAttempt({ userId: user.id, sessionId, questionId, attemptNumber: 1 });
-      setCurrentAttemptId(row.id);
-      return row.id;
-    } catch (err) {
-      console.warn('ensureMarkAttemptId failed:', err);
-      return null;
-    }
+    if (!user || !sessionId || !questionId) return Promise.resolve(null);
+    if (markAttemptPromiseRef.current) return markAttemptPromiseRef.current;
+    const p = startQuestionAttempt({ userId: user.id, sessionId, questionId, attemptNumber: 1 })
+      .then((row) => {
+        setCurrentAttemptId(row.id);
+        return row.id;
+      })
+      .catch((err) => {
+        console.warn('ensureMarkAttemptId failed:', err);
+        return null;
+      })
+      .finally(() => {
+        markAttemptPromiseRef.current = null;
+      });
+    markAttemptPromiseRef.current = p;
+    return p;
   }, [currentAttemptId, attempts, questionId, user, sessionId]);
 
   const toggleStruck = useCallback(
@@ -1048,26 +1068,29 @@ export function Player() {
     [struck, ensureMarkAttemptId],
   );
 
-  const addHighlightMark = useCallback(
-    async (mark: HighlightMark) => {
-      const next = [...highlights, mark];
+  // Single write path for the highlight set: update the ref synchronously
+  // (so a handler firing later in the same tick sees this change), update
+  // state, and persist. Every mutation — add, remove, recolour, underline —
+  // goes through here so none of them can act on a stale `highlights`.
+  const commitHighlights = useCallback(
+    (next: HighlightMark[]) => {
+      highlightsRef.current = next;
       setHighlights(next);
-      const attemptId = await ensureMarkAttemptId();
-      if (!attemptId) return;
-      saveAttemptHighlights(attemptId, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
+      ensureMarkAttemptId().then((id) => {
+        if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
+      });
     },
-    [highlights, ensureMarkAttemptId],
+    [ensureMarkAttemptId],
+  );
+
+  const addHighlightMark = useCallback(
+    (mark: HighlightMark) => commitHighlights([...highlightsRef.current, mark]),
+    [commitHighlights],
   );
 
   const removeHighlightMark = useCallback(
-    async (id: string) => {
-      const next = highlights.filter((h) => h.id !== id);
-      setHighlights(next);
-      const attemptId = await ensureMarkAttemptId();
-      if (!attemptId) return;
-      saveAttemptHighlights(attemptId, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
-    },
-    [highlights, ensureMarkAttemptId],
+    (id: string) => commitHighlights(highlightsRef.current.filter((h) => h.id !== id)),
+    [commitHighlights],
   );
 
   const selectChoice = useCallback(
@@ -1407,6 +1430,20 @@ export function Player() {
   // The highlight under the cursor when the popover opened, if any (clicking
   // an existing mark to edit/remove it rather than starting a new one).
   const [hlEditingId, setHlEditingId] = useState<string | null>(null);
+  // hlEditingId / pendingUnderline / highlights are ALSO mirrored into refs
+  // so applyHighlightColor and applyHighlightUnderline can read and update
+  // them synchronously. Without this, picking a colour and then an underline
+  // in quick succession races: applyHighlightColor's setHlEditingId hasn't
+  // committed when applyHighlightUnderline runs, so it can't find the mark it
+  // was meant to edit and the underline is silently dropped. (Reported live:
+  // "the underline does not work" / "appears then vanishes on the next
+  // click".) The refs are the source of truth inside the handlers; the state
+  // still drives rendering.
+  const hlEditingIdRef = useRef<string | null>(null);
+  const setHlEditingIdBoth = useCallback((v: string | null) => {
+    hlEditingIdRef.current = v;
+    setHlEditingId(v);
+  }, []);
   // Kept as a ref (read synchronously by applyHighlightColor without waiting
   // on a re-render) AND mirrored into state (pendingHl) purely so its
   // presence can drive the visible placeholder mark in withAllMarks — see
@@ -1418,10 +1455,14 @@ export function Player() {
     setPendingHl(v);
   }, []);
   // Underline style for a NOT-YET-created highlight — picking it shouldn't
-  // require applying a color first. Reset on every fresh selection; once a
-  // highlight actually exists (editingHighlight set), the select reads/
-  // writes that highlight's own `underline` field instead of this.
+  // require applying a colour first. Reset on every fresh selection; once a
+  // highlight actually exists, its own `underline` field is authoritative.
   const [pendingUnderline, setPendingUnderline] = useState<HighlightMark['underline']>('none');
+  const pendingUnderlineRef = useRef<HighlightMark['underline']>('none');
+  const setPendingUnderlineBoth = useCallback((v: HighlightMark['underline']) => {
+    pendingUnderlineRef.current = v;
+    setPendingUnderline(v);
+  }, []);
 
   // Where the pointer was pressed — the drag's real start. Read on mouseup to
   // reconstruct the gesture with caretRangeFromPoint instead of trusting
@@ -1462,7 +1503,7 @@ export function Player() {
       // if a DIFFERENT mark's popover is already open.
       const mark = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
       if (!mark || !mark.dataset.hlId) return;
-      setHlEditingId(mark.dataset.hlId);
+      setHlEditingIdBoth(mark.dataset.hlId);
       setPendingHlBoth(null);
       const rect = mark.getBoundingClientRect();
       setHlPopoverPos({ top: window.scrollY + rect.top - 54, left: window.scrollX + rect.left + rect.width / 2 - 110 });
@@ -1528,8 +1569,8 @@ export function Player() {
     }
 
     setPendingHlBoth({ scope, anchorText, start, end });
-    setHlEditingId(null);
-    setPendingUnderline('none');
+    setHlEditingIdBoth(null);
+    setPendingUnderlineBoth('none');
 
     const rect = range.getBoundingClientRect();
     setHlPopoverPos({
@@ -1540,59 +1581,56 @@ export function Player() {
     // Drop the browser's own (possibly mis-anchored) blue selection — the
     // dashed .user-hl-pending mark is now the visual cue for what's staged.
     sel.removeAllRanges();
-  }, [setPendingHlBoth, toast, hlPopoverOpen]);
+  }, [setPendingHlBoth, setHlEditingIdBoth, setPendingUnderlineBoth, toast, hlPopoverOpen]);
 
   const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
 
+  // Both handlers resolve their target from the REFS, never the render-time
+  // `editingHighlight` / `highlights` closures — see hlEditingIdRef's comment
+  // for the race that caused ("the underline does not work"). `editingHighlight`
+  // above is still used for rendering the popover's active states.
   const applyHighlightColor = useCallback(
     (color: HighlightMark['color']) => {
-      if (editingHighlight) {
-        const next = highlights.map((h) => (h.id === editingHighlight.id ? { ...h, color } : h));
-        setHighlights(next);
-        ensureMarkAttemptId().then((id) => {
-          if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
-        });
+      const targetId = hlEditingIdRef.current;
+      if (targetId) {
+        commitHighlights(highlightsRef.current.map((h) => (h.id === targetId ? { ...h, color } : h)));
         return;
       }
       const pending = pendingHlRef.current;
       if (!pending) return;
-      // Underline may already have been picked (select is never disabled —
-      // see applyHighlightUnderline) before a color was chosen for a brand
-      // new selection; use whatever's pending instead of always 'none'.
-      const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: pendingUnderline };
+      // Underline may already have been picked for this fresh selection before
+      // a colour — carry whatever's staged in the ref onto the new mark.
+      const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: pendingUnderlineRef.current };
+      setHlEditingIdBoth(mark.id);
       addHighlightMark(mark);
-      setHlEditingId(mark.id);
       setPendingHlBoth(null);
-      setPendingUnderline('none');
+      setPendingUnderlineBoth('none');
       window.getSelection()?.removeAllRanges();
     },
-    [editingHighlight, highlights, ensureMarkAttemptId, addHighlightMark, pendingUnderline, setPendingHlBoth],
+    [commitHighlights, addHighlightMark, setHlEditingIdBoth, setPendingHlBoth, setPendingUnderlineBoth],
   );
 
   const applyHighlightUnderline = useCallback(
     (underline: HighlightMark['underline']) => {
-      if (editingHighlight) {
-        const next = highlights.map((h) => (h.id === editingHighlight.id ? { ...h, underline } : h));
-        setHighlights(next);
-        ensureMarkAttemptId().then((id) => {
-          if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
-        });
+      const targetId = hlEditingIdRef.current;
+      if (targetId) {
+        commitHighlights(highlightsRef.current.map((h) => (h.id === targetId ? { ...h, underline } : h)));
         return;
       }
-      // No highlight created yet — a fresh selection can still set its
-      // underline style ahead of picking a color (the select is never
-      // disabled). Stashed here and consumed by applyHighlightColor.
-      setPendingUnderline(underline);
+      // No highlight created yet — stage the style; applyHighlightColor reads
+      // it off the ref when the mark is created.
+      setPendingUnderlineBoth(underline);
     },
-    [editingHighlight, highlights, ensureMarkAttemptId],
+    [commitHighlights, setPendingUnderlineBoth],
   );
 
   const deleteEditingHighlight = useCallback(() => {
-    if (!editingHighlight) return;
-    removeHighlightMark(editingHighlight.id);
+    const targetId = hlEditingIdRef.current;
+    if (!targetId) return;
+    removeHighlightMark(targetId);
     setHlPopoverOpen(false);
-    setHlEditingId(null);
-  }, [editingHighlight, removeHighlightMark]);
+    setHlEditingIdBoth(null);
+  }, [removeHighlightMark, setHlEditingIdBoth]);
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
@@ -1971,15 +2009,10 @@ export function Player() {
         className={`hl-popover${hlPopoverOpen ? ' open' : ''}`}
         ref={hlPopoverRef}
         style={{ top: hlPopoverPos.top, left: hlPopoverPos.left }}
-        // Clicking a swatch/button would otherwise collapse the browser's
-        // live text selection first — standard toolbar behavior elsewhere
-        // too, kept as a second line of defense alongside the
-        // .user-hl-pending placeholder mark. Excludes the <select> itself:
-        // canceling its mousedown would also cancel the browser's default
-        // action of opening its dropdown.
-        onMouseDown={(e) => {
-          if ((e.target as HTMLElement).tagName !== 'SELECT') e.preventDefault();
-        }}
+        // Clicking a popover control would otherwise collapse the browser's
+        // live text selection first — prevented here so the pending mark and
+        // the selection both survive the click.
+        onMouseDown={(e) => e.preventDefault()}
       >
         {(['yellow', 'blue', 'pink'] as const).map((color) => (
           <button
@@ -1991,17 +2024,22 @@ export function Player() {
           />
         ))}
         <span className="hl-sep" />
-        <select
-          className="hl-underline-select"
-          value={editingHighlight?.underline ?? pendingUnderline}
-          onChange={(e) => applyHighlightUnderline(e.target.value as HighlightMark['underline'])}
-          title="Underline style"
-        >
-          <option value="none">No underline</option>
-          <option value="solid">Solid underline</option>
-          <option value="dashed">Dashed underline</option>
-          <option value="dotted">Dotted underline</option>
-        </select>
+        {(['solid', 'dashed', 'dotted'] as const).map((style) => {
+          const current = editingHighlight?.underline ?? pendingUnderline;
+          return (
+            <button
+              key={style}
+              type="button"
+              className={`hl-uline hl-uline-${style}${current === style ? ' active' : ''}`}
+              aria-label={`${style} underline`}
+              aria-pressed={current === style}
+              title={`${style[0].toUpperCase()}${style.slice(1)} underline`}
+              onClick={() => applyHighlightUnderline(current === style ? 'none' : style)}
+            >
+              <span />
+            </button>
+          );
+        })}
         <span className="hl-sep" />
         <button
           type="button"

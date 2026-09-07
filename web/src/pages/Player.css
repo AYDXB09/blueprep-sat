@@ -642,16 +642,45 @@ mark.user-hl-pending {
   background: var(--line);
   flex: none;
 }
-.hl-underline-select {
-  font-size: 12px;
+/* Underline-style toggles — buttons, not a native <select>. A native select
+   in the popover has caused two separate bugs (its OS dropdown closing lands
+   a stray mouseup on the passage; WebKit re-fires `change` on blur with a
+   stale value), and it never matched the swatch row visually. Each button is
+   a toggle: click the active one again to clear the underline. */
+.hl-uline {
+  width: 30px;
+  height: 20px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg);
-  color: var(--ink);
-  padding: 3px 4px;
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.hl-underline-select:disabled {
-  opacity: 0.5;
+.hl-uline:hover {
+  background: var(--panel);
+}
+.hl-uline.active {
+  border-color: var(--navy);
+  background: color-mix(in srgb, var(--navy) 12%, var(--bg));
+}
+.hl-uline > span {
+  display: block;
+  width: 16px;
+  height: 0;
+  border-bottom: 2px solid var(--ink);
+}
+.hl-uline-solid > span {
+  border-bottom-style: solid;
+}
+.hl-uline-dashed > span {
+  border-bottom-style: dashed;
+}
+.hl-uline-dotted > span {
+  border-bottom-style: dotted;
 }
 .hl-icon-btn {
   background: transparent;
