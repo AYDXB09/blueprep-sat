@@ -1072,13 +1072,27 @@ export function Player() {
   // (so a handler firing later in the same tick sees this change), update
   // state, and persist. Every mutation — add, remove, recolour, underline —
   // goes through here so none of them can act on a stale `highlights`.
+  //
+  // Saves run through a serial promise chain, and each link writes the LATEST
+  // highlightsRef (not a value captured when it was queued). Two saves fired a
+  // microtask apart — recolour then underline — are separate PATCHes to the
+  // same row; without serialisation the one that arrives last wins, which is
+  // not necessarily the one sent last, so the underline could be dropped in
+  // the DB and come back missing on reload (seen live).
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const commitHighlights = useCallback(
     (next: HighlightMark[]) => {
       highlightsRef.current = next;
       setHighlights(next);
-      ensureMarkAttemptId().then((id) => {
-        if (id) saveAttemptHighlights(id, next).catch((err) => console.warn('saveAttemptHighlights failed:', err));
-      });
+      saveChainRef.current = saveChainRef.current
+        .catch(() => {})
+        .then(async () => {
+          const id = await ensureMarkAttemptId();
+          if (!id) return;
+          await saveAttemptHighlights(id, highlightsRef.current).catch((err) =>
+            console.warn('saveAttemptHighlights failed:', err),
+          );
+        });
     },
     [ensureMarkAttemptId],
   );
