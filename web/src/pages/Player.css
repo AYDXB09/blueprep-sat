@@ -600,7 +600,12 @@ mark.user-hl-pending {
 }
 
 .hl-popover {
-  position: absolute;
+  /* position: fixed (not absolute) so the coords set from
+     getBoundingClientRect() are viewport-relative with no scroll math — and
+     so the popoverPos() helper's zoom correction is the only adjustment
+     needed under Settings' "Large" font size (:root[data-font-size=large]
+     applies `zoom: 1.15`, which scales a positioned element's own top/left). */
+  position: fixed;
   display: none;
   align-items: center;
   z-index: 60;

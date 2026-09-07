@@ -297,6 +297,25 @@ function gestureRange(down: { x: number; y: number }, up: { x: number; y: number
   return r.collapsed ? null : r;
 }
 
+// Where to place the highlight popover (position: fixed) for a given anchor
+// rect. Settings' "Large" font size applies `zoom: 1.15` to :root, which
+// scales a positioned element's own top/left when the browser renders it —
+// so getBoundingClientRect() reads back ~15% larger than the `top`/`left` we
+// set. Without dividing by the zoom here, the popover lands ~15% of its
+// y-coordinate too low (≈100px down a full passage), sitting over unrelated
+// text and making its small buttons unhittable — the actual "the underline
+// does not work" report (the user had Large font on; the buttons were just
+// somewhere else). `getComputedStyle(...).zoom` is "1"/"normal" at default
+// size, "1.15" at Large.
+function popoverPos(rect: DOMRect): { top: number; left: number } {
+  const raw = getComputedStyle(document.documentElement).zoom;
+  const zoom = Number.isFinite(parseFloat(raw)) && parseFloat(raw) > 0 ? parseFloat(raw) : 1;
+  return {
+    top: (rect.top - 54) / zoom,
+    left: (rect.left + rect.width / 2 - 110) / zoom,
+  };
+}
+
 // Finds the nearest BLOCK-level ancestor (paragraph, list item, table cell,
 // etc.) of a node — walking up PAST inline elements like <mark>/<b>/<span>,
 // so two points on either side of an inline tag boundary still count as
@@ -1519,8 +1538,7 @@ export function Player() {
       if (!mark || !mark.dataset.hlId) return;
       setHlEditingIdBoth(mark.dataset.hlId);
       setPendingHlBoth(null);
-      const rect = mark.getBoundingClientRect();
-      setHlPopoverPos({ top: window.scrollY + rect.top - 54, left: window.scrollX + rect.left + rect.width / 2 - 110 });
+      setHlPopoverPos(popoverPos(mark.getBoundingClientRect()));
       setHlPopoverOpen(true);
       return;
     }
@@ -1586,11 +1604,7 @@ export function Player() {
     setHlEditingIdBoth(null);
     setPendingUnderlineBoth('none');
 
-    const rect = range.getBoundingClientRect();
-    setHlPopoverPos({
-      top: window.scrollY + rect.top - 54,
-      left: window.scrollX + rect.left + rect.width / 2 - 110,
-    });
+    setHlPopoverPos(popoverPos(range.getBoundingClientRect()));
     setHlPopoverOpen(true);
     // Drop the browser's own (possibly mis-anchored) blue selection — the
     // dashed .user-hl-pending mark is now the visual cue for what's staged.
