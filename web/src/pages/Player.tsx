@@ -247,6 +247,56 @@ function applyOffsetMark(
   }
 }
 
+// The caret position at a viewport point, as a collapsed Range. Chrome/Safari
+// expose `caretRangeFromPoint`; the spec name (Firefox) is
+// `caretPositionFromPoint`. Used to reconstruct what the user actually dragged
+// over from the mousedown/mouseup screen coords — `window.getSelection()` is
+// not trustworthy here: WebKit (and Chrome, seen live) will sometimes anchor
+// the native selection hundreds of characters before the drag actually
+// started, so a two-word drag reads back as half a paragraph.
+function caretRangeFromPoint(x: number, y: number): Range | null {
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  if (typeof doc.caretRangeFromPoint === 'function') {
+    return doc.caretRangeFromPoint(x, y);
+  }
+  if (typeof doc.caretPositionFromPoint === 'function') {
+    const pos = doc.caretPositionFromPoint(x, y);
+    if (!pos) return null;
+    const r = document.createRange();
+    try {
+      r.setStart(pos.offsetNode, pos.offset);
+    } catch {
+      return null;
+    }
+    r.collapse(true);
+    return r;
+  }
+  return null;
+}
+
+// Reconstructs the drag as a Range from its two endpoint coordinates, in
+// document order. Returns null if either point isn't over text, or the two
+// resolve to the same caret (a click / double-click — not a drag).
+function gestureRange(down: { x: number; y: number }, up: { x: number; y: number }): Range | null {
+  const a = caretRangeFromPoint(down.x, down.y);
+  const b = caretRangeFromPoint(up.x, up.y);
+  if (!a || !b) return null;
+  const forward = a.compareBoundaryPoints(Range.START_TO_START, b) <= 0;
+  const first = forward ? a : b;
+  const last = forward ? b : a;
+  const r = document.createRange();
+  try {
+    r.setStart(first.startContainer, first.startOffset);
+    r.setEnd(last.startContainer, last.startOffset);
+  } catch {
+    return null;
+  }
+  return r.collapsed ? null : r;
+}
+
 // Finds the nearest BLOCK-level ancestor (paragraph, list item, table cell,
 // etc.) of a node — walking up PAST inline elements like <mark>/<b>/<span>,
 // so two points on either side of an inline tag boundary still count as
@@ -1373,6 +1423,14 @@ export function Player() {
   // writes that highlight's own `underline` field instead of this.
   const [pendingUnderline, setPendingUnderline] = useState<HighlightMark['underline']>('none');
 
+  // Where the pointer was pressed — the drag's real start. Read on mouseup to
+  // reconstruct the gesture with caretRangeFromPoint instead of trusting
+  // window.getSelection(), which mis-anchors (see gestureRange's doc comment).
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const onSelectableMouseDown = useCallback((e: React.MouseEvent) => {
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
   const onSelectableMouseUp = useCallback((e: React.MouseEvent) => {
     // Real bug found live, 2026-08-13, watched happen in real time: picking
     // an underline style from the popover's <select> (a NATIVE form
@@ -1412,7 +1470,20 @@ export function Player() {
       return;
     }
     if (hlPopoverOpen) return;
-    const range = sel.getRangeAt(0);
+
+    // The anchor range is reconstructed from the mousedown→mouseup screen
+    // coords (gestureRange), NOT window.getSelection() — the browser's own
+    // selection is unreliable here: a small drag near the top of a passage,
+    // or next to an existing <mark>, frequently reads back anchored hundreds
+    // of characters earlier than where the drag started (watched happen live
+    // in Chrome, originally reported in Safari). caretRangeFromPoint asks the
+    // browser "what character is under this pixel" directly, so it can't be
+    // fooled that way. Fall back to the live selection only when we can't
+    // build a gesture range — no caret API, or a double/triple-click word or
+    // paragraph select where mousedown and mouseup land on the same caret.
+    const down = dragStartRef.current;
+    const range = (down && gestureRange(down, { x: e.clientX, y: e.clientY })) || sel.getRangeAt(0);
+
     const container = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
       ? (range.commonAncestorContainer as Element)
       : range.commonAncestorContainer.parentElement
@@ -1421,28 +1492,14 @@ export function Player() {
     const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
     if (!scope) return;
 
-    // NOTE: the pixel-based "overshoot" heuristic and the cross-block
-    // rejection that used to sit here were removed 2026-09-07. They existed
-    // only to catch a mis-anchored selection under the old anchorText +
-    // occurrence model, and they false-rejected ordinary small selections
-    // ("Try selecting within a single sentence or line" on a two-word drag).
-    // With offset anchoring there's nothing to mis-anchor from a recurring
-    // phrase, and `applyOffsetMark` silently declines a range it genuinely
-    // can't wrap (crosses a block, straddles an inline element) at render
-    // time — no scary toast, no fighting the browser's selection.
-
     // Anchor by raw text-node offsets into this scope's container (see
     // `allTextNodes`' doc comment). Computed against the LIVE rendered DOM —
     // which already carries cue marks and existing highlights — but the
     // concatenated text those <mark>s wrap is byte-for-byte what the detached
     // render container produces, so these offsets resolve to the exact same
     // characters there. Nothing is counted or searched, so capture and render
-    // have nothing to disagree about — which is what the old anchorText +
-    // occurrence model could not guarantee (three different whitespace
-    // normalizations, off by one whenever the phrase recurred → the mark
-    // rendered against an earlier occurrence, i.e. "it highlighted from the
-    // top of the passage").
-    const anchorText = normalizeWs(sel.toString());
+    // have nothing to disagree about.
+    const anchorText = normalizeWs(range.toString());
     if (!anchorText) return;
 
     const startOffset = domPointToRawOffset(container, range.startContainer, range.startOffset);
@@ -1458,18 +1515,14 @@ export function Player() {
     const end = Math.max(startOffset, endOffset);
     if (end <= start) return;
 
-    // Hard cap: a span this long is far more likely a browser selection
-    // artifact (Safari in particular can anchor the native selection earlier
-    // than intended when the mousedown lands near an existing <mark>) than an
-    // intentional highlight. By the time we read window.getSelection() the
-    // browser has already decided — we can refuse a bad selection, not fix it.
-    const MAX_HIGHLIGHT_CHARS = 300;
+    // Generous backstop only — with a gesture-derived range this should never
+    // trip for real use; it's here so a pathological range (e.g. a
+    // triple-click that selected a huge block, or a caret API that returned
+    // nonsense) can't create an absurd highlight.
+    const MAX_HIGHLIGHT_CHARS = 1200;
     if (end - start > MAX_HIGHLIGHT_CHARS) {
-      console.warn('[highlights] selection too large, refusing to create — likely a browser selection artifact', {
-        length: end - start,
-        preview: anchorText.slice(0, 60) + '…',
-      });
-      toast('That selection was too large to highlight — try selecting just the words you want.');
+      console.warn('[highlights] selection too large, refusing to create', { length: end - start, preview: anchorText.slice(0, 60) + '…' });
+      toast('That selection was too large — try dragging over just the words you want.');
       sel.removeAllRanges();
       return;
     }
@@ -1484,6 +1537,9 @@ export function Player() {
       left: window.scrollX + rect.left + rect.width / 2 - 110,
     });
     setHlPopoverOpen(true);
+    // Drop the browser's own (possibly mis-anchored) blue selection — the
+    // dashed .user-hl-pending mark is now the visual cue for what's staged.
+    sel.removeAllRanges();
   }, [setPendingHlBoth, toast, hlPopoverOpen]);
 
   const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
@@ -1986,7 +2042,7 @@ export function Player() {
                   </span>
                 )}
               </div>
-              <div className="stimulus serif" ref={stimulusRef} onMouseUp={onSelectableMouseUp}>
+              <div className="stimulus serif" ref={stimulusRef} onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user
                   // input — stimulusHtml is that same content with cue <mark> spans woven
@@ -2024,7 +2080,7 @@ export function Player() {
                   )}
                 </div>
               ) : (
-                <div className="choices" onMouseUp={onSelectableMouseUp}>
+                <div className="choices" onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
                   {question.choices.map((c) => {
                     const showFeedback = isReviewMode && !!selectedChoiceId;
                     const feedbackClass = showFeedback
