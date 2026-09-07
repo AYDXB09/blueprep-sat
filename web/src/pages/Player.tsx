@@ -92,6 +92,161 @@ function collectMeaningfulTextNodes(container: HTMLElement): Text[] {
   return nodes;
 }
 
+// Size cap shared by capture and render: a span longer than this is far more
+// likely a browser selection artifact than an intentional highlight, and a
+// huge range.surroundContents() is also where partial-mutation corruption of
+// the shared render pass has come from historically.
+const MAX_RENDERED_HIGHLIGHT_CHARS = 300;
+
+// ── User-highlight anchoring: raw text-node offsets ─────────────────────────
+// User highlights (unlike cues, which arrive from the DB as anchor_text +
+// occurrence) anchor to raw character offsets into the concatenation of EVERY
+// text node under the scope container, in document order. That concatenation
+// is invariant under <mark> insertion — wrapping a run of text in <mark>
+// splits text nodes but never changes their combined content — so an offset
+// captured against the live rendered DOM (which already carries cue marks and
+// other highlights) resolves to the exact same characters against the
+// detached container `withAllMarks` builds fresh. No whitespace
+// normalization, no occurrence counting, no string re-search: the ambiguity
+// that let "highlight two words" occasionally render from the top of the
+// passage (when the phrase recurred and capture/render disagreed by one on
+// the match count) is gone because nothing is being counted or matched.
+
+function allTextNodes(container: HTMLElement): Text[] {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const out: Text[] = [];
+  let node: Node | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((node = walker.nextNode())) out.push(node as Text);
+  return out;
+}
+
+function rawTextLength(nodes: Text[]): number {
+  let len = 0;
+  for (const n of nodes) len += (n.nodeValue ?? '').length;
+  return len;
+}
+
+// Resolves a selection endpoint that landed on an ELEMENT (offset = child
+// index — e.g. from a triple-click, or a drag that ended exactly on an inline
+// tag boundary) down to a concrete text position. A text endpoint is returned
+// unchanged.
+function descendToText(node: Node, offset: number): { node: Text; offset: number } | null {
+  if (node.nodeType === Node.TEXT_NODE) return { node: node as Text, offset };
+  const firstTextUnder = (root: Node): Text | null => {
+    if (root.nodeType === Node.TEXT_NODE) return root as Text;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    return w.nextNode() as Text | null;
+  };
+  const lastTextUnder = (root: Node): Text | null => {
+    if (root.nodeType === Node.TEXT_NODE) return root as Text;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let last: Text | null = null;
+    let n: Node | null;
+    // eslint-disable-next-line no-cond-assign
+    while ((n = w.nextNode())) last = n as Text;
+    return last;
+  };
+  const kids = node.childNodes;
+  if (offset < kids.length) {
+    const t = firstTextUnder(kids[offset]);
+    if (t) return { node: t, offset: 0 };
+  }
+  if (offset > 0 && offset - 1 < kids.length) {
+    const t = lastTextUnder(kids[offset - 1]);
+    if (t) return { node: t, offset: (t.nodeValue ?? '').length };
+  }
+  const any = firstTextUnder(node);
+  return any ? { node: any, offset: 0 } : null;
+}
+
+// DOM point (node, offset) → raw offset into `allTextNodes(container)`
+// concatenation. Returns null if the point can't be located inside the
+// container (selection escaped the scope) — callers treat that as "skip".
+function domPointToRawOffset(container: HTMLElement, node: Node, offset: number): number | null {
+  const resolved = descendToText(node, offset);
+  if (!resolved) return null;
+  const nodes = allTextNodes(container);
+  let acc = 0;
+  for (const n of nodes) {
+    if (n === resolved.node) {
+      const clamped = Math.min(Math.max(resolved.offset, 0), (n.nodeValue ?? '').length);
+      return acc + clamped;
+    }
+    acc += (n.nodeValue ?? '').length;
+  }
+  return null;
+}
+
+// Raw offset → { node, offset } within `nodes`, for building a render Range.
+// `prefer` decides which side of a node boundary to sit on: 'start' dives into
+// the following text node, 'end' stays at the end of the preceding one — so
+// both endpoints of a single-run highlight land in the same text node / inline
+// wrapper whenever possible, which is what lets `surroundContents` succeed.
+function rawOffsetToDomPoint(
+  nodes: Text[],
+  target: number,
+  prefer: 'start' | 'end',
+): { node: Text; offset: number } | null {
+  if (nodes.length === 0) return null;
+  let acc = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    const len = (nodes[i].nodeValue ?? '').length;
+    const isLast = i === nodes.length - 1;
+    if (target < acc + len) return { node: nodes[i], offset: target - acc };
+    if (target === acc + len) {
+      if (prefer === 'end' || isLast) return { node: nodes[i], offset: len };
+      return { node: nodes[i + 1], offset: 0 };
+    }
+    acc += len;
+  }
+  const last = nodes[nodes.length - 1];
+  return { node: last, offset: (last.nodeValue ?? '').length };
+}
+
+// Wraps [start, end) (raw offsets into `allTextNodes(container)`) in a <mark>
+// built by `buildMark`. Returns false — never throws — if the offsets are out
+// of range, cross a block boundary (a <mark> can't legally wrap sibling
+// blocks, and a partial `surroundContents` mutation would corrupt the shared
+// render pass for every mark applied after it), or the range can't be
+// surrounded (e.g. it straddles an inline element). Callers treat false as
+// "skip this mark".
+function applyOffsetMark(
+  container: HTMLElement,
+  start: number,
+  end: number,
+  buildMark: () => HTMLElement,
+): boolean {
+  if (!(end > start)) return false;
+  if (end - start > MAX_RENDERED_HIGHLIGHT_CHARS) {
+    console.warn('[highlights] offset span exceeds the size cap, skipping', { start, end });
+    return false;
+  }
+  const nodes = allTextNodes(container);
+  const total = rawTextLength(nodes);
+  if (start < 0 || end > total) {
+    console.warn('[highlights] offsets fall outside the container text, skipping', { start, end, total });
+    return false;
+  }
+  const startP = rawOffsetToDomPoint(nodes, start, 'start');
+  const endP = rawOffsetToDomPoint(nodes, end, 'end');
+  if (!startP || !endP) return false;
+  if (closestBlock(startP.node) !== closestBlock(endP.node)) {
+    console.warn('[highlights] offset span crosses a block boundary, skipping to protect the render pass');
+    return false;
+  }
+  try {
+    const range = document.createRange();
+    range.setStart(startP.node, startP.offset);
+    range.setEnd(endP.node, endP.offset);
+    range.surroundContents(buildMark());
+    return true;
+  } catch (err) {
+    console.warn('[highlights] failed to surround offset span:', err);
+    return false;
+  }
+}
+
 // Finds the nearest BLOCK-level ancestor (paragraph, list item, table cell,
 // etc.) of a node — walking up PAST inline elements like <mark>/<b>/<span>,
 // so two points on either side of an inline tag boundary still count as
@@ -169,11 +324,13 @@ function buildNormalizedTextIndex(container: HTMLElement): { text: string; posit
  * text, wraps it in a <mark> built by `buildMark`, and returns true — or
  * false (with a console.warn tagged by `logTag`) if the anchor can't be
  * found or the wrap fails, which callers must treat as "skip this mark,"
- * never a crash. Shared by both the system-drawn cue marks and the
- * student's own highlights below — same anchor-by-text-match strategy
- * either way, since `cues.anchor_text`/`occurrence` and
- * `HighlightMark.anchorText`/`occurrence` are the same shape by design (see
- * HighlightMark's doc comment in practiceSessions.ts).
+ * never a crash.
+ *
+ * Used by cue marks (`cues.anchor_text` / `occurrence` come from the DB in
+ * exactly this shape) and as the FALLBACK locator for user highlights saved
+ * before the offset model existed. New user highlights use `applyOffsetMark`
+ * instead — text search here can land on the wrong occurrence when the phrase
+ * recurs, which is a non-issue for offsets.
  */
 function applyAnchoredMark(
   container: HTMLElement,
@@ -260,18 +417,25 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
   );
 }
 
-// Mirrors the capture-time cap in onSelectableMouseUp (MAX_HIGHLIGHT_CHARS)
-// — a render-time guard too, since a highlight created BEFORE that cap
-// existed can still be sitting in saved data. Applying a huge anchor's
-// range.surroundContents() risks the same partial-mutation corruption the
-// cross-<li> guard above exists for (just not scoped to list-item
-// boundaries specifically), which was the likely cause of other marks —
-// including underlines — appearing to "vanish" shortly after: a giant
-// prior highlight silently corrupting the shared render pass for every
-// mark applied after it.
-const MAX_RENDERED_HIGHLIGHT_CHARS = 300;
+function userHlMark(hl: HighlightMark): () => HTMLElement {
+  return () => {
+    const mark = document.createElement('mark');
+    mark.className = `user-hl user-hl-${hl.color}${hl.underline !== 'none' ? ` user-hl-u-${hl.underline}` : ''}`;
+    mark.dataset.hlId = hl.id;
+    return mark;
+  };
+}
 
 function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean {
+  // Current model: offset-anchored. Resolve start/end directly — no text
+  // search, so no chance of landing on the wrong occurrence.
+  if (typeof hl.start === 'number' && typeof hl.end === 'number') {
+    return applyOffsetMark(container, hl.start, hl.end, userHlMark(hl));
+  }
+  // Legacy: saved before offsets existed — locate by anchorText + occurrence.
+  // The size cap mirrors the capture-time one (MAX_HIGHLIGHT_CHARS); a huge
+  // anchor's surroundContents() risks the same partial-mutation corruption
+  // the cross-block guard exists for.
   if (hl.anchorText.length > MAX_RENDERED_HIGHLIGHT_CHARS) {
     console.warn('[highlights] skipping render of an oversized saved highlight (likely a pre-fix selection artifact)', {
       id: hl.id,
@@ -279,18 +443,7 @@ function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean 
     });
     return false;
   }
-  return applyAnchoredMark(
-    container,
-    hl.anchorText,
-    hl.occurrence,
-    () => {
-      const mark = document.createElement('mark');
-      mark.className = `user-hl user-hl-${hl.color}${hl.underline !== 'none' ? ` user-hl-u-${hl.underline}` : ''}`;
-      mark.dataset.hlId = hl.id;
-      return mark;
-    },
-    'highlights'
-  );
+  return applyAnchoredMark(container, hl.anchorText, hl.occurrence ?? 1, userHlMark(hl), 'highlights');
 }
 
 /**
@@ -320,7 +473,8 @@ function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean 
 interface PendingHighlight {
   scope: HighlightMark['scope'];
   anchorText: string;
-  occurrence: number;
+  start: number;
+  end: number;
 }
 
 function withAllMarks(
@@ -349,16 +503,15 @@ function withAllMarks(
   // color yet applied previously had zero visible effect anywhere, which is
   // exactly what was reported as "the underline is not happening."
   if (pending) {
-    applyAnchoredMark(
+    applyOffsetMark(
       container,
-      pending.anchorText,
-      pending.occurrence,
+      pending.start,
+      pending.end,
       () => {
         const mark = document.createElement('mark');
         mark.className = `user-hl-pending${pendingUnderline && pendingUnderline !== 'none' ? ` user-hl-u-${pendingUnderline}` : ''}`;
         return mark;
       },
-      'highlights',
     );
   }
   return container.innerHTML;
@@ -1192,11 +1345,11 @@ export function Player() {
   }, [isReviewMode, navigate, sessionId]);
 
   // ---------------- highlighter — real Selection/Range API to CAPTURE the
-  // selection (anchor text + occurrence + which scope), but the actual mark
-  // is never drawn by mutating that DOM directly — it's persisted to state,
-  // then rendered the same safe string-transform way as cue marks (see
-  // withAllMarks' doc comment for why a live-DOM "wrap it once" pass doesn't
-  // survive React re-renders). ----------------------------------------------
+  // selection (raw text-node offsets {start,end} into the scope container +
+  // which scope), but the actual mark is never drawn by mutating that DOM
+  // directly — it's persisted to state, then rendered the same safe
+  // string-transform way as cue marks (see withAllMarks' doc comment for why
+  // a live-DOM "wrap it once" pass doesn't survive React re-renders). -------
   const stimulusRef = useRef<HTMLDivElement | null>(null);
   const hlPopoverRef = useRef<HTMLDivElement | null>(null);
   const [hlPopoverOpen, setHlPopoverOpen] = useState(false);
@@ -1367,51 +1520,42 @@ export function Player() {
       return;
     }
 
-    // Rewritten 2026-08-13 — the previous approach (manually resolving
-    // range.startContainer/endContainer to offsets into a hand-built
-    // concatenation, via progressively more elaborate DOM-position
-    // arithmetic) kept producing "highlighting a few characters highlights
-    // the whole passage from the beginning" despite multiple targeted
-    // fixes. Replaced with something structurally simpler and far less
-    // prone to this class of bug: let the BROWSER resolve both pieces we
-    // need, via its own battle-tested Range.toString().
-    //
-    // 1. anchorText = the selection's own text (normalized — see
-    //    normalizeWs's doc comment for why).
-    // 2. occurrence = count how many times that normalized text already
-    //    appears in EVERYTHING BEFORE the selection start — built the same
-    //    way, via a second Range spanning from the top of the container to
-    //    the selection's start point, again using native toString()
-    //    instead of manual offset math.
-    //
-    // This still lands on the exact same normalized-text-index that
-    // applyAnchoredMark uses to search at render time (see
-    // buildNormalizedTextIndex), so capture and render are guaranteed
-    // consistent — but capture itself no longer does any manual DOM
-    // position resolution at all, eliminating the whole bug class rather
-    // than patching another edge case of it.
+    // Anchor by raw text-node offsets into this scope's container (see
+    // `allTextNodes`' doc comment). Computed against the LIVE rendered DOM —
+    // which already carries cue marks and existing highlights — but the
+    // concatenated text those <mark>s wrap is byte-for-byte what the detached
+    // render container produces, so these offsets resolve to the exact same
+    // characters there. Nothing is counted or searched, so capture and render
+    // have nothing to disagree about — which is what the old anchorText +
+    // occurrence model could not guarantee (three different whitespace
+    // normalizations, off by one whenever the phrase recurred → the mark
+    // rendered against an earlier occurrence, i.e. "it highlighted from the
+    // top of the passage").
     const anchorText = normalizeWs(sel.toString());
     if (!anchorText) return;
 
-    // Hard cap, added 2026-08-13 after live screenshots showed the
-    // NATIVE browser selection (the OS-level blue highlight, visible
-    // before any of our code runs) itself spanning from the very top of
-    // the passage down to a point the student only meant to click near —
-    // e.g. in Safari, clicking close to an existing <mark> or across list
-    // markup can occasionally make the browser's own selection anchor
-    // somewhere earlier than intended. That's not something our anchor
-    // capture logic can detect or correct (by the time we read
-    // window.getSelection(), the browser has already decided what's
-    // selected) — but we CAN refuse to turn an implausibly large
-    // selection into a highlight, so "highlight two words" can never
-    // again silently become "the whole passage got highlighted." A
-    // student highlighting a genuine full sentence or two stays well
-    // under this; anything past it is far more likely a selection
-    // artifact than an intentional highlight.
+    const startOffset = domPointToRawOffset(container, range.startContainer, range.startOffset);
+    const endOffset = domPointToRawOffset(container, range.endContainer, range.endOffset);
+    if (startOffset == null || endOffset == null) {
+      console.warn('[highlights] could not map selection endpoints to text offsets — skipping capture', {
+        startContainer: range.startContainer.nodeName,
+        endContainer: range.endContainer.nodeName,
+      });
+      return;
+    }
+    const start = Math.min(startOffset, endOffset);
+    const end = Math.max(startOffset, endOffset);
+    if (end <= start) return;
+
+    // Hard cap: a span this long is far more likely a browser selection
+    // artifact (Safari in particular can anchor the native selection earlier
+    // than intended when the mousedown lands near an existing <mark>) than an
+    // intentional highlight. By the time we read window.getSelection() the
+    // browser has already decided — we can refuse a bad selection, not fix it.
     const MAX_HIGHLIGHT_CHARS = 300;
-    if (anchorText.length > MAX_HIGHLIGHT_CHARS) {
-      console.warn('[highlights] selection too large, refusing to create — likely a browser selection artifact, not an intentional highlight', {
-        length: anchorText.length,
+    if (end - start > MAX_HIGHLIGHT_CHARS) {
+      console.warn('[highlights] selection too large, refusing to create — likely a browser selection artifact', {
+        length: end - start,
         preview: anchorText.slice(0, 60) + '…',
       });
       toast('That selection was too large to highlight — try selecting just the words you want.');
@@ -1419,36 +1563,7 @@ export function Player() {
       return;
     }
 
-    let beforeRange: Range;
-    try {
-      beforeRange = document.createRange();
-      beforeRange.selectNodeContents(container);
-      beforeRange.setEnd(range.startContainer, range.startOffset);
-    } catch (err) {
-      console.warn('[highlights] failed to build the "before" range for occurrence counting, skipping capture', err);
-      return;
-    }
-    const beforeText = normalizeWs(beforeRange.toString());
-    const occurrence = beforeText.split(anchorText).length; // 1-based count of prior matches + 1
-
-    // Sanity check: this now exercises the SAME algorithm (and the SAME
-    // normalized index) applyAnchoredMark will use at render time, so it's
-    // a real consistency check — not the earlier tautological version that
-    // re-derived from the same numbers it was supposed to be validating.
-    const { text: fullNormalized } = buildNormalizedTextIndex(container);
-    let verifyFrom = 0;
-    let verifyMatch = -1;
-    for (let i = 0; i < Math.max(1, occurrence); i++) {
-      verifyMatch = fullNormalized.indexOf(anchorText, verifyFrom);
-      if (verifyMatch === -1) break;
-      verifyFrom = verifyMatch + 1;
-    }
-    if (verifyMatch === -1) {
-      console.warn('[highlights] capture could not be relocated in the render-time index, skipping', { anchorText, occurrence });
-      return;
-    }
-
-    setPendingHlBoth({ scope, anchorText, occurrence });
+    setPendingHlBoth({ scope, anchorText, start, end });
     setHlEditingId(null);
     setPendingUnderline('none');
 

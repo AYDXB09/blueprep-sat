@@ -257,19 +257,31 @@ export async function submitQuestionAttempt(
 }
 
 /**
- * One highlight the student drew on a question's own content. Anchored by
- * `anchorText` + `occurrence` (which n-th match of that exact substring),
- * not raw character offsets — mirrors `cues.anchor_text`/`occurrence`
- * exactly, so both the system-drawn cue marks and these student-drawn
- * highlights can be re-applied to the same rendered text by one shared pass
- * (see `applyMarksToScope` in Player.tsx) instead of two incompatible
- * mechanisms.
+ * One highlight the student drew on a question's own content.
+ *
+ * Anchored by `start`/`end` — character offsets into the RAW concatenation of
+ * every text node under `scope`'s container, in document order (see
+ * `allTextNodes` / `domPointToRawOffset` in Player.tsx). Wrapping text in a
+ * `<mark>` splits text nodes but never changes their concatenated content, so
+ * an offset captured against the live rendered DOM (cue marks + other
+ * highlights already present) resolves to exactly the same characters against
+ * the detached container the render pass builds. `end` is exclusive.
+ *
+ * `anchorText` is kept for display/debugging and as the ONLY locator for
+ * highlights saved before offsets existed — those carry `anchorText` +
+ * `occurrence` (the n-th match of that exact substring) and no `start`/`end`,
+ * and are re-applied by text search as a fallback (see `applyUserHighlight`).
  */
 export interface HighlightMark {
   id: string;
   scope: 'stimulus' | 'stem' | `choice:${string}`;
+  /** Raw text-node offset of the first highlighted character. */
+  start?: number;
+  /** Raw text-node offset one past the last highlighted character (exclusive). */
+  end?: number;
   anchorText: string;
-  occurrence: number;
+  /** Legacy locator (1-based n-th match of `anchorText`). Only on pre-offset highlights. */
+  occurrence?: number;
   color: 'yellow' | 'blue' | 'pink';
   underline: 'none' | 'solid' | 'dashed' | 'dotted';
 }
