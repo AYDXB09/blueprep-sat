@@ -1445,15 +1445,33 @@ export function Player() {
     (underline: HighlightUnderline) => {
       const id = hlEditingId;
       if (!id) return;
+      // Picking an underline COMMITS a staged highlight, same as picking a
+      // colour — an underline-only mark (`user-hl` with no colour class = red
+      // underline, no fill) is a valid highlight. Otherwise it stayed
+      // `user-hl-pending` and the next click discarded it: "the underlines
+      // are gone".
+      const wasPending = pendingHlIdRef.current === id;
+      if (wasPending && underline === 'none') {
+        // staged mark with nothing chosen — drop it
+        discardPending();
+        setHlPopoverOpen(false);
+        setHlEditingId(null);
+        return;
+      }
+      if (wasPending) pendingHlIdRef.current = null;
       editMark(id, (m) => {
         const classes = new Set(m.className.split(/\s+/).filter(Boolean));
         HL_UNDERLINES.forEach((u) => classes.delete(`user-hl-u-${u}`));
         if (underline !== 'none') classes.add(`user-hl-u-${underline}`);
+        if (wasPending) {
+          classes.delete('user-hl-pending');
+          classes.add('user-hl');
+        }
         m.className = [...classes].join(' ');
         return true;
       });
     },
-    [hlEditingId, editMark],
+    [hlEditingId, editMark, discardPending],
   );
 
   const deleteEditingHighlight = useCallback(() => {
