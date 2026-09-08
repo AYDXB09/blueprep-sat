@@ -1554,6 +1554,9 @@ export function Player() {
     }
   });
   const draggingDivider = useRef(false);
+  // The live ratio — onDividerUp reads this, not the `paneRatio` state, which
+  // its closure would capture stale between the last pointermove and up.
+  const paneRatioRef = useRef(paneRatio);
   const onDividerDown = useCallback((e: React.PointerEvent) => {
     draggingDivider.current = true;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -1562,20 +1565,18 @@ export function Player() {
     if (!draggingDivider.current || !contentRef.current) return;
     const r = contentRef.current.getBoundingClientRect();
     const ratio = Math.min(0.75, Math.max(0.25, (e.clientX - r.left) / r.width));
+    paneRatioRef.current = ratio;
     setPaneRatio(ratio);
   }, []);
-  const onDividerUp = useCallback(
-    (e: React.PointerEvent) => {
-      draggingDivider.current = false;
-      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-      try {
-        localStorage.setItem('blueprep.paneRatio', String(paneRatio));
-      } catch {
-        /* private mode / storage disabled — the ratio just won't persist */
-      }
-    },
-    [paneRatio],
-  );
+  const onDividerUp = useCallback((e: React.PointerEvent) => {
+    draggingDivider.current = false;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    try {
+      localStorage.setItem('blueprep.paneRatio', String(paneRatioRef.current));
+    } catch {
+      /* private mode / storage disabled — the ratio just won't persist */
+    }
+  }, []);
 
   // ---------------- loading / error states ----------------
   if (loading) {
