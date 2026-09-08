@@ -317,6 +317,72 @@ function editHtml(html: string, mutate: (root: HTMLElement) => void): string {
   return root.innerHTML;
 }
 
+// ── Ground truth for what the student actually dragged over ─────────────────
+// window.getSelection() is NOT reliable at mouseup: measured live on the
+// deployed app, a ~20px drag across two words came back as a ~200-character
+// range reaching back up the passage ("highlighting a few words highlights
+// large sentences"). caretRangeFromPoint asks the browser "which character is
+// under this pixel", which can't be fooled that way, so the mousedown and
+// mouseup coordinates give a trustworthy range.
+
+function caretRangeAt(x: number, y: number): Range | null {
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  if (typeof doc.caretRangeFromPoint === 'function') return doc.caretRangeFromPoint(x, y);
+  if (typeof doc.caretPositionFromPoint === 'function') {
+    const pos = doc.caretPositionFromPoint(x, y);
+    if (!pos) return null;
+    const r = document.createRange();
+    try {
+      r.setStart(pos.offsetNode, pos.offset);
+    } catch {
+      return null;
+    }
+    r.collapse(true);
+    return r;
+  }
+  return null;
+}
+
+/** The drag as a Range, in document order. Null for a click / double-click
+ * (both endpoints resolve to the same caret) or if either point isn't text. */
+function gestureRange(down: { x: number; y: number }, up: { x: number; y: number }): Range | null {
+  const a = caretRangeAt(down.x, down.y);
+  const b = caretRangeAt(up.x, up.y);
+  if (!a || !b) return null;
+  const forward = a.compareBoundaryPoints(Range.START_TO_START, b) <= 0;
+  const first = forward ? a : b;
+  const last = forward ? b : a;
+  const r = document.createRange();
+  try {
+    r.setStart(first.startContainer, first.startOffset);
+    r.setEnd(last.startContainer, last.startOffset);
+  } catch {
+    return null;
+  }
+  return r.collapsed ? null : r;
+}
+
+/**
+ * Which range to actually highlight. Prefer the browser's own selection —
+ * it snaps to whole words, which is what a student expects — UNLESS it is
+ * far larger than the physical drag, in which case it mis-anchored and the
+ * gesture range is the truth. `SNAP_SLACK` is generous enough for word
+ * snapping at both ends and nothing like a runaway sentence.
+ */
+const SNAP_SLACK = 40;
+function chooseRange(sel: Selection, drag: { x: number; y: number } | null, up: { x: number; y: number }): Range {
+  const selRange = sel.getRangeAt(0);
+  if (!drag) return selRange;
+  const gest = gestureRange(drag, up);
+  if (!gest) return selRange; // click / double-click / no caret API
+  const selLen = selRange.toString().length;
+  const gestLen = gest.toString().length;
+  return selLen > gestLen + SNAP_SLACK ? gest : selRange;
+}
+
 /**
  * Wraps exactly the text of `range` in `<mark>` elements — one per text node
  * the range touches, all sharing the same `data-hl-id`. Unlike
@@ -1358,6 +1424,13 @@ export function Player() {
     setHlPopoverOpen(true);
   }, []);
 
+  // Where the drag physically started — read at mouseup by chooseRange to
+  // catch a mis-anchored window.getSelection().
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const onSelectableMouseDown = useCallback((e: React.MouseEvent) => {
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
   const onSelectableMouseUp = useCallback(
     (e: React.MouseEvent) => {
       const sel = window.getSelection();
@@ -1375,7 +1448,9 @@ export function Player() {
         return;
       }
 
-      const range = sel.getRangeAt(0);
+      // The browser's own selection, unless it mis-anchored far beyond the
+      // physical drag — see chooseRange / gestureRange.
+      const range = chooseRange(sel, dragStartRef.current, { x: e.clientX, y: e.clientY });
       const container = (
         range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
           ? (range.commonAncestorContainer as Element)
@@ -1975,7 +2050,7 @@ export function Player() {
                   )}
                 </div>
               )}
-              <div className="stimulus serif" ref={stimulusRef} onMouseUp={onSelectableMouseUp}>
+              <div className="stimulus serif" ref={stimulusRef} onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user
                   // input — stimulusHtml is that content with cue <mark> spans woven in
@@ -2049,7 +2124,7 @@ export function Player() {
                   )}
                 </div>
               ) : (
-                <div className="choices" onMouseUp={onSelectableMouseUp}>
+                <div className="choices" onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
                   {question.choices.map((c) => {
                     const showFeedback = isReviewMode && !!selectedChoiceId;
                     const feedbackClass = showFeedback

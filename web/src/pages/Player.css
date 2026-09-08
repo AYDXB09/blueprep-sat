@@ -646,6 +646,11 @@ mark.user-hl-pending {
 
 /* ---------- highlighter — 3 real colors + underline style, persisted ---------- */
 mark.user-hl {
+  /* The UA stylesheet gives every <mark> a yellow background. A mark with no
+     colour class is an UNDERLINE-ONLY highlight, so it must start transparent
+     — otherwise picking just a dashed underline also painted a yellow fill.
+     The colour classes below re-add a background when one is chosen. */
+  background: transparent;
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
