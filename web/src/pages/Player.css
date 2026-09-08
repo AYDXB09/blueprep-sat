@@ -25,101 +25,79 @@
    2026-08-12 per explicit feedback, "properly align the top bar"), and a
    fixed-width right group (timers, reference/Desmos for Math, a divider,
    the Ask-AI icon, pause). */
+/* Bluebook-style: one navy bar, three clusters (title / timers / tools). */
 .topbar {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  gap: 16px;
+  padding: 8px 18px;
+  min-height: 52px;
+  background: var(--navy);
+  color: #fff;
   flex: none;
 }
 .tb-left,
 .tb-right {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: none;
+  gap: 10px;
+  flex: 1 1 0;
+  min-width: 0;
 }
-.tb-progress {
-  flex: 1;
+.tb-right {
+  justify-content: flex-end;
+}
+.tb-center {
+  flex: none;
   display: flex;
   align-items: center;
+  gap: 14px;
 }
-.tb-divider {
-  width: 1px;
-  height: 26px;
-  background: var(--line);
-  flex: none;
-}
-/* Real bug found live, 2026-08-13: named plain ".brand" with no scoping —
-   PracticeBuilder.css defines its OWN unrelated ".brand" (margin-bottom:
-   22px, for its vertical page-header layout), and since neither file uses
-   CSS Modules, both selectors land in the same global stylesheet and that
-   margin leaked in here, pushing the topbar's "BluePrep" text out of
-   vertical center against its siblings. Renamed to a scoped class instead
-   of trying to out-specificity the other file's rule, which would just be
-   fragile against import-order changes. */
-.topbar-brand {
-  font-weight: 800;
-  font-size: 12.5px;
-  letter-spacing: -0.01em;
-}
-.topbar-brand b {
-  color: var(--navy);
-}
-.subj-badge {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 5px;
-  border: 1px solid var(--math);
-  color: var(--math);
-  background: var(--math-wash);
-}
-.progress-track {
-  width: 100%;
-  height: 4px;
-  background: var(--line);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: var(--navy);
-  border-radius: 3px;
-}
-.timer-block {
-  text-align: right;
-}
-.timer-block .tlabel {
-  font-size: 8.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-dim);
-  margin: 0 0 1px;
-}
-.timer-block .tval {
-  font-size: 15px;
-  font-weight: 800;
-  /* Real bug found live, 2026-08-12: unlike .tlabel, this <p> had no margin
-     reset, so the browser's default UA margin (1em top+bottom, ~15px each
-     at this font-size) inflated .timer-block to ~67px tall against ~35-40px
-     siblings (the AI/pause icon buttons) — visually the whole header read
-     as misaligned even though .topbar's own flex centering was correct. */
-  margin: 0;
-}
-#sessionTime.low {
-  color: var(--red);
-}
-#sessionTime.over {
-  color: var(--red);
-}
-#qTime {
-  color: var(--ink-dim);
+.section-title {
+  font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tc-status {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cfe0f0;
+}
+.tc-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tc-countdown {
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.tc-countdown.low,
+.tc-countdown.over {
+  color: #ff9a8f;
+}
+.tc-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.tc-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.tc-qtimer {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b9cbe0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .iconbtn {
@@ -140,7 +118,7 @@
   color: var(--ink);
 }
 .iconbtn:focus-visible {
-  outline: 2px solid var(--navy);
+  outline: 2px solid #fff;
   outline-offset: 2px;
 }
 .iconbtn.wide {
@@ -149,29 +127,134 @@
   font-size: 11px;
   font-weight: 800;
 }
+/* icon buttons that sit on the navy bar */
+.iconbtn.ghost-on-navy {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: #fff;
+}
+.iconbtn.ghost-on-navy:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
 
 /* ---------- content ---------- */
 .content {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   min-height: 0;
 }
 .pane {
   overflow-y: auto;
-  padding: 28px 34px;
+  padding: 26px 34px;
+  min-width: 0;
 }
 .pane.left {
-  border-right: 1px solid var(--line);
+  flex: 0 0 50%;
+}
+.pane.right {
+  flex: 1 1 0;
+}
+/* Draggable split between the panes — a plain ratio, zoom-proof (see the
+   paneRatio comment in Player.tsx). */
+.pane-divider {
+  flex: none;
+  width: 10px;
+  cursor: col-resize;
+  background: var(--line);
+  position: relative;
+  touch-action: none;
+}
+.pane-divider:hover,
+.pane-divider:active {
+  background: var(--navy);
+}
+.pane-divider-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 34px;
+  border-radius: 2px;
+  background: var(--bg);
 }
 @media (max-width: 860px) {
   .content {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
   .pane.left {
-    border-right: none;
+    flex: none;
     border-bottom: 1px solid var(--line);
   }
+  .pane-divider {
+    display: none;
+  }
+}
+
+/* ---------- question header (right pane, Bluebook-style) ---------- */
+.qhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.qhead-num {
+  flex: none;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.qhead-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.qhead-mark-ico {
+  font-size: 15px;
+  color: var(--ink-dim);
+}
+.qhead-mark.on .qhead-mark-ico {
+  color: var(--red);
+}
+.qhead-abc {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.qhead-abc.on {
+  border-color: var(--navy);
+  background: var(--navy-wash);
+}
+.abc-strike {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--ink-dim);
+  text-decoration: line-through;
+}
+.qhead-abc.on .abc-strike {
+  color: var(--navy);
 }
 
 .qmeta {
@@ -335,6 +418,12 @@
 .strike-btn:hover {
   border-color: var(--ink-dim);
 }
+/* the choice letter, shown struck-through inside the cross-out circle */
+.strike-btn-letter {
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: line-through;
+}
 .strike-btn.undo {
   width: auto;
   height: auto;
@@ -378,13 +467,13 @@
   background: var(--red-wash);
 }
 
-/* ---------- bottom bar ---------- */
+/* ---------- bottom bar (Bluebook footer: name / navigator / prev+next) ---------- */
 .bottombar {
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 20px;
+  padding: 12px 22px;
   border-top: 1px solid var(--line);
   background: var(--panel);
   flex: none;
@@ -428,10 +517,32 @@
 .btn.primary {
   background: var(--navy);
   color: #fff;
-  margin-left: auto;
 }
 .btn.primary:hover {
   opacity: 0.92;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.foot-name {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.foot-nav {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.bottombar .nav-trigger-pill {
+  flex: none;
 }
 
 /* ---------- pause overlay ---------- */
@@ -647,45 +758,99 @@ mark.user-hl-pending {
   background: var(--line);
   flex: none;
 }
-/* Underline-style toggles — buttons, not a native <select>. A native select
-   in the popover has caused two separate bugs (its OS dropdown closing lands
-   a stray mouseup on the passage; WebKit re-fires `change` on blur with a
-   stale value), and it never matched the swatch row visually. Each button is
-   a toggle: click the active one again to clear the underline. */
-.hl-uline {
-  width: 30px;
-  height: 20px;
+/* Underline-style picker: a "U ▾" button opening a small CUSTOM menu — not a
+   native <select> (that caused two Safari bugs: OS-dropdown-close stray
+   mouseup on the passage, and WebKit re-firing `change` on blur). */
+.hl-udrop {
+  position: relative;
+  flex: none;
+}
+.hl-ubtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg);
   cursor: pointer;
-  padding: 0;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  padding: 2px 6px;
+  height: 22px;
 }
-.hl-uline:hover {
+.hl-ubtn:hover {
   background: var(--panel);
 }
-.hl-uline.active {
+.hl-ubtn.has {
   border-color: var(--navy);
-  background: color-mix(in srgb, var(--navy) 12%, var(--bg));
 }
-.hl-uline > span {
+.hl-ubtn-u {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
+}
+.hl-ubtn-u-solid {
+  text-decoration: underline;
+  text-decoration-style: solid;
+}
+.hl-ubtn-u-dashed {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+}
+.hl-ubtn-u-dotted {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.hl-ubtn-caret {
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+.hl-umenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+  width: 132px;
+}
+.hl-umenu-item {
   display: block;
-  width: 16px;
-  height: 0;
-  border-bottom: 2px solid var(--ink);
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
 }
-.hl-uline-solid > span {
-  border-bottom-style: solid;
+.hl-umenu-item:hover {
+  background: var(--panel);
 }
-.hl-uline-dashed > span {
-  border-bottom-style: dashed;
+.hl-umenu-item.on {
+  background: var(--navy-wash);
+  color: var(--navy);
 }
-.hl-uline-dotted > span {
-  border-bottom-style: dotted;
+.hl-umenu-label {
+  color: var(--ink);
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
+}
+.hl-umenu-u-solid {
+  text-decoration: underline;
+  text-decoration-style: solid;
+}
+.hl-umenu-u-dashed {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+}
+.hl-umenu-u-dotted {
+  text-decoration: underline;
+  text-decoration-style: dotted;
 }
 .hl-icon-btn {
   background: transparent;

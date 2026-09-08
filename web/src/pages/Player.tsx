@@ -1243,10 +1243,16 @@ export function Player() {
   const [hlPopoverPos, setHlPopoverPos] = useState({ top: 0, left: 0 });
   // The mark whose edit popover is open, if any.
   const [hlEditingId, setHlEditingId] = useState<string | null>(null);
+  // The "U ▾" underline-style dropdown inside the popover.
+  const [uMenuOpen, setUMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!hlPopoverOpen) setUMenuOpen(false);
+  }, [hlPopoverOpen]);
 
   const openMarkPopover = useCallback((markEl: HTMLElement) => {
     if (!markEl.dataset.hlId) return;
     setHlEditingId(markEl.dataset.hlId);
+    setUMenuOpen(false);
     setHlPopoverPos(popoverPos(markEl.getBoundingClientRect()));
     setHlPopoverOpen(true);
   }, []);
@@ -1479,8 +1485,6 @@ export function Player() {
 
   // ---------------- derived ----------------
   const sessionLow = !isOvertime && sessionSeconds <= 60 && sessionSeconds > 0;
-  const sessionDisplay = isOvertime ? `+${fmt(overtimeSeconds)}` : fmt(Math.max(sessionSeconds, 0));
-  const progressPct = TOTAL_Q > 0 ? Math.round((CURRENT_Q / TOTAL_Q) * 100) : 0;
 
   const answeredPositions = useMemo(() => {
     if (!session) return new Set<number>();
@@ -1510,6 +1514,69 @@ export function Player() {
   const isMath = question?.subject === 'Math';
   const subjectLabel = question ? (isMath ? 'Math' : 'R&W') : '';
 
+  // Bluebook-style section title, derived from the session shape.
+  const sectionTitle = useMemo(() => {
+    const subj = question ? (isMath ? 'Math' : 'Reading and Writing') : '';
+    if (isReviewMode) return subj ? `Reviewing · ${subj}` : 'Reviewing';
+    if (isFullTest) {
+      const m = currentModuleRange?.module;
+      return subj ? `${subj}${m ? ` · Module ${m}` : ''}` : 'Full test';
+    }
+    const filter = session?.subject_filter;
+    if (filter === 'Math') return 'Math practice';
+    if (filter === 'Reading and Writing' || filter === 'R&W') return 'Reading and Writing practice';
+    return subj ? `${subj} practice` : 'Practice';
+  }, [question, isMath, isReviewMode, isFullTest, currentModuleRange, session?.subject_filter]);
+
+  const studentName =
+    (user?.user_metadata?.full_name as string | undefined) ||
+    (user?.user_metadata?.name as string | undefined) ||
+    user?.email ||
+    '';
+
+  // Cross-out mode: while on, each choice shows its "cross out" control
+  // (Bluebook gates it behind the ABC toggle). An already-crossed-out choice
+  // always shows its Undo, regardless of the mode.
+  const [crossOutMode, setCrossOutMode] = useState(false);
+  // Hide the countdown (Bluebook lets you). The count-up question timer stays.
+  const [timerHidden, setTimerHidden] = useState(false);
+
+  // Resizable pane split — a plain 0..1 ratio (NOT pixels), so page zoom is a
+  // non-issue: pointer clientX and the container rect are in the same space,
+  // and flex-basis is a percentage.
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [paneRatio, setPaneRatio] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('blueprep.paneRatio') ?? '');
+      return Number.isFinite(v) && v >= 0.25 && v <= 0.75 ? v : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+  const draggingDivider = useRef(false);
+  const onDividerDown = useCallback((e: React.PointerEvent) => {
+    draggingDivider.current = true;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, []);
+  const onDividerMove = useCallback((e: React.PointerEvent) => {
+    if (!draggingDivider.current || !contentRef.current) return;
+    const r = contentRef.current.getBoundingClientRect();
+    const ratio = Math.min(0.75, Math.max(0.25, (e.clientX - r.left) / r.width));
+    setPaneRatio(ratio);
+  }, []);
+  const onDividerUp = useCallback(
+    (e: React.PointerEvent) => {
+      draggingDivider.current = false;
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      try {
+        localStorage.setItem('blueprep.paneRatio', String(paneRatio));
+      } catch {
+        /* private mode / storage disabled — the ratio just won't persist */
+      }
+    },
+    [paneRatio],
+  );
+
   // ---------------- loading / error states ----------------
   if (loading) {
     return (
@@ -1538,71 +1605,53 @@ export function Player() {
 
   return (
     <div className="player-root">
+      {/* Bluebook-style header: section title left, timers centre, tools right.
+          No progress bar / Directions / More / Highlights-and-Notes toggle. */}
       <div className="topbar">
         <div className="tb-left">
-          <button className="iconbtn" title="Exit to Dashboard" aria-label="Exit to Dashboard" onClick={exitToDashboard}>
+          <button className="iconbtn ghost-on-navy" title="Exit to Dashboard" aria-label="Exit to Dashboard" onClick={exitToDashboard}>
             ←
           </button>
-          <div className="topbar-brand">
-            <b>Blue</b>Prep
-          </div>
-          <span className={`subj-badge${isMath ? '' : ' rw'}`}>{subjectLabel}</span>
+          <div className="section-title">{sectionTitle}</div>
         </div>
 
-        {/* Fills the space between the two fixed-width clusters — previously
-            capped at max-width:260px with the right side pushed off via
-            margin-left:auto, which left one big dead gap instead of the bar
-            reading as evenly composed. Fixed 2026-08-12 per explicit
-            feedback ("properly align the top bar"). */}
-        <div className="tb-progress">
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
+        <div className="tb-center">
+          {isReviewMode ? (
+            <span className="tc-status">Reviewing</span>
+          ) : hasSessionCountdown ? (
+            <div className="tc-timer">
+              {timerHidden ? (
+                <button className="tc-toggle" onClick={() => setTimerHidden(false)}>Show time</button>
+              ) : (
+                <>
+                  <span className={`tc-countdown mono${sessionLow ? ' low' : ''}${isOvertime ? ' over' : ''}`}>
+                    {isOvertime ? `+${fmt(overtimeSeconds)}` : fmt(Math.max(sessionSeconds, 0))}
+                  </span>
+                  <button className="tc-toggle" onClick={() => setTimerHidden(true)}>Hide</button>
+                </>
+              )}
+            </div>
+          ) : (
+            <span className="tc-status">Untimed</span>
+          )}
+          {showQuestionTimer && !isReviewMode && (
+            <span className="tc-qtimer mono" title="Time on this question (counts up)">
+              this question&nbsp;&nbsp;{fmt(qSeconds)}
+            </span>
+          )}
         </div>
 
         <div className="tb-right">
-          {isReviewMode ? (
-            <div className="timer-block">
-              <p className="tlabel">Status</p>
-              <p className="tval mono">Reviewing</p>
-            </div>
-          ) : hasSessionCountdown ? (
-            <div className="timer-block">
-              <p className="tlabel" style={isOvertime ? { color: 'var(--red)' } : undefined}>
-                {isOvertime ? 'Overtime' : 'Session'}
-              </p>
-              <p className={`tval mono${sessionLow ? ' low' : ''}${isOvertime ? ' over' : ''}`}>{sessionDisplay}</p>
-            </div>
-          ) : (
-            <div className="timer-block">
-              <p className="tlabel">Session</p>
-              <p className="tval mono">Untimed</p>
-            </div>
-          )}
-          {showQuestionTimer && (
-          <div className="timer-block">
-            <p className="tlabel">Question</p>
-            <p className="tval mono" id="qTime">
-              {fmt(qSeconds)}
-            </p>
-          </div>
-          )}
           {isMath && (
-            <button className="iconbtn wide" title="Reference sheet" aria-label="Open reference sheet" onClick={() => setRefOpen(true)}>
-              📐 Reference
+            <button className="iconbtn wide ghost-on-navy" title="Reference sheet" aria-label="Open reference sheet" onClick={() => setRefOpen(true)}>
+              Reference
             </button>
           )}
           {isMath && (
-            <button className="iconbtn wide" title="Desmos" aria-label="Open Desmos" onClick={() => setCalcOpen((o) => !o)}>
-              Desmos
+            <button className="iconbtn wide ghost-on-navy" title="Desmos calculator" aria-label="Open Desmos" onClick={() => setCalcOpen((o) => !o)}>
+              Calculator
             </button>
           )}
-          <div className="tb-divider" />
-          {/* Real Ask-AI panel — moved up here from the bottombar (2026-08-12,
-              explicit request), replacing what used to be just a placeholder
-              icon that toasted a stub message. placement="below" since the
-              header sits too close to the viewport top for the panel to open
-              upward the way it does from the bottombar. */}
           {!isReviewMode && (
             <AskAiPanel
               isConnected={!!aiSettings}
@@ -1612,9 +1661,9 @@ export function Player() {
             />
           )}
           {!isReviewMode && (
-          <button className="iconbtn" title="Pause" aria-label="Pause session" onClick={pause}>
-            ⏸
-          </button>
+            <button className="iconbtn ghost-on-navy" title="Pause" aria-label="Pause session" onClick={pause}>
+              ⏸
+            </button>
           )}
         </div>
       </div>
@@ -1703,68 +1752,98 @@ export function Player() {
             type="button"
             className={`hl-swatch hl-swatch-${color}${editingColor === color ? ' active' : ''}`}
             aria-label={`${color} highlight`}
-            onClick={() => applyHighlightColor(color)}
+            onClick={() => {
+              setUMenuOpen(false);
+              applyHighlightColor(color);
+            }}
           />
         ))}
         <span className="hl-sep" />
-        {HL_UNDERLINES.map((style) => (
+        <div className="hl-udrop">
           <button
-            key={style}
             type="button"
-            className={`hl-uline hl-uline-${style}${editingUnderline === style ? ' active' : ''}`}
-            aria-label={`${style} underline`}
-            aria-pressed={editingUnderline === style}
-            title={`${style[0].toUpperCase()}${style.slice(1)} underline`}
-            onClick={() => applyHighlightUnderline(editingUnderline === style ? 'none' : style)}
+            className={`hl-ubtn${editingUnderline !== 'none' ? ' has' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={uMenuOpen}
+            title="Underline style"
+            onClick={() => setUMenuOpen((o) => !o)}
           >
-            <span />
+            <span className={`hl-ubtn-u hl-ubtn-u-${editingUnderline}`}>U</span>
+            <span className="hl-ubtn-caret" aria-hidden="true">⌄</span>
           </button>
-        ))}
+          {uMenuOpen && (
+            <div className="hl-umenu" role="menu">
+              {(['solid', 'dashed', 'dotted', 'none'] as HighlightUnderline[]).map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={editingUnderline === style}
+                  className={`hl-umenu-item${editingUnderline === style ? ' on' : ''}`}
+                  onClick={() => {
+                    applyHighlightUnderline(style);
+                    setUMenuOpen(false);
+                  }}
+                >
+                  {style === 'none' ? (
+                    <span className="hl-umenu-label">No underline</span>
+                  ) : (
+                    <span className={`hl-umenu-label hl-umenu-u-${style}`}>
+                      {style[0].toUpperCase() + style.slice(1)}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <span className="hl-sep" />
+        {hlEditingId && (
+          <button type="button" className="hl-icon-btn" title="Remove this highlight" aria-label="Remove highlight" onClick={deleteEditingHighlight}>
+            🗑
+          </button>
+        )}
         <button
           type="button"
           className="hl-icon-btn"
           title="Add a note to this question"
+          aria-label="Add a note"
           onClick={() => {
             setHlPopoverOpen(false);
             openNoteEditor();
             document.getElementById('note-panel-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }}
         >
-          ✎ Note
+          ✎
         </button>
-        {hlEditingId && (
-          <button type="button" className="hl-icon-btn" title="Remove this highlight" onClick={deleteEditingHighlight}>
-            🗑
-          </button>
-        )}
       </div>
 
       {view === 'main' && (
         <>
-          <div className="content" id="mainContent">
-            <div className="pane left">
-              <div className="qmeta">
-                <span className="qnum mono">Question {CURRENT_Q}</span>
-                {cues.length > 0 && (
-                  <span className="cue-available-chip" title="This question has trap/cue analysis — answer it to reveal.">
-                    💡 Has cue analysis
-                  </span>
-                )}
-                {!question.is_active && (
-                  <span
-                    className="retired-chip"
-                    title="No longer in the source's live rotation — the skill it tests is still current, but you won't see this exact question on a real exam."
-                  >
-                    Retired ⓘ
-                  </span>
-                )}
-              </div>
+          <div className="content" id="mainContent" ref={contentRef}>
+            <div className="pane left" style={{ flexBasis: `${(paneRatio * 100).toFixed(2)}%` }}>
+              {(cues.length > 0 || !question.is_active) && (
+                <div className="qmeta">
+                  {cues.length > 0 && (
+                    <span className="cue-available-chip" title="This question has trap/cue analysis — answer it to reveal.">
+                      💡 Has cue analysis
+                    </span>
+                  )}
+                  {!question.is_active && (
+                    <span
+                      className="retired-chip"
+                      title="No longer in the source's live rotation — the skill it tests is still current, but you won't see this exact question on a real exam."
+                    >
+                      Retired ⓘ
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="stimulus serif" ref={stimulusRef} onMouseUp={onSelectableMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user
-                  // input — stimulusHtml is that same content with cue <mark> spans woven
-                  // in as a string (see withAllMarks). data-hl-scope tags this block so a
+                  // input — stimulusHtml is that content with cue <mark> spans woven in
+                  // as a string (see withCueMarks). data-hl-scope tags this block so a
                   // selection inside it anchors as a "stimulus" highlight, not "stem".
                   <div data-hl-scope="stimulus" dangerouslySetInnerHTML={{ __html: stimulusHtml }} />
                 )}
@@ -1773,7 +1852,43 @@ export function Player() {
               </div>
             </div>
 
+            <div
+              className="pane-divider"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize panes"
+              onPointerDown={onDividerDown}
+              onPointerMove={onDividerMove}
+              onPointerUp={onDividerUp}
+            >
+              <span className="pane-divider-grip" />
+            </div>
+
             <div className="pane right">
+              <div className="qhead">
+                <span className="qhead-num">{CURRENT_Q}</span>
+                <button
+                  type="button"
+                  className={`qhead-mark${markedForReview ? ' on' : ''}`}
+                  onClick={() => setMarkedForReview((m) => !m)}
+                  aria-pressed={markedForReview}
+                >
+                  <span className="qhead-mark-ico" aria-hidden="true">{markedForReview ? '★' : '☆'}</span>
+                  Mark for review
+                </button>
+                {question.response_type !== 'spr' && !isReviewMode && (
+                  <button
+                    type="button"
+                    className={`qhead-abc${crossOutMode ? ' on' : ''}`}
+                    onClick={() => setCrossOutMode((v) => !v)}
+                    aria-pressed={crossOutMode}
+                    title="Cross out answer choices you think are wrong"
+                  >
+                    <span className="abc-strike">ABC</span>
+                  </button>
+                )}
+              </div>
+
               {question.response_type === 'spr' ? (
                 <div className="spr-input-wrap">
                   <label htmlFor="sprInput" className="spr-label">
@@ -1838,9 +1953,12 @@ export function Player() {
                           data-hl-scope={`choice:${c.label}`}
                           dangerouslySetInnerHTML={{ __html: choiceHtmlById.get(c.id) ?? c.content_markup }}
                         />
-                        {/* Bluebook-style per-choice strikethrough — independent of which
-                            choice is selected as the answer, works in test AND review mode
-                            (real persisted state, see toggleStruck/ensureMarkAttemptId). */}
+                        {/* Bluebook-style per-choice cross-out. The "cross out"
+                            control only shows while cross-out mode is on (the
+                            ABC toggle in the question header); an already
+                            crossed-out choice always shows its Undo so it can
+                            be restored regardless of the mode. Real persisted
+                            state — see toggleStruck / ensureMarkAttemptId. */}
                         {isStruck ? (
                           <button
                             type="button"
@@ -1851,15 +1969,17 @@ export function Player() {
                             Undo
                           </button>
                         ) : (
-                          <button
-                            type="button"
-                            className="strike-btn"
-                            onClick={(e) => toggleStruck(c.id, e)}
-                            title="Cross out this choice"
-                            aria-label={`Cross out choice ${c.label}`}
-                          >
-                            ⊘
-                          </button>
+                          (crossOutMode || isReviewMode) && (
+                            <button
+                              type="button"
+                              className="strike-btn"
+                              onClick={(e) => toggleStruck(c.id, e)}
+                              title="Cross out this choice"
+                              aria-label={`Cross out choice ${c.label}`}
+                            >
+                              <span className="strike-btn-letter">{c.label}</span>
+                            </button>
+                          )
                         )}
                       </div>
                     );
@@ -1956,21 +2076,13 @@ export function Player() {
             </div>
           </div>
 
+          {/* Bluebook-style footer: student name left, question navigator
+              centre, prev/next right. Mark-for-review moved up to the
+              question header. The navigator popover renders through
+              AnchoredPortal (see that file's doc comment) since this bar's
+              own overflow would otherwise clip an absolutely-positioned one. */}
           <div className="bottombar" id="mainBottombar">
-            <button className="btn ghost" onClick={goPrev} disabled={navBusy || CURRENT_Q <= 1}>
-              ← Prev
-            </button>
-            <button className={`btn ghost${markedForReview ? ' active' : ''}`} onClick={() => setMarkedForReview((m) => !m)}>
-              🔖 Mark for Review
-            </button>
-            {/* Bluebook-style question navigator trigger — moved here from
-                the topbar (2026-08-12, explicit request) to match the real
-                exam's own bottom-bar placement. Popover renders through
-                AnchoredPortal (see that file's doc comment) since this
-                button lives inside .bottombar, which forces overflow-y:auto
-                via its own overflow-x:auto — a plain absolutely-positioned
-                popover here would be silently clipped the same way the
-                Ask-AI popover originally was. */}
+            <span className="foot-name">{studentName}</span>
             <button
               ref={jumpBtnRef}
               className="nav-trigger-pill mono"
@@ -1979,14 +2091,16 @@ export function Player() {
                 setNavOpen((o) => !o);
               }}
             >
-              Question {CURRENT_Q} of {TOTAL_Q} <span className="nav-trigger-caret">⌄</span>
+              Question {CURRENT_Q} of {TOTAL_Q} <span className="nav-trigger-caret">⌃</span>
             </button>
-            {/* Ask-AI moved up to the header (2026-08-12, explicit request)
-                — Next is now the only thing on the right, no longer sharing
-                this margin-left:auto slot with the AI icon. */}
-            <button className="btn primary" style={{ marginLeft: 'auto' }} onClick={goNext} disabled={navBusy}>
-              {CURRENT_Q >= TOTAL_Q ? (isReviewMode ? 'Back to Summary →' : 'Finish →') : 'Next →'}
-            </button>
+            <div className="foot-nav">
+              <button className="btn ghost" onClick={goPrev} disabled={navBusy || CURRENT_Q <= 1}>
+                ← Prev
+              </button>
+              <button className="btn primary" onClick={goNext} disabled={navBusy}>
+                {CURRENT_Q >= TOTAL_Q ? (isReviewMode ? 'Back to Summary →' : 'Finish →') : 'Next →'}
+              </button>
+            </div>
           </div>
 
           <AnchoredPortal anchorRef={jumpBtnRef} active={navOpen} placement="above" align="center">
