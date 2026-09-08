@@ -317,6 +317,49 @@ function editHtml(html: string, mutate: (root: HTMLElement) => void): string {
   return root.innerHTML;
 }
 
+/**
+ * Wraps exactly the text of `range` in `<mark>` elements — one per text node
+ * the range touches, all sharing the same `data-hl-id`. Unlike
+ * `range.surroundContents`, this NEVER throws when the selection crosses an
+ * inline element (`<b>`, `<sup>`, a cue `<mark>`) or a paragraph boundary —
+ * it just wraps each segment. Returns the id, or null if the range held no
+ * real text. Mutates the live DOM.
+ */
+function wrapRangeInMarks(range: Range, id: string, buildMark: () => HTMLElement): string | null {
+  const sc = range.startContainer;
+  const so = range.startOffset;
+  const ec = range.endContainer;
+  const eo = range.endOffset;
+  const anc = range.commonAncestorContainer;
+  const rootEl = (anc.nodeType === Node.TEXT_NODE ? anc.parentElement : (anc as Element)) as HTMLElement | null;
+  if (!rootEl) return null;
+
+  const targets: { node: Text; s: number; e: number }[] = [];
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((node = walker.nextNode())) {
+    const t = node as Text;
+    if (!range.intersectsNode(t)) continue;
+    const s = t === sc ? so : 0;
+    const e = t === ec ? eo : (t.nodeValue ?? '').length;
+    if (s >= e) continue;
+    if (!/\S/.test((t.nodeValue ?? '').slice(s, e))) continue; // whitespace-only edge segment
+    targets.push({ node: t, s, e });
+  }
+  if (targets.length === 0) return null;
+
+  for (const { node: t0, s, e } of targets) {
+    let t = t0;
+    if (e < (t.nodeValue ?? '').length) t.splitText(e); // t keeps [0, e)
+    if (s > 0) t = t.splitText(s); // t becomes [s, e)
+    const mark = buildMark();
+    t.parentNode?.insertBefore(mark, t);
+    mark.appendChild(t);
+  }
+  return id;
+}
+
 /** Unwrap every cue `<mark>` (they only ever wrap plain text) and re-merge
  * the split text nodes — used to recover the user-only layer from a string
  * that has had the cue pass applied. */
@@ -884,19 +927,22 @@ export function Player() {
     [commitScopeHl],
   );
 
-  // Find the scope holding the mark with this id, run `mutate` on its <mark>,
-  // and persist. `mutate` returning false means "unwrap this mark".
+  // Find the scope holding this id and run `mutate` on EVERY <mark> segment
+  // that carries it (a selection crossing inline markup is wrapped as several
+  // segments sharing one id). `mutate` returning false unwraps them.
   const editMark = useCallback(
     (id: string, mutate: (mark: HTMLElement) => boolean) => {
       for (const [scope, html] of Object.entries(scopeHlRef.current)) {
         if (!html.includes(`data-hl-id="${id}"`)) continue;
         const nextHtml = editHtml(html, (root) => {
-          const m = root.querySelector(`mark[data-hl-id="${id}"]`) as HTMLElement | null;
-          if (!m) return;
-          if (mutate(m) === false) {
-            m.replaceWith(...Array.from(m.childNodes));
-            root.normalize();
+          const segs = [...root.querySelectorAll(`mark[data-hl-id="${id}"]`)] as HTMLElement[];
+          if (segs.length === 0) return;
+          let unwrap = false;
+          for (const m of segs) if (mutate(m) === false) unwrap = true;
+          if (unwrap) {
+            for (const m of segs) m.replaceWith(...Array.from(m.childNodes));
           }
+          root.normalize();
         });
         setScopeMarkedHtml(scope, nextHtml);
         return;
@@ -1276,37 +1322,35 @@ export function Player() {
           : range.commonAncestorContainer.parentElement
       )?.closest('[data-hl-scope]') as HTMLElement | null;
       const scope = container?.getAttribute('data-hl-scope');
-      // Must be a selection that lives entirely within one scope container.
       if (!container || !scope || !container.contains(range.commonAncestorContainer)) {
         sel.removeAllRanges();
         return;
       }
 
       const id = crypto.randomUUID();
-      const mark = document.createElement('mark');
-      mark.className = `user-hl user-hl-${lastColorRef.current}`;
-      mark.dataset.hlId = id;
-      try {
-        // Wrap exactly what the browser selected — no re-anchoring. Throws if
-        // the selection partially crosses an element (a <b>, or a cue mark);
-        // V1 had the same limit and just did nothing in that case.
-        range.surroundContents(mark);
-      } catch {
-        sel.removeAllRanges();
-        toast('Try selecting within a single sentence.');
-        return;
-      }
+      const color = lastColorRef.current;
+      // Wrap each text segment the selection touches — never throws on inline
+      // markup (a <b>, a cue mark) or a paragraph boundary, unlike
+      // range.surroundContents. All segments share the one data-hl-id.
+      const wrapped = wrapRangeInMarks(range, id, () => {
+        const m = document.createElement('mark');
+        m.className = `user-hl user-hl-${color}`;
+        m.dataset.hlId = id;
+        return m;
+      });
       sel.removeAllRanges();
+      if (!wrapped) return;
 
       // Persist the user layer: the scope's new innerHTML with the cue marks
       // stripped back out (they're re-composed at render time).
       setScopeMarkedHtml(scope, editHtml(container.innerHTML, stripCueMarks));
 
-      // Offer colour/underline one click away — anchored to the mark, which
-      // is a real element right now (this runs before React re-renders).
-      openMarkPopover(mark);
+      // Offer colour/underline one click away — anchored to the first segment,
+      // a real element right now (this runs before React re-renders).
+      const firstSeg = container.querySelector(`mark[data-hl-id="${id}"]`) as HTMLElement | null;
+      if (firstSeg) openMarkPopover(firstSeg);
     },
-    [openMarkPopover, setScopeMarkedHtml, toast],
+    [openMarkPopover, setScopeMarkedHtml],
   );
 
   const editingMarkClasses = useMemo(
