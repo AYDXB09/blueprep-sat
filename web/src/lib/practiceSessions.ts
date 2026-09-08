@@ -256,39 +256,39 @@ export async function submitQuestionAttempt(
   if (error) throw error;
 }
 
+export type HighlightColor = 'yellow' | 'blue' | 'pink';
+export type HighlightUnderline = 'none' | 'solid' | 'dashed' | 'dotted';
+
 /**
- * One highlight the student drew on a question's own content.
+ * A student's highlights on one question, stored the way V1's player did it
+ * (the reliable way): per scope, that scope's rendered innerHTML with the
+ * student's `<mark>` elements physically baked in. Storage IS the render
+ * output — there is no anchor to re-resolve on the way back, so nothing can
+ * desync. Keys are the scope strings the player uses: `"stimulus"`, `"stem"`,
+ * `"choice:A"` … `"choice:D"`. Cue marks are NOT stored here — they are
+ * composed back on top at render time (see `withCueMarks` in Player.tsx).
  *
- * Anchored by `start`/`end` — character offsets into the RAW concatenation of
- * every text node under `scope`'s container, in document order (see
- * `allTextNodes` / `domPointToRawOffset` in Player.tsx). Wrapping text in a
- * `<mark>` splits text nodes but never changes their concatenated content, so
- * an offset captured against the live rendered DOM (cue marks + other
- * highlights already present) resolves to exactly the same characters against
- * the detached container the render pass builds. `end` is exclusive.
- *
- * `anchorText` is kept for display/debugging and as the ONLY locator for
- * highlights saved before offsets existed — those carry `anchorText` +
- * `occurrence` (the n-th match of that exact substring) and no `start`/`end`,
- * and are re-applied by text search as a fallback (see `applyUserHighlight`).
+ * Each user `<mark>` carries `class="user-hl user-hl-<color>"` (+ optionally
+ * `user-hl-u-<solid|dashed|dotted>`) and `data-hl-id="<uuid>"`.
  */
-export interface HighlightMark {
-  id: string;
-  scope: 'stimulus' | 'stem' | `choice:${string}`;
-  /** Raw text-node offset of the first highlighted character. */
-  start?: number;
-  /** Raw text-node offset one past the last highlighted character (exclusive). */
-  end?: number;
-  anchorText: string;
-  /** Legacy locator (1-based n-th match of `anchorText`). Only on pre-offset highlights. */
-  occurrence?: number;
-  color: 'yellow' | 'blue' | 'pink';
-  underline: 'none' | 'solid' | 'dashed' | 'dotted';
+export type AttemptHighlights = Record<string, string>;
+
+/**
+ * Tolerates rows written under the old model (a `HighlightMark[]` array) or
+ * anything unexpected — those come back as "no highlights".
+ */
+export function normalizeStoredHighlights(raw: unknown): AttemptHighlights {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: AttemptHighlights = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
 }
 
-/** Persists this attempt's current highlight set. Called on every add/
- * edit/remove — small payload, no batching needed. */
-export async function saveAttemptHighlights(attemptId: string, highlights: HighlightMark[]): Promise<void> {
+/** Persists this attempt's highlights. Called on every add/edit/remove —
+ * small payload, no batching needed. */
+export async function saveAttemptHighlights(attemptId: string, highlights: AttemptHighlights): Promise<void> {
   const { error } = await supabase
     .from('question_attempts')
     .update({ highlights: highlights as unknown as Json })

@@ -12,6 +12,7 @@ import {
   getSessionModules,
   getSessionWithAttempts,
   isSprAnswerCorrect,
+  normalizeStoredHighlights,
   saveAttemptHighlights,
   saveAttemptStruckChoices,
   startQuestionAttempt,
@@ -20,9 +21,11 @@ import {
   MATH_MODULE_SECONDS,
   RW_MODULE_QUESTION_COUNT,
   RW_MODULE_SECONDS,
+  type AttemptHighlights,
   type AttemptWithQuestion,
   type CueWithCategory,
-  type HighlightMark,
+  type HighlightColor,
+  type HighlightUnderline,
   type QuestionWithChoices,
   type SessionModuleRow,
 } from '../lib/practiceSessions';
@@ -92,210 +95,6 @@ function collectMeaningfulTextNodes(container: HTMLElement): Text[] {
   return nodes;
 }
 
-// Size cap shared by capture and render: a span longer than this is far more
-// likely a browser selection artifact than an intentional highlight, and a
-// huge range.surroundContents() is also where partial-mutation corruption of
-// the shared render pass has come from historically.
-const MAX_RENDERED_HIGHLIGHT_CHARS = 300;
-
-// ── User-highlight anchoring: raw text-node offsets ─────────────────────────
-// User highlights (unlike cues, which arrive from the DB as anchor_text +
-// occurrence) anchor to raw character offsets into the concatenation of EVERY
-// text node under the scope container, in document order. That concatenation
-// is invariant under <mark> insertion — wrapping a run of text in <mark>
-// splits text nodes but never changes their combined content — so an offset
-// captured against the live rendered DOM (which already carries cue marks and
-// other highlights) resolves to the exact same characters against the
-// detached container `withAllMarks` builds fresh. No whitespace
-// normalization, no occurrence counting, no string re-search: the ambiguity
-// that let "highlight two words" occasionally render from the top of the
-// passage (when the phrase recurred and capture/render disagreed by one on
-// the match count) is gone because nothing is being counted or matched.
-
-function allTextNodes(container: HTMLElement): Text[] {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  const out: Text[] = [];
-  let node: Node | null;
-  // eslint-disable-next-line no-cond-assign
-  while ((node = walker.nextNode())) out.push(node as Text);
-  return out;
-}
-
-function rawTextLength(nodes: Text[]): number {
-  let len = 0;
-  for (const n of nodes) len += (n.nodeValue ?? '').length;
-  return len;
-}
-
-// Resolves a selection endpoint that landed on an ELEMENT (offset = child
-// index — e.g. from a triple-click, or a drag that ended exactly on an inline
-// tag boundary) down to a concrete text position. A text endpoint is returned
-// unchanged.
-function descendToText(node: Node, offset: number): { node: Text; offset: number } | null {
-  if (node.nodeType === Node.TEXT_NODE) return { node: node as Text, offset };
-  const firstTextUnder = (root: Node): Text | null => {
-    if (root.nodeType === Node.TEXT_NODE) return root as Text;
-    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    return w.nextNode() as Text | null;
-  };
-  const lastTextUnder = (root: Node): Text | null => {
-    if (root.nodeType === Node.TEXT_NODE) return root as Text;
-    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    let last: Text | null = null;
-    let n: Node | null;
-    // eslint-disable-next-line no-cond-assign
-    while ((n = w.nextNode())) last = n as Text;
-    return last;
-  };
-  const kids = node.childNodes;
-  if (offset < kids.length) {
-    const t = firstTextUnder(kids[offset]);
-    if (t) return { node: t, offset: 0 };
-  }
-  if (offset > 0 && offset - 1 < kids.length) {
-    const t = lastTextUnder(kids[offset - 1]);
-    if (t) return { node: t, offset: (t.nodeValue ?? '').length };
-  }
-  const any = firstTextUnder(node);
-  return any ? { node: any, offset: 0 } : null;
-}
-
-// DOM point (node, offset) → raw offset into `allTextNodes(container)`
-// concatenation. Returns null if the point can't be located inside the
-// container (selection escaped the scope) — callers treat that as "skip".
-function domPointToRawOffset(container: HTMLElement, node: Node, offset: number): number | null {
-  const resolved = descendToText(node, offset);
-  if (!resolved) return null;
-  const nodes = allTextNodes(container);
-  let acc = 0;
-  for (const n of nodes) {
-    if (n === resolved.node) {
-      const clamped = Math.min(Math.max(resolved.offset, 0), (n.nodeValue ?? '').length);
-      return acc + clamped;
-    }
-    acc += (n.nodeValue ?? '').length;
-  }
-  return null;
-}
-
-// Raw offset → { node, offset } within `nodes`, for building a render Range.
-// `prefer` decides which side of a node boundary to sit on: 'start' dives into
-// the following text node, 'end' stays at the end of the preceding one — so
-// both endpoints of a single-run highlight land in the same text node / inline
-// wrapper whenever possible, which is what lets `surroundContents` succeed.
-function rawOffsetToDomPoint(
-  nodes: Text[],
-  target: number,
-  prefer: 'start' | 'end',
-): { node: Text; offset: number } | null {
-  if (nodes.length === 0) return null;
-  let acc = 0;
-  for (let i = 0; i < nodes.length; i++) {
-    const len = (nodes[i].nodeValue ?? '').length;
-    const isLast = i === nodes.length - 1;
-    if (target < acc + len) return { node: nodes[i], offset: target - acc };
-    if (target === acc + len) {
-      if (prefer === 'end' || isLast) return { node: nodes[i], offset: len };
-      return { node: nodes[i + 1], offset: 0 };
-    }
-    acc += len;
-  }
-  const last = nodes[nodes.length - 1];
-  return { node: last, offset: (last.nodeValue ?? '').length };
-}
-
-// Wraps [start, end) (raw offsets into `allTextNodes(container)`) in a <mark>
-// built by `buildMark`. Returns false — never throws — if the offsets are out
-// of range, cross a block boundary (a <mark> can't legally wrap sibling
-// blocks, and a partial `surroundContents` mutation would corrupt the shared
-// render pass for every mark applied after it), or the range can't be
-// surrounded (e.g. it straddles an inline element). Callers treat false as
-// "skip this mark".
-function applyOffsetMark(
-  container: HTMLElement,
-  start: number,
-  end: number,
-  buildMark: () => HTMLElement,
-): boolean {
-  if (!(end > start)) return false;
-  if (end - start > MAX_RENDERED_HIGHLIGHT_CHARS) {
-    console.warn('[highlights] offset span exceeds the size cap, skipping', { start, end });
-    return false;
-  }
-  const nodes = allTextNodes(container);
-  const total = rawTextLength(nodes);
-  if (start < 0 || end > total) {
-    console.warn('[highlights] offsets fall outside the container text, skipping', { start, end, total });
-    return false;
-  }
-  const startP = rawOffsetToDomPoint(nodes, start, 'start');
-  const endP = rawOffsetToDomPoint(nodes, end, 'end');
-  if (!startP || !endP) return false;
-  if (closestBlock(startP.node) !== closestBlock(endP.node)) {
-    console.warn('[highlights] offset span crosses a block boundary, skipping to protect the render pass');
-    return false;
-  }
-  try {
-    const range = document.createRange();
-    range.setStart(startP.node, startP.offset);
-    range.setEnd(endP.node, endP.offset);
-    range.surroundContents(buildMark());
-    return true;
-  } catch (err) {
-    console.warn('[highlights] failed to surround offset span:', err);
-    return false;
-  }
-}
-
-// The caret position at a viewport point, as a collapsed Range. Chrome/Safari
-// expose `caretRangeFromPoint`; the spec name (Firefox) is
-// `caretPositionFromPoint`. Used to reconstruct what the user actually dragged
-// over from the mousedown/mouseup screen coords — `window.getSelection()` is
-// not trustworthy here: WebKit (and Chrome, seen live) will sometimes anchor
-// the native selection hundreds of characters before the drag actually
-// started, so a two-word drag reads back as half a paragraph.
-function caretRangeFromPoint(x: number, y: number): Range | null {
-  const doc = document as Document & {
-    caretRangeFromPoint?: (x: number, y: number) => Range | null;
-    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
-  };
-  if (typeof doc.caretRangeFromPoint === 'function') {
-    return doc.caretRangeFromPoint(x, y);
-  }
-  if (typeof doc.caretPositionFromPoint === 'function') {
-    const pos = doc.caretPositionFromPoint(x, y);
-    if (!pos) return null;
-    const r = document.createRange();
-    try {
-      r.setStart(pos.offsetNode, pos.offset);
-    } catch {
-      return null;
-    }
-    r.collapse(true);
-    return r;
-  }
-  return null;
-}
-
-// Reconstructs the drag as a Range from its two endpoint coordinates, in
-// document order. Returns null if either point isn't over text, or the two
-// resolve to the same caret (a click / double-click — not a drag).
-function gestureRange(down: { x: number; y: number }, up: { x: number; y: number }): Range | null {
-  const a = caretRangeFromPoint(down.x, down.y);
-  const b = caretRangeFromPoint(up.x, up.y);
-  if (!a || !b) return null;
-  const forward = a.compareBoundaryPoints(Range.START_TO_START, b) <= 0;
-  const first = forward ? a : b;
-  const last = forward ? b : a;
-  const r = document.createRange();
-  try {
-    r.setStart(first.startContainer, first.startOffset);
-    r.setEnd(last.startContainer, last.startOffset);
-  } catch {
-    return null;
-  }
-  return r.collapsed ? null : r;
-}
 
 // Where to place the highlight popover (position: fixed) for a given anchor
 // rect. Settings' "Large" font size applies `zoom: 1.15` to :root, which
@@ -486,105 +285,63 @@ function applyCueHighlight(container: HTMLElement, cue: CueWithCategory): boolea
   );
 }
 
-function userHlMark(hl: HighlightMark): () => HTMLElement {
-  return () => {
-    const mark = document.createElement('mark');
-    mark.className = `user-hl user-hl-${hl.color}${hl.underline !== 'none' ? ` user-hl-u-${hl.underline}` : ''}`;
-    mark.dataset.hlId = hl.id;
-    return mark;
-  };
-}
-
-function applyUserHighlight(container: HTMLElement, hl: HighlightMark): boolean {
-  // Current model: offset-anchored. Resolve start/end directly — no text
-  // search, so no chance of landing on the wrong occurrence.
-  if (typeof hl.start === 'number' && typeof hl.end === 'number') {
-    return applyOffsetMark(container, hl.start, hl.end, userHlMark(hl));
-  }
-  // Legacy: saved before offsets existed — locate by anchorText + occurrence.
-  // The size cap mirrors the capture-time one (MAX_HIGHLIGHT_CHARS); a huge
-  // anchor's surroundContents() risks the same partial-mutation corruption
-  // the cross-block guard exists for.
-  if (hl.anchorText.length > MAX_RENDERED_HIGHLIGHT_CHARS) {
-    console.warn('[highlights] skipping render of an oversized saved highlight (likely a pre-fix selection artifact)', {
-      id: hl.id,
-      length: hl.anchorText.length,
-    });
-    return false;
-  }
-  return applyAnchoredMark(container, hl.anchorText, hl.occurrence ?? 1, userHlMark(hl), 'highlights');
-}
-
 /**
- * Returns `html` with every applicable cue AND user highlight anchor
- * wrapped in a <mark>, as a STRING — not a live-DOM mutation.
+ * The cue `<mark>` pass, as a STRING transform on a detached container.
  *
- * This exists because React resets a dangerouslySetInnerHTML node's real
- * innerHTML back to its declared prop value on every re-render it processes
- * for that node (confirmed empirically — even a click on a wholly unrelated
- * button elsewhere in the page wipes marks injected by mutating the live
- * DOM after the fact). Any imperative "wrap the rendered text once" pass is
- * therefore inherently fragile: it survives only until the next re-render,
- * which can be triggered by literally anything in this component. Instead,
- * the marked-up markup is computed here (via a detached, unmounted
- * container element so the real DOM is never touched imperatively) and fed
- * back into React as the dangerouslySetInnerHTML value itself, memoized by
- * caller — so it's part of what React renders, not something bolted on
- * after, and it can never be wiped by an unrelated re-render again.
+ * User highlights are NOT applied here — they're stored per scope as the
+ * scope's own HTML with the student's `<mark>`s already baked in (V1's
+ * model, see `AttemptHighlights`), and THAT string is what this runs on top
+ * of. So the render for a scope is `withCueMarks(storedUserHtml ?? rawMarkup,
+ * cues)`: the student's marks are literal, and only the cue layer is
+ * recomputed each render (cues are few per question and change only when
+ * feedback is revealed).
  *
- * Cues are applied before highlights — both only ever wrap text nodes in
- * <mark> elements (never add/remove text), so the second pass's own text-
- * node walk still sees the same concatenated text either way; order only
- * affects which mark ends up as the outer element when two spans overlap
- * exactly, which doesn't happen in practice (cues and highlights are drawn
- * independently by different parties over different substrings).
+ * The string transform (not a live-DOM mutation) is still required because
+ * React resets a `dangerouslySetInnerHTML` node's innerHTML to its declared
+ * prop value on any re-render — so cue marks have to be part of the string
+ * React renders, not bolted on after.
  */
-interface PendingHighlight {
-  scope: HighlightMark['scope'];
-  anchorText: string;
-  start: number;
-  end: number;
-}
-
-function withAllMarks(
-  html: string,
-  cues: CueWithCategory[],
-  highlights: HighlightMark[],
-  pending?: PendingHighlight | null,
-  pendingUnderline?: HighlightMark['underline'],
-): string {
-  if (!html || (cues.length === 0 && highlights.length === 0 && !pending)) return html;
+function withCueMarks(html: string, cues: CueWithCategory[]): string {
+  if (!html || cues.length === 0) return html;
   const container = document.createElement('div');
   container.innerHTML = html;
   for (const cue of cues) applyCueHighlight(container, cue);
-  for (const hl of highlights) applyUserHighlight(container, hl);
-  // A visible placeholder for a selection that's been captured (popover is
-  // open) but not yet turned into a real HighlightMark — without this the
-  // browser's own native blue selection is the only cue for what's about to
-  // be highlighted, and it silently disappears the instant the user's mouse
-  // leaves the text to click a color swatch or the underline select (browser
-  // default: mousedown elsewhere collapses the current selection). Reported
-  // live, 2026-08-11: "I don't know what words did I previously intend to
-  // highlight." This dashed-outline mark is the substitute cue that survives
-  // that collapse, since it's baked into the render pass, not the live
-  // selection. It also renders whatever underline style has been picked so
-  // far, even before a color is chosen — picking "Dashed underline" with no
-  // color yet applied previously had zero visible effect anywhere, which is
-  // exactly what was reported as "the underline is not happening."
-  if (pending) {
-    applyOffsetMark(
-      container,
-      pending.start,
-      pending.end,
-      () => {
-        const mark = document.createElement('mark');
-        mark.className = `user-hl-pending${pendingUnderline && pendingUnderline !== 'none' ? ` user-hl-u-${pendingUnderline}` : ''}`;
-        return mark;
-      },
-    );
-  }
   return container.innerHTML;
 }
+
+/** Parse `html`, run `mutate` on the container, return the new innerHTML. */
+function editHtml(html: string, mutate: (root: HTMLElement) => void): string {
+  const root = document.createElement('div');
+  root.innerHTML = html;
+  mutate(root);
+  return root.innerHTML;
+}
+
+/** Unwrap every cue `<mark>` (they only ever wrap plain text) and re-merge
+ * the split text nodes — used to recover the user-only layer from a string
+ * that has had the cue pass applied. */
+function stripCueMarks(root: HTMLElement): void {
+  root.querySelectorAll('mark.cue-mark').forEach((m) => {
+    m.replaceWith(...Array.from(m.childNodes));
+  });
+  root.normalize();
+}
+
+/** The class list of the user `<mark data-hl-id={id}>` across all scopes, or
+ * null if not found — drives the popover's active colour/underline state. */
+function findMarkClasses(highlights: AttemptHighlights, id: string): string[] | null {
+  for (const html of Object.values(highlights)) {
+    if (!html.includes(`data-hl-id="${id}"`)) continue;
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    const m = root.querySelector(`mark[data-hl-id="${id}"]`);
+    if (m) return m.className.split(/\s+/).filter(Boolean);
+  }
+  return null;
+}
+
+const HL_COLORS: HighlightColor[] = ['yellow', 'blue', 'pink'];
+const HL_UNDERLINES: Exclude<HighlightUnderline, 'none'>[] = ['solid', 'dashed', 'dotted'];
 
 export function Player() {
   const { sessionId, n: nParam } = useParams<{ sessionId: string; n: string }>();
@@ -915,7 +672,9 @@ export function Player() {
       setEnteredValue('');
     }
     setStruck(new Set(existingAttempt?.struck_choice_ids ?? []));
-    setHighlights((existingAttempt?.highlights as unknown as HighlightMark[]) ?? []);
+    setScopeHl(normalizeStoredHighlights(existingAttempt?.highlights));
+    setHlEditingId(null);
+    setHlPopoverOpen(false);
     setMarkedForReview(false);
     setQSeconds(0);
     setActiveCueId(null);
@@ -1011,15 +770,18 @@ export function Player() {
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [enteredValue, setEnteredValue] = useState('');
   const [struck, setStruck] = useState<Set<string>>(new Set());
-  const [highlights, setHighlights] = useState<HighlightMark[]>([]);
-  // Live mirror of `highlights` so the highlight handlers can read and update
-  // the set synchronously (see commitHighlights / hlEditingIdRef). Kept in
-  // sync with state here for the paths that call setHighlights directly (the
-  // per-question load effect); commitHighlights updates it ahead of this.
-  const highlightsRef = useRef<HighlightMark[]>([]);
+  // Student highlights, V1's model: per scope, that scope's HTML with the
+  // student's <mark>s baked in (see AttemptHighlights). `scopeHlRef` mirrors
+  // it so a handler firing later in the same tick (recolour then underline)
+  // reads the just-updated value.
+  const [scopeHl, setScopeHl] = useState<AttemptHighlights>({});
+  const scopeHlRef = useRef<AttemptHighlights>({});
   useEffect(() => {
-    highlightsRef.current = highlights;
-  }, [highlights]);
+    scopeHlRef.current = scopeHl;
+  }, [scopeHl]);
+  // Last colour the student picked — new highlights use it, so a drag makes a
+  // highlight immediately (like V1) instead of forcing a popover round-trip.
+  const lastColorRef = useRef<HighlightColor>('yellow');
   const [markedForReview, setMarkedForReview] = useState(false);
   // Flagged-for-review state isn't persisted in the schema (no column for it)
   // — kept as in-memory state per session, keyed by question position.
@@ -1087,28 +849,23 @@ export function Player() {
     [struck, ensureMarkAttemptId],
   );
 
-  // Single write path for the highlight set: update the ref synchronously
-  // (so a handler firing later in the same tick sees this change), update
-  // state, and persist. Every mutation — add, remove, recolour, underline —
-  // goes through here so none of them can act on a stale `highlights`.
-  //
-  // Saves run through a serial promise chain, and each link writes the LATEST
-  // highlightsRef (not a value captured when it was queued). Two saves fired a
-  // microtask apart — recolour then underline — are separate PATCHes to the
-  // same row; without serialisation the one that arrives last wins, which is
-  // not necessarily the one sent last, so the underline could be dropped in
-  // the DB and come back missing on reload (seen live).
+  // Single write path for the highlight set: update the ref synchronously (so
+  // a handler firing later in the same tick sees it), update state, and
+  // persist. Saves run through a serial promise chain, each link writing the
+  // LATEST ref value — two saves a microtask apart (recolour then underline)
+  // are separate PATCHes to one row and, unserialised, the last to *arrive*
+  // wins rather than the last *sent*, dropping the underline on reload.
   const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
-  const commitHighlights = useCallback(
-    (next: HighlightMark[]) => {
-      highlightsRef.current = next;
-      setHighlights(next);
+  const commitScopeHl = useCallback(
+    (next: AttemptHighlights) => {
+      scopeHlRef.current = next;
+      setScopeHl(next);
       saveChainRef.current = saveChainRef.current
         .catch(() => {})
         .then(async () => {
           const id = await ensureMarkAttemptId();
           if (!id) return;
-          await saveAttemptHighlights(id, highlightsRef.current).catch((err) =>
+          await saveAttemptHighlights(id, scopeHlRef.current).catch((err) =>
             console.warn('saveAttemptHighlights failed:', err),
           );
         });
@@ -1116,14 +873,36 @@ export function Player() {
     [ensureMarkAttemptId],
   );
 
-  const addHighlightMark = useCallback(
-    (mark: HighlightMark) => commitHighlights([...highlightsRef.current, mark]),
-    [commitHighlights],
+  // Set (or, with null, clear) one scope's marked-up HTML.
+  const setScopeMarkedHtml = useCallback(
+    (scope: string, html: string | null) => {
+      const next = { ...scopeHlRef.current };
+      if (html == null || !/data-hl-id=/.test(html)) delete next[scope];
+      else next[scope] = html;
+      commitScopeHl(next);
+    },
+    [commitScopeHl],
   );
 
-  const removeHighlightMark = useCallback(
-    (id: string) => commitHighlights(highlightsRef.current.filter((h) => h.id !== id)),
-    [commitHighlights],
+  // Find the scope holding the mark with this id, run `mutate` on its <mark>,
+  // and persist. `mutate` returning false means "unwrap this mark".
+  const editMark = useCallback(
+    (id: string, mutate: (mark: HTMLElement) => boolean) => {
+      for (const [scope, html] of Object.entries(scopeHlRef.current)) {
+        if (!html.includes(`data-hl-id="${id}"`)) continue;
+        const nextHtml = editHtml(html, (root) => {
+          const m = root.querySelector(`mark[data-hl-id="${id}"]`) as HTMLElement | null;
+          if (!m) return;
+          if (mutate(m) === false) {
+            m.replaceWith(...Array.from(m.childNodes));
+            root.normalize();
+          }
+        });
+        setScopeMarkedHtml(scope, nextHtml);
+        return;
+      }
+    },
+    [setScopeMarkedHtml],
   );
 
   const selectChoice = useCallback(
@@ -1450,229 +1229,143 @@ export function Player() {
     }
   }, [isReviewMode, navigate, sessionId]);
 
-  // ---------------- highlighter — real Selection/Range API to CAPTURE the
-  // selection (raw text-node offsets {start,end} into the scope container +
-  // which scope), but the actual mark is never drawn by mutating that DOM
-  // directly — it's persisted to state, then rendered the same safe
-  // string-transform way as cue marks (see withAllMarks' doc comment for why
-  // a live-DOM "wrap it once" pass doesn't survive React re-renders). -------
+  // ---------------- highlighter (V1's model) ----------------
+  // On mouseup with a selection: wrap it in a <mark> RIGHT THERE in the live
+  // DOM with `range.surroundContents`, then read the scope's new innerHTML,
+  // strip the cue layer back off, and store the user layer as a string. The
+  // stored string is rendered straight back via dangerouslySetInnerHTML —
+  // storage IS the render output, so there is nothing to re-locate and
+  // nothing that can desync. The popover is only for EDITING an existing
+  // mark (a deliberate click on a stable target), never part of creation.
   const stimulusRef = useRef<HTMLDivElement | null>(null);
   const hlPopoverRef = useRef<HTMLDivElement | null>(null);
   const [hlPopoverOpen, setHlPopoverOpen] = useState(false);
   const [hlPopoverPos, setHlPopoverPos] = useState({ top: 0, left: 0 });
-  // The highlight under the cursor when the popover opened, if any (clicking
-  // an existing mark to edit/remove it rather than starting a new one).
+  // The mark whose edit popover is open, if any.
   const [hlEditingId, setHlEditingId] = useState<string | null>(null);
-  // hlEditingId / pendingUnderline / highlights are ALSO mirrored into refs
-  // so applyHighlightColor and applyHighlightUnderline can read and update
-  // them synchronously. Without this, picking a colour and then an underline
-  // in quick succession races: applyHighlightColor's setHlEditingId hasn't
-  // committed when applyHighlightUnderline runs, so it can't find the mark it
-  // was meant to edit and the underline is silently dropped. (Reported live:
-  // "the underline does not work" / "appears then vanishes on the next
-  // click".) The refs are the source of truth inside the handlers; the state
-  // still drives rendering.
-  const hlEditingIdRef = useRef<string | null>(null);
-  const setHlEditingIdBoth = useCallback((v: string | null) => {
-    hlEditingIdRef.current = v;
-    setHlEditingId(v);
-  }, []);
-  // Kept as a ref (read synchronously by applyHighlightColor without waiting
-  // on a re-render) AND mirrored into state (pendingHl) purely so its
-  // presence can drive the visible placeholder mark in withAllMarks — see
-  // that function's doc comment for why a plain ref alone isn't enough here.
-  const pendingHlRef = useRef<PendingHighlight | null>(null);
-  const [pendingHl, setPendingHl] = useState<PendingHighlight | null>(null);
-  const setPendingHlBoth = useCallback((v: PendingHighlight | null) => {
-    pendingHlRef.current = v;
-    setPendingHl(v);
-  }, []);
-  // Underline style for a NOT-YET-created highlight — picking it shouldn't
-  // require applying a colour first. Reset on every fresh selection; once a
-  // highlight actually exists, its own `underline` field is authoritative.
-  const [pendingUnderline, setPendingUnderline] = useState<HighlightMark['underline']>('none');
-  const pendingUnderlineRef = useRef<HighlightMark['underline']>('none');
-  const setPendingUnderlineBoth = useCallback((v: HighlightMark['underline']) => {
-    pendingUnderlineRef.current = v;
-    setPendingUnderline(v);
-  }, []);
 
-  // Where the pointer was pressed — the drag's real start. Read on mouseup to
-  // reconstruct the gesture with caretRangeFromPoint instead of trusting
-  // window.getSelection(), which mis-anchors (see gestureRange's doc comment).
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const onSelectableMouseDown = useCallback((e: React.MouseEvent) => {
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-  }, []);
-
-  const onSelectableMouseUp = useCallback((e: React.MouseEvent) => {
-    // Real bug found live, 2026-08-13, watched happen in real time: picking
-    // an underline style from the popover's <select> (a NATIVE form
-    // control, rendered by the OS, not the page) was ALSO triggering this
-    // handler as if the user had just made a brand-new text selection on
-    // the passage underneath — closing a native <select>'s option list
-    // apparently lands a real mouseup on whatever page element sits at
-    // that screen position once the OS-level dropdown closes, and the
-    // popover sits visually over the passage/choices text it's editing.
-    // Confirmed live: window.getSelection() at that moment still held
-    // whatever range was last captured, and this handler dutifully
-    // re-processed it — including rejecting it via the "too large"/
-    // cross-block/coordinate-drift guards below, which is exactly the toast
-    // the user watched pop up from just touching the underline dropdown.
-    // While the popover is open, a mouseup that ISN'T a real click on some
-    // (possibly different) mark should never be treated as a fresh
-    // selection attempt — real regression, found live right after the fix
-    // above shipped: gating this whole handler on hlPopoverOpen also
-    // blocked clicking a DIFFERENT mark to switch to editing it, since
-    // that legitimately fires this same handler while a popover is
-    // already open. The narrower, correct condition: only skip when
-    // there's no real selection AND the click didn't land on a mark —
-    // that's specifically the synthetic-mouseup-from-closing-a-select
-    // artifact, not a legitimate interaction.
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
-      // Not a fresh selection — but a plain click landing directly on an
-      // existing mark should still open the popover, in "edit" mode, even
-      // if a DIFFERENT mark's popover is already open.
-      const mark = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
-      if (!mark || !mark.dataset.hlId) return;
-      setHlEditingIdBoth(mark.dataset.hlId);
-      setPendingHlBoth(null);
-      setHlPopoverPos(popoverPos(mark.getBoundingClientRect()));
-      setHlPopoverOpen(true);
-      return;
-    }
-    if (hlPopoverOpen) return;
-
-    // The anchor range is reconstructed from the mousedown→mouseup screen
-    // coords (gestureRange), NOT window.getSelection() — the browser's own
-    // selection is unreliable here: a small drag near the top of a passage,
-    // or next to an existing <mark>, frequently reads back anchored hundreds
-    // of characters earlier than where the drag started (watched happen live
-    // in Chrome, originally reported in Safari). caretRangeFromPoint asks the
-    // browser "what character is under this pixel" directly, so it can't be
-    // fooled that way. Fall back to the live selection only when we can't
-    // build a gesture range — no caret API, or a double/triple-click word or
-    // paragraph select where mousedown and mouseup land on the same caret.
-    const down = dragStartRef.current;
-    const range = (down && gestureRange(down, { x: e.clientX, y: e.clientY })) || sel.getRangeAt(0);
-
-    const container = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-      ? (range.commonAncestorContainer as Element)
-      : range.commonAncestorContainer.parentElement
-    )?.closest('[data-hl-scope]') as HTMLElement | null;
-    if (!container) return;
-    const scope = container.getAttribute('data-hl-scope') as HighlightMark['scope'] | null;
-    if (!scope) return;
-
-    // Anchor by raw text-node offsets into this scope's container (see
-    // `allTextNodes`' doc comment). Computed against the LIVE rendered DOM —
-    // which already carries cue marks and existing highlights — but the
-    // concatenated text those <mark>s wrap is byte-for-byte what the detached
-    // render container produces, so these offsets resolve to the exact same
-    // characters there. Nothing is counted or searched, so capture and render
-    // have nothing to disagree about.
-    const anchorText = normalizeWs(range.toString());
-    if (!anchorText) return;
-
-    const startOffset = domPointToRawOffset(container, range.startContainer, range.startOffset);
-    const endOffset = domPointToRawOffset(container, range.endContainer, range.endOffset);
-    if (startOffset == null || endOffset == null) {
-      console.warn('[highlights] could not map selection endpoints to text offsets — skipping capture', {
-        startContainer: range.startContainer.nodeName,
-        endContainer: range.endContainer.nodeName,
-      });
-      return;
-    }
-    const start = Math.min(startOffset, endOffset);
-    const end = Math.max(startOffset, endOffset);
-    if (end <= start) return;
-
-    // Generous backstop only — with a gesture-derived range this should never
-    // trip for real use; it's here so a pathological range (e.g. a
-    // triple-click that selected a huge block, or a caret API that returned
-    // nonsense) can't create an absurd highlight.
-    const MAX_HIGHLIGHT_CHARS = 1200;
-    if (end - start > MAX_HIGHLIGHT_CHARS) {
-      console.warn('[highlights] selection too large, refusing to create', { length: end - start, preview: anchorText.slice(0, 60) + '…' });
-      toast('That selection was too large — try dragging over just the words you want.');
-      sel.removeAllRanges();
-      return;
-    }
-
-    setPendingHlBoth({ scope, anchorText, start, end });
-    setHlEditingIdBoth(null);
-    setPendingUnderlineBoth('none');
-
-    setHlPopoverPos(popoverPos(range.getBoundingClientRect()));
+  const openMarkPopover = useCallback((markEl: HTMLElement) => {
+    if (!markEl.dataset.hlId) return;
+    setHlEditingId(markEl.dataset.hlId);
+    setHlPopoverPos(popoverPos(markEl.getBoundingClientRect()));
     setHlPopoverOpen(true);
-    // Drop the browser's own (possibly mis-anchored) blue selection — the
-    // dashed .user-hl-pending mark is now the visual cue for what's staged.
-    sel.removeAllRanges();
-  }, [setPendingHlBoth, setHlEditingIdBoth, setPendingUnderlineBoth, toast, hlPopoverOpen]);
+  }, []);
 
-  const editingHighlight = hlEditingId ? highlights.find((h) => h.id === hlEditingId) : null;
+  const onSelectableMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      const sel = window.getSelection();
 
-  // Both handlers resolve their target from the REFS, never the render-time
-  // `editingHighlight` / `highlights` closures — see hlEditingIdRef's comment
-  // for the race that caused ("the underline does not work"). `editingHighlight`
-  // above is still used for rendering the popover's active states.
-  const applyHighlightColor = useCallback(
-    (color: HighlightMark['color']) => {
-      const targetId = hlEditingIdRef.current;
-      if (targetId) {
-        commitHighlights(highlightsRef.current.map((h) => (h.id === targetId ? { ...h, color } : h)));
+      // Plain click (no selection): open the edit popover if it landed on one
+      // of the student's own marks; otherwise do nothing.
+      if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
+        const markEl = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
+        if (markEl) openMarkPopover(markEl);
         return;
       }
-      const pending = pendingHlRef.current;
-      if (!pending) return;
-      // Underline may already have been picked for this fresh selection before
-      // a colour — carry whatever's staged in the ref onto the new mark.
-      const mark: HighlightMark = { id: crypto.randomUUID(), ...pending, color, underline: pendingUnderlineRef.current };
-      setHlEditingIdBoth(mark.id);
-      addHighlightMark(mark);
-      setPendingHlBoth(null);
-      setPendingUnderlineBoth('none');
-      window.getSelection()?.removeAllRanges();
+
+      const range = sel.getRangeAt(0);
+      const container = (
+        range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+          ? (range.commonAncestorContainer as Element)
+          : range.commonAncestorContainer.parentElement
+      )?.closest('[data-hl-scope]') as HTMLElement | null;
+      const scope = container?.getAttribute('data-hl-scope');
+      // Must be a selection that lives entirely within one scope container.
+      if (!container || !scope || !container.contains(range.commonAncestorContainer)) {
+        sel.removeAllRanges();
+        return;
+      }
+
+      const id = crypto.randomUUID();
+      const mark = document.createElement('mark');
+      mark.className = `user-hl user-hl-${lastColorRef.current}`;
+      mark.dataset.hlId = id;
+      try {
+        // Wrap exactly what the browser selected — no re-anchoring. Throws if
+        // the selection partially crosses an element (a <b>, or a cue mark);
+        // V1 had the same limit and just did nothing in that case.
+        range.surroundContents(mark);
+      } catch {
+        sel.removeAllRanges();
+        toast('Try selecting within a single sentence.');
+        return;
+      }
+      sel.removeAllRanges();
+
+      // Persist the user layer: the scope's new innerHTML with the cue marks
+      // stripped back out (they're re-composed at render time).
+      setScopeMarkedHtml(scope, editHtml(container.innerHTML, stripCueMarks));
+
+      // Offer colour/underline one click away — anchored to the mark, which
+      // is a real element right now (this runs before React re-renders).
+      openMarkPopover(mark);
     },
-    [commitHighlights, addHighlightMark, setHlEditingIdBoth, setPendingHlBoth, setPendingUnderlineBoth],
+    [openMarkPopover, setScopeMarkedHtml, toast],
+  );
+
+  const editingMarkClasses = useMemo(
+    () => (hlEditingId ? findMarkClasses(scopeHl, hlEditingId) : null),
+    [hlEditingId, scopeHl],
+  );
+  const editingColor = editingMarkClasses
+    ?.map((c) => c.replace('user-hl-', ''))
+    .find((c) => (HL_COLORS as string[]).includes(c)) as HighlightColor | undefined;
+  const editingUnderline = ((editingMarkClasses?.find((c) => c.startsWith('user-hl-u-')) ?? '').replace(
+    'user-hl-u-',
+    '',
+  ) || 'none') as HighlightUnderline;
+
+  const applyHighlightColor = useCallback(
+    (color: HighlightColor) => {
+      const id = hlEditingId;
+      if (!id) return;
+      lastColorRef.current = color;
+      editMark(id, (m) => {
+        const classes = new Set(m.className.split(/\s+/).filter(Boolean));
+        HL_COLORS.forEach((c) => classes.delete(`user-hl-${c}`));
+        classes.add('user-hl');
+        classes.add(`user-hl-${color}`);
+        m.className = [...classes].join(' ');
+        return true;
+      });
+    },
+    [hlEditingId, editMark],
   );
 
   const applyHighlightUnderline = useCallback(
-    (underline: HighlightMark['underline']) => {
-      const targetId = hlEditingIdRef.current;
-      if (targetId) {
-        commitHighlights(highlightsRef.current.map((h) => (h.id === targetId ? { ...h, underline } : h)));
-        return;
-      }
-      // No highlight created yet — stage the style; applyHighlightColor reads
-      // it off the ref when the mark is created.
-      setPendingUnderlineBoth(underline);
+    (underline: HighlightUnderline) => {
+      const id = hlEditingId;
+      if (!id) return;
+      editMark(id, (m) => {
+        const classes = new Set(m.className.split(/\s+/).filter(Boolean));
+        HL_UNDERLINES.forEach((u) => classes.delete(`user-hl-u-${u}`));
+        if (underline !== 'none') classes.add(`user-hl-u-${underline}`);
+        m.className = [...classes].join(' ');
+        return true;
+      });
     },
-    [commitHighlights, setPendingUnderlineBoth],
+    [hlEditingId, editMark],
   );
 
   const deleteEditingHighlight = useCallback(() => {
-    const targetId = hlEditingIdRef.current;
-    if (!targetId) return;
-    removeHighlightMark(targetId);
+    const id = hlEditingId;
+    if (!id) return;
+    editMark(id, () => false); // returning false unwraps the mark
     setHlPopoverOpen(false);
-    setHlEditingIdBoth(null);
-  }, [removeHighlightMark, setHlEditingIdBoth]);
+    setHlEditingId(null);
+  }, [hlEditingId, editMark]);
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
-      if (hlPopoverRef.current && !hlPopoverRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('mark.user-hl')) {
-        setHlPopoverOpen(false);
-        // A pending (not-yet-colored) selection abandoned by clicking away
-        // should drop its placeholder mark too, not leave it visibly "stuck"
-        // highlighted with no popover left to act on it.
-        setPendingHlBoth(null);
-      }
+      if (!hlPopoverOpen) return;
+      if (hlPopoverRef.current?.contains(e.target as Node)) return;
+      if ((e.target as HTMLElement).closest('mark.user-hl')) return; // that mark's mouseup opens its own popover
+      setHlPopoverOpen(false);
+      setHlEditingId(null);
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [setPendingHlBoth]);
+  }, [hlPopoverOpen]);
 
   // ---------------- trap/cue reveal + DOM highlight pass ----------------
   // Cues are a spoiler until the student has committed an answer to THIS
@@ -1697,10 +1390,10 @@ export function Player() {
     return raw.replace(/\bChoice [A-D]\b/g, (m) => `<strong class="choice-ref">${m}</strong>`);
   }, [question?.source_rationale_markup]);
 
-  // Marked-up HTML, computed as plain strings (not a live-DOM mutation —
-  // see withAllMarks' doc comment for why that approach doesn't survive
-  // React re-renders). Recomputed only when the relevant cues/content
-  // actually change, so this stays cheap on every unrelated re-render.
+  // Marked-up HTML per scope: the student's stored layer (their <mark>s baked
+  // in) with the cue <mark> pass composed on top. Computed as a plain string
+  // — dangerouslySetInnerHTML resets its node's innerHTML on every re-render,
+  // so the marks have to be part of the string React renders.
   const stimulusCues = useMemo(
     () => (showCues ? cues.filter((c) => c.anchor_scope === 'stimulus') : []),
     [showCues, cues],
@@ -1718,64 +1411,28 @@ export function Player() {
     return map;
   }, [showCues, cues]);
 
-  const stimulusHighlights = useMemo(() => highlights.filter((h) => h.scope === 'stimulus'), [highlights]);
-  const stemHighlights = useMemo(() => highlights.filter((h) => h.scope === 'stem'), [highlights]);
-  const highlightsByChoiceLabel = useMemo(() => {
-    const map = new Map<string, HighlightMark[]>();
-    for (const h of highlights) {
-      if (!h.scope.startsWith('choice:')) continue;
-      const label = h.scope.slice('choice:'.length);
-      const arr = map.get(label) ?? [];
-      arr.push(h);
-      map.set(label, arr);
-    }
-    return map;
-  }, [highlights]);
-
   const stimulusHtml = useMemo(
     () =>
       question?.stimulus_markup
-        ? withAllMarks(
-            question.stimulus_markup,
-            stimulusCues,
-            stimulusHighlights,
-            pendingHl?.scope === 'stimulus' ? pendingHl : null,
-            pendingUnderline,
-          )
+        ? withCueMarks(scopeHl['stimulus'] ?? question.stimulus_markup, stimulusCues)
         : '',
-    [question?.stimulus_markup, stimulusCues, stimulusHighlights, pendingHl, pendingUnderline],
+    [question?.stimulus_markup, scopeHl, stimulusCues],
   );
   const stemHtml = useMemo(
-    () =>
-      question?.stem_markup
-        ? withAllMarks(
-            question.stem_markup,
-            stemCues,
-            stemHighlights,
-            pendingHl?.scope === 'stem' ? pendingHl : null,
-            pendingUnderline,
-          )
-        : '',
-    [question?.stem_markup, stemCues, stemHighlights, pendingHl, pendingUnderline],
+    () => (question?.stem_markup ? withCueMarks(scopeHl['stem'] ?? question.stem_markup, stemCues) : ''),
+    [question?.stem_markup, scopeHl, stemCues],
   );
   const choiceHtmlById = useMemo(() => {
     const map = new Map<string, string>();
     if (!question) return map;
     for (const c of question.choices) {
-      const scope = `choice:${c.label}` as const;
       map.set(
         c.id,
-        withAllMarks(
-          c.content_markup,
-          choiceCuesByChoiceId.get(c.id) ?? [],
-          highlightsByChoiceLabel.get(c.label) ?? [],
-          pendingHl?.scope === scope ? pendingHl : null,
-          pendingUnderline,
-        )
+        withCueMarks(scopeHl[`choice:${c.label}`] ?? c.content_markup, choiceCuesByChoiceId.get(c.id) ?? []),
       );
     }
     return map;
-  }, [question, choiceCuesByChoiceId, highlightsByChoiceLabel, pendingHl, pendingUnderline]);
+  }, [question, scopeHl, choiceCuesByChoiceId]);
 
   // Plain-text summary handed to the AI as prompt context — stripped of
   // markup since the model doesn't need HTML, just the real content. The
@@ -2037,37 +1694,32 @@ export function Player() {
         className={`hl-popover${hlPopoverOpen ? ' open' : ''}`}
         ref={hlPopoverRef}
         style={{ top: hlPopoverPos.top, left: hlPopoverPos.left }}
-        // Clicking a popover control would otherwise collapse the browser's
-        // live text selection first — prevented here so the pending mark and
-        // the selection both survive the click.
+        // A control's mousedown shouldn't count as clicking "outside" the mark.
         onMouseDown={(e) => e.preventDefault()}
       >
-        {(['yellow', 'blue', 'pink'] as const).map((color) => (
+        {HL_COLORS.map((color) => (
           <button
             key={color}
             type="button"
-            className={`hl-swatch hl-swatch-${color}${editingHighlight?.color === color ? ' active' : ''}`}
+            className={`hl-swatch hl-swatch-${color}${editingColor === color ? ' active' : ''}`}
             aria-label={`${color} highlight`}
             onClick={() => applyHighlightColor(color)}
           />
         ))}
         <span className="hl-sep" />
-        {(['solid', 'dashed', 'dotted'] as const).map((style) => {
-          const current = editingHighlight?.underline ?? pendingUnderline;
-          return (
-            <button
-              key={style}
-              type="button"
-              className={`hl-uline hl-uline-${style}${current === style ? ' active' : ''}`}
-              aria-label={`${style} underline`}
-              aria-pressed={current === style}
-              title={`${style[0].toUpperCase()}${style.slice(1)} underline`}
-              onClick={() => applyHighlightUnderline(current === style ? 'none' : style)}
-            >
-              <span />
-            </button>
-          );
-        })}
+        {HL_UNDERLINES.map((style) => (
+          <button
+            key={style}
+            type="button"
+            className={`hl-uline hl-uline-${style}${editingUnderline === style ? ' active' : ''}`}
+            aria-label={`${style} underline`}
+            aria-pressed={editingUnderline === style}
+            title={`${style[0].toUpperCase()}${style.slice(1)} underline`}
+            onClick={() => applyHighlightUnderline(editingUnderline === style ? 'none' : style)}
+          >
+            <span />
+          </button>
+        ))}
         <span className="hl-sep" />
         <button
           type="button"
@@ -2081,7 +1733,7 @@ export function Player() {
         >
           ✎ Note
         </button>
-        {editingHighlight && (
+        {hlEditingId && (
           <button type="button" className="hl-icon-btn" title="Remove this highlight" onClick={deleteEditingHighlight}>
             🗑
           </button>
@@ -2108,7 +1760,7 @@ export function Player() {
                   </span>
                 )}
               </div>
-              <div className="stimulus serif" ref={stimulusRef} onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
+              <div className="stimulus serif" ref={stimulusRef} onMouseUp={onSelectableMouseUp}>
                 {question.stimulus_markup && (
                   // Trusted first-party content from our own `questions` table, not user
                   // input — stimulusHtml is that same content with cue <mark> spans woven
@@ -2146,7 +1798,7 @@ export function Player() {
                   )}
                 </div>
               ) : (
-                <div className="choices" onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
+                <div className="choices" onMouseUp={onSelectableMouseUp}>
                   {question.choices.map((c) => {
                     const showFeedback = isReviewMode && !!selectedChoiceId;
                     const feedbackClass = showFeedback
@@ -2169,6 +1821,9 @@ export function Player() {
                           // answer, which visually swallows the mark's underline
                           // under the "selected" style and looks like a bug.
                           if ((e.target as HTMLElement).closest('mark.cue-mark')) return;
+                          // Clicking one's own highlight opens its edit popover
+                          // (via onSelectableMouseUp) — don't also select the choice.
+                          if ((e.target as HTMLElement).closest('mark.user-hl')) return;
                           if ((e.target as HTMLElement).closest('.strike-btn')) return;
                           selectChoice(c.id);
                         }}
