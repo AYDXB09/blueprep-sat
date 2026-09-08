@@ -340,9 +340,19 @@ function wrapRangeInMarks(range: Range, id: string, buildMark: () => HTMLElement
   // eslint-disable-next-line no-cond-assign
   while ((node = walker.nextNode())) {
     const t = node as Text;
-    if (!range.intersectsNode(t)) continue;
+    const len = (t.nodeValue ?? '').length;
+    if (len === 0) continue;
+    const nr = document.createRange();
+    nr.selectNodeContents(t);
+    // Real overlap only — NOT Range.intersectsNode, which reports a node whose
+    // start equals the selection's end as "intersecting", so a few-word
+    // selection ending at a text-node boundary would swallow the whole next
+    // node ("highlights large sentences"). compareBoundaryPoints has clean
+    // "touching ≠ overlapping" semantics.
+    if (range.compareBoundaryPoints(Range.START_TO_END, nr) <= 0) continue; // range ends at/before node start
+    if (range.compareBoundaryPoints(Range.END_TO_START, nr) >= 0) continue; // range starts at/after node end
     const s = t === sc ? so : 0;
-    const e = t === ec ? eo : (t.nodeValue ?? '').length;
+    const e = t === ec ? eo : len;
     if (s >= e) continue;
     if (!/\S/.test((t.nodeValue ?? '').slice(s, e))) continue; // whitespace-only edge segment
     targets.push({ node: t, s, e });
@@ -608,6 +618,21 @@ export function Player() {
     }
   }, [user, questionId, noteDraft]);
 
+  const deleteNote = useCallback(async () => {
+    if (!user || !questionId) return;
+    setNoteSaving(true);
+    try {
+      await saveNote(user.id, questionId, ''); // empty string deletes the row
+      setNote(null);
+      setNoteDraft('');
+      setNoteEditing(false);
+    } catch (err) {
+      console.warn('deleteNote failed:', err);
+    } finally {
+      setNoteSaving(false);
+    }
+  }, [user, questionId]);
+
   // Fetch once per session load — which of its questions have any cues,
   // for the nav grid's indicator.
   useEffect(() => {
@@ -715,7 +740,24 @@ export function Player() {
       setEnteredValue('');
     }
     setStruck(new Set(existingAttempt?.struck_choice_ids ?? []));
-    setScopeHl(normalizeStoredHighlights(existingAttempt?.highlights));
+    // Drop any staged-but-never-committed highlight left in stored HTML (e.g.
+    // navigated away with the popover open) — it has no colour, only a dashed
+    // outline, so it should never survive the question load.
+    const loadedHl = normalizeStoredHighlights(existingAttempt?.highlights);
+    const cleanedHl: AttemptHighlights = {};
+    for (const [k, v] of Object.entries(loadedHl)) {
+      if (!v.includes('user-hl-pending')) {
+        cleanedHl[k] = v;
+        continue;
+      }
+      const stripped = editHtml(v, (root) => {
+        root.querySelectorAll('mark.user-hl-pending').forEach((m) => m.replaceWith(...Array.from(m.childNodes)));
+        root.normalize();
+      });
+      if (/data-hl-id=/.test(stripped)) cleanedHl[k] = stripped;
+    }
+    pendingHlIdRef.current = null;
+    setScopeHl(cleanedHl);
     setHlEditingId(null);
     setHlPopoverOpen(false);
     setMarkedForReview(false);
@@ -1276,24 +1318,37 @@ export function Player() {
   }, [isReviewMode, navigate, sessionId]);
 
   // ---------------- highlighter (V1's model) ----------------
-  // On mouseup with a selection: wrap it in a <mark> RIGHT THERE in the live
-  // DOM with `range.surroundContents`, then read the scope's new innerHTML,
-  // strip the cue layer back off, and store the user layer as a string. The
-  // stored string is rendered straight back via dangerouslySetInnerHTML —
-  // storage IS the render output, so there is nothing to re-locate and
-  // nothing that can desync. The popover is only for EDITING an existing
-  // mark (a deliberate click on a stable target), never part of creation.
+  // On mouseup with a selection: wrap each touched text segment in a <mark>
+  // RIGHT THERE in the live DOM, read the scope's new innerHTML, strip the
+  // cue layer back off, and store the user layer as a string. The stored
+  // string is rendered straight back via dangerouslySetInnerHTML — storage
+  // IS the render output, so nothing can desync.
+  //
+  // A fresh selection is STAGED (class `user-hl-pending`, dashed outline, no
+  // colour) — the popover opens and the student picks a colour to commit it,
+  // or an underline first, or clicks away to discard. This matches Bluebook
+  // (select → choose) rather than auto-applying a colour.
   const stimulusRef = useRef<HTMLDivElement | null>(null);
   const hlPopoverRef = useRef<HTMLDivElement | null>(null);
   const [hlPopoverOpen, setHlPopoverOpen] = useState(false);
   const [hlPopoverPos, setHlPopoverPos] = useState({ top: 0, left: 0 });
-  // The mark whose edit popover is open, if any.
+  // The mark whose popover is open (a staged one or an existing one).
   const [hlEditingId, setHlEditingId] = useState<string | null>(null);
-  // The "U ▾" underline-style dropdown inside the popover.
+  // The staged-but-not-committed highlight's id, if any.
+  const pendingHlIdRef = useRef<string | null>(null);
   const [uMenuOpen, setUMenuOpen] = useState(false);
   useEffect(() => {
     if (!hlPopoverOpen) setUMenuOpen(false);
   }, [hlPopoverOpen]);
+
+  // Unwrap a staged highlight the student walked away from without choosing a
+  // colour. `editMark` finds all its segments by id and removes them.
+  const discardPending = useCallback(() => {
+    const pid = pendingHlIdRef.current;
+    if (!pid) return;
+    pendingHlIdRef.current = null;
+    editMark(pid, () => false);
+  }, [editMark]);
 
   const openMarkPopover = useCallback((markEl: HTMLElement) => {
     if (!markEl.dataset.hlId) return;
@@ -1307,11 +1362,16 @@ export function Player() {
     (e: React.MouseEvent) => {
       const sel = window.getSelection();
 
-      // Plain click (no selection): open the edit popover if it landed on one
-      // of the student's own marks; otherwise do nothing.
+      // Plain click (no selection): open the popover if it landed on one of
+      // the student's own marks; otherwise drop any staged highlight.
       if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
-        const markEl = (e.target as HTMLElement).closest('mark.user-hl') as HTMLElement | null;
-        if (markEl) openMarkPopover(markEl);
+        const markEl = (e.target as HTMLElement).closest('mark.user-hl, mark.user-hl-pending') as HTMLElement | null;
+        if (markEl && markEl.dataset.hlId !== pendingHlIdRef.current) {
+          discardPending();
+          openMarkPopover(markEl);
+        } else if (!markEl) {
+          discardPending();
+        }
         return;
       }
 
@@ -1327,30 +1387,27 @@ export function Player() {
         return;
       }
 
+      discardPending();
       const id = crypto.randomUUID();
-      const color = lastColorRef.current;
       // Wrap each text segment the selection touches — never throws on inline
-      // markup (a <b>, a cue mark) or a paragraph boundary, unlike
-      // range.surroundContents. All segments share the one data-hl-id.
+      // markup (a <b>, a cue mark) or a paragraph boundary. All segments share
+      // the one data-hl-id.
       const wrapped = wrapRangeInMarks(range, id, () => {
         const m = document.createElement('mark');
-        m.className = `user-hl user-hl-${color}`;
+        m.className = 'user-hl-pending';
         m.dataset.hlId = id;
         return m;
       });
       sel.removeAllRanges();
       if (!wrapped) return;
+      pendingHlIdRef.current = id;
 
-      // Persist the user layer: the scope's new innerHTML with the cue marks
-      // stripped back out (they're re-composed at render time).
       setScopeMarkedHtml(scope, editHtml(container.innerHTML, stripCueMarks));
 
-      // Offer colour/underline one click away — anchored to the first segment,
-      // a real element right now (this runs before React re-renders).
       const firstSeg = container.querySelector(`mark[data-hl-id="${id}"]`) as HTMLElement | null;
       if (firstSeg) openMarkPopover(firstSeg);
     },
-    [openMarkPopover, setScopeMarkedHtml],
+    [openMarkPopover, discardPending, setScopeMarkedHtml],
   );
 
   const editingMarkClasses = useMemo(
@@ -1370,8 +1427,10 @@ export function Player() {
       const id = hlEditingId;
       if (!id) return;
       lastColorRef.current = color;
+      if (pendingHlIdRef.current === id) pendingHlIdRef.current = null; // committed
       editMark(id, (m) => {
         const classes = new Set(m.className.split(/\s+/).filter(Boolean));
+        classes.delete('user-hl-pending');
         HL_COLORS.forEach((c) => classes.delete(`user-hl-${c}`));
         classes.add('user-hl');
         classes.add(`user-hl-${color}`);
@@ -1400,7 +1459,8 @@ export function Player() {
   const deleteEditingHighlight = useCallback(() => {
     const id = hlEditingId;
     if (!id) return;
-    editMark(id, () => false); // returning false unwraps the mark
+    if (pendingHlIdRef.current === id) pendingHlIdRef.current = null;
+    editMark(id, () => false); // returning false unwraps every segment
     setHlPopoverOpen(false);
     setHlEditingId(null);
   }, [hlEditingId, editMark]);
@@ -1409,13 +1469,14 @@ export function Player() {
     function onDocMouseDown(e: MouseEvent) {
       if (!hlPopoverOpen) return;
       if (hlPopoverRef.current?.contains(e.target as Node)) return;
-      if ((e.target as HTMLElement).closest('mark.user-hl')) return; // that mark's mouseup opens its own popover
+      if ((e.target as HTMLElement).closest('mark.user-hl, mark.user-hl-pending')) return; // its own mouseup handles it
+      discardPending();
       setHlPopoverOpen(false);
       setHlEditingId(null);
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [hlPopoverOpen]);
+  }, [hlPopoverOpen, discardPending]);
 
   // ---------------- trap/cue reveal + DOM highlight pass ----------------
   // Cues are a spoiler until the student has committed an answer to THIS
@@ -1864,7 +1925,9 @@ export function Player() {
           title="Add a note to this question"
           aria-label="Add a note"
           onClick={() => {
+            discardPending();
             setHlPopoverOpen(false);
+            setHlEditingId(null);
             openNoteEditor();
             document.getElementById('note-panel-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }}
@@ -2070,7 +2133,16 @@ export function Player() {
                         autoFocus
                       />
                       <div className="note-actions">
-                        <button className="btn ghost" onClick={cancelNoteEditor} disabled={noteSaving}>
+                        {note && (
+                          <button
+                            className="btn ghost note-delete"
+                            onClick={() => void deleteNote()}
+                            disabled={noteSaving}
+                          >
+                            Delete
+                          </button>
+                        )}
+                        <button className="btn ghost" onClick={cancelNoteEditor} disabled={noteSaving} style={{ marginLeft: 'auto' }}>
                           Cancel
                         </button>
                         <button className="btn primary" style={{ margin: 0 }} onClick={() => void submitNote()} disabled={noteSaving}>
