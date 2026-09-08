@@ -1554,27 +1554,37 @@ export function Player() {
     }
   });
   const draggingDivider = useRef(false);
-  // The live ratio — onDividerUp reads this, not the `paneRatio` state, which
-  // its closure would capture stale between the last pointermove and up.
-  const paneRatioRef = useRef(paneRatio);
+  // Persist whenever the ratio settles — independent of pointerup firing
+  // cleanly, so nothing about pointer capture can drop the saved value.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem('blueprep.paneRatio', String(paneRatio));
+      } catch {
+        /* private mode / storage disabled */
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [paneRatio]);
   const onDividerDown = useCallback((e: React.PointerEvent) => {
     draggingDivider.current = true;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* no active pointer (synthetic event / edge case) — drag still works via the handlers */
+    }
   }, []);
   const onDividerMove = useCallback((e: React.PointerEvent) => {
     if (!draggingDivider.current || !contentRef.current) return;
     const r = contentRef.current.getBoundingClientRect();
-    const ratio = Math.min(0.75, Math.max(0.25, (e.clientX - r.left) / r.width));
-    paneRatioRef.current = ratio;
-    setPaneRatio(ratio);
+    setPaneRatio(Math.min(0.75, Math.max(0.25, (e.clientX - r.left) / r.width)));
   }, []);
   const onDividerUp = useCallback((e: React.PointerEvent) => {
     draggingDivider.current = false;
-    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
     try {
-      localStorage.setItem('blueprep.paneRatio', String(paneRatioRef.current));
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
-      /* private mode / storage disabled — the ratio just won't persist */
+      /* nothing captured */
     }
   }, []);
 
