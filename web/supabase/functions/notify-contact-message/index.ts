@@ -8,12 +8,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 //
 // Redeploy after editing: supabase functions deploy notify-contact-message
 // --project-ref qjoeqscehyjyrhtfexyg (or via the supabase-blueprep MCP's
-// deploy_edge_function tool). Secrets (RESEND_API_KEY, CONTACT_WEBHOOK_SECRET)
-// live in the project's Edge Function secrets, not in this file or .env.
+// deploy_edge_function tool). Secrets (RESEND_API_KEY, CONTACT_WEBHOOK_SECRET,
+// NOTIFY_TO) live in the project's Edge Function secrets, not in this file or
+// .env — NOTIFY_TO moved out of source 2026-09-21 (was a hardcoded personal
+// email, fine functionally but exposed in this public repo's source).
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("CONTACT_WEBHOOK_SECRET")!;
-const NOTIFY_TO = "yalama@gmail.com";
+const NOTIFY_TO = Deno.env.get("NOTIFY_TO")!;
 
 Deno.serve(async (req: Request) => {
   if (req.headers.get("x-webhook-secret") !== WEBHOOK_SECRET) {
