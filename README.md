@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 > [!NOTE]
-> This repo holds **two versions**. `index.html` / `server.js` at the repo root are **V1** — a hackathon-style single-file prototype with local JSON storage, kept untouched as provenance. **V2**, in [`web/`](web/), is the real rebuild: Supabase-backed, multi-user, with a from-scratch trap/cue coaching system — and it's what's actually live at **[blueprep-sat.vercel.app](https://blueprep-sat.vercel.app)**. Everything below describes V2 unless labeled otherwise.
+> This started as a hackathon-style single-file prototype (V1). That version has been fully retired and archived privately — everything in this repo now is **V2**: a real Supabase-backed, multi-user rebuild with a from-scratch trap/cue coaching system, live at **[blueprep-sat.vercel.app](https://blueprep-sat.vercel.app)**.
 
 ## Table of contents
 - [What it is](#what-it-is)
@@ -16,7 +16,6 @@
 - [Real examples](#real-examples)
 - [Tech stack](#tech-stack)
 - [Why a trap/cue coaching system — not just right/wrong](#why-a-trapcue-coaching-system--not-just-rightwrong)
-- [V1 vs. V2](#v1-vs-v2)
 - [Running locally](#running-locally)
 - [License](#license)
 
@@ -67,29 +66,17 @@ The point of the coaching layer is that it's grounded in the actual question con
 - **Backend / data**: Supabase (Postgres + Auth + Row Level Security), Supabase Vault for encrypted API-key storage
 - **AI**: OpenRouter (bring-your-own-key — student's key, not the app's), proxying ~400 models via one adapter
 - **Hosting**: Vercel, auto-deploy on push to `main`
-- **V1 legacy stack** (repo root, untouched): vanilla HTML/JS + a small Node/Express server, local JSON file storage
 
 ## Why a trap/cue coaching system — not just right/wrong
 
 Most practice tools tell you whether you got a question right. BluePrep's `cues` table stores something more specific: for each cued question, the exact phrase in the stimulus, stem, or a choice that a trap or key insight hinges on — categorized as a `govern` (the clause that actually controls the answer), a `trap` (the wrong-but-plausible move), or an `assumption` (an unstated rule the question relies on). Every cue is grounded in the source's own per-choice rationale text, not an independently invented explanation — the goal is to make visible the reasoning the source's own answer key already contains but never surfaces to the student. As of this writing, 755 of the 3,252 questions in the bank have been cued (2,295 individual cue rows); the rest are generated on demand rather than upfront, since most questions in a 3,000+ bank are never actually seen by a given student.
-
-## V1 vs. V2
-
-| | V1 — `index.html` / `server.js` (repo root) | V2 — `web/` (live) |
-|---|---|---|
-| Frontend | Single `index.html`, vanilla JS | React + Vite + TypeScript, real client-side routing |
-| Storage | Local JSON files | Supabase Postgres, full relational schema |
-| Users | None — single local user | Multi-user via Supabase Auth, Row Level Security per table |
-| Test structure | Flat practice sets only | Real adaptive Module 1 → Module 2 full-test routing |
-| Coaching | Live "Ask AI" chat + a separate AI performance coach | Both of those, **plus** the pre-authored trap/cue system above |
-| Filtering | Basic subject/topic filters | Domain + skill + difficulty, with live pool counts |
 
 ## Running locally
 
 <details>
 <summary>Setup steps (click to expand)</summary>
 
-V2 lives in `web/` with its own `package.json` — it does not touch V1's root-level `package.json`, `index.html`, or `server.js`.
+The app lives in `web/`.
 
 ```bash
 cd web
@@ -101,16 +88,6 @@ npm run dev
 This starts the Vite dev server. `npm run build` produces a production build (`tsc -b && vite build`); `npm run lint` runs `oxlint`.
 
 The Supabase schema (16 tables, RLS policies included) needed to run your own instance is not included in this repo as a single file to apply blind — see `blueprep_schema.sql` in the repo history for the original DDL, plus the migrations applied since. Running against a fresh Supabase project requires recreating that schema first.
-
-### V1 (legacy prototype)
-
-```bash
-npm install
-npm run download   # populates data/questions.json — not committed to the repo
-npm start
-```
-
-Open `http://localhost:4173`. `npm run download` pulls the question catalog fresh from the source's public question-bank API and writes `data/questions.json`; re-run it any time to refresh the catalog.
 
 </details>
 
