@@ -1,0 +1,112 @@
+.contact-intro {
+  color: var(--ink-dim);
+  font-size: 13.5px;
+  max-width: 560px;
+  margin: -8px 0 20px;
+}
+
+.contact-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.contact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contact-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  font-weight: 700;
+}
+
+.contact-input,
+.contact-textarea {
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--bg);
+}
+.contact-input:focus,
+.contact-textarea:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+
+.contact-textarea {
+  resize: vertical;
+}
+
+.contact-error {
+  color: var(--red);
+  font-size: 12.5px;
+  margin: 0;
+}
+.contact-success {
+  color: var(--green);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.contact-history {
+  max-width: 560px;
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.contact-history-row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.contact-history-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.contact-history-subject {
+  font-weight: 700;
+  font-size: 13px;
+}
+.contact-status {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex: none;
+}
+.contact-status-open {
+  background: var(--navy-wash);
+  color: var(--navy);
+}
+.contact-status-resolved {
+  background: var(--panel);
+  color: var(--ink-dim);
+}
+.contact-history-message {
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin: 6px 0;
+  white-space: pre-wrap;
+}
+.contact-history-date {
+  font-size: 11px;
+  color: var(--ink-dim);
+}

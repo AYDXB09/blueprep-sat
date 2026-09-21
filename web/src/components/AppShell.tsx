@@ -42,6 +42,9 @@ export function AppShell({ title, children }: { title?: string; children: ReactN
           <div className="shell-account-email" title={user?.email ?? undefined}>
             {user?.email ?? 'Signed in'}
           </div>
+          <Link to="/contact" className="shell-contact-link">
+            Contact support
+          </Link>
           <button className="shell-signout" onClick={() => void signOut()}>
             Sign out
           </button>

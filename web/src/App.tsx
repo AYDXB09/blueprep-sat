@@ -9,6 +9,7 @@ import { SessionSummary } from './pages/SessionSummary';
 import { Progress } from './pages/Progress';
 import { MistakeLog } from './pages/MistakeLog';
 import { Settings } from './pages/Settings';
+import { Contact } from './pages/Contact';
 
 function App() {
   return (
@@ -75,6 +76,14 @@ function App() {
         element={
           <RequireAuth>
             <Settings />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/contact"
+        element={
+          <RequireAuth>
+            <Contact />
           </RequireAuth>
         }
       />
