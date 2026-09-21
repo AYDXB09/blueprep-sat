@@ -93,3 +93,10 @@ rotation before resurfacing, your target score and test date, and your AI connec
 Use **Contact support** in the sidebar to send a message directly — a bug in a question, a
 confusing explanation, or a feature you wish existed. See your own message history right there
 after you send one.
+
+---
+
+*Bluebook® and College Board® are registered trademarks of College Board, which is not affiliated
+with, and does not endorse, BluePrep. References to Bluebook describe the test-taking experience
+BluePrep's Practice Player is modeled on; all questions come from College Board's own public
+question bank.*

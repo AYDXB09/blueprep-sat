@@ -373,39 +373,39 @@ export function Settings() {
             </select>
           </div>
         </div>
+      </div>
 
-        <div className="settings-card">
-          <p className="settings-label">Import past attempts</p>
-          <p className="settings-ai-hint">
-            Upload a CSV export of questions you've already attempted elsewhere. Rows are matched against this
-            bank by question ID (or its official source ID) — matched rows are added to your real attempt
-            history; anything that doesn't match is reported, never silently dropped.
-          </p>
-          <div className="settings-row">
-            <span className="settings-row-label">CSV file</span>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              disabled={importBusy}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImportFile(file);
-                e.target.value = '';
-              }}
-            />
-          </div>
-          {importBusy && <p className="settings-row-label">Importing…</p>}
-          {importError && <p style={{ color: 'var(--red)', fontSize: 12.5 }}>{importError}</p>}
-          {importSummary && (
-            <p className="settings-ai-hint">
-              {importSummary.imported} of {importSummary.totalRows} rows imported
-              {importSummary.unmatched.length > 0 && ` — ${importSummary.unmatched.length} row(s) didn't match a question in this bank`}
-              {importSummary.malformed.length > 0 &&
-                ` — ${importSummary.malformed.length} row(s) skipped (columns looked shifted in the source CSV, so we didn't guess)`}
-              .
-            </p>
-          )}
+      <div className="settings-card">
+        <p className="settings-label">Import past attempts</p>
+        <p className="settings-ai-hint">
+          Upload a CSV export of questions you've already attempted elsewhere. Rows are matched against this
+          bank by question ID (or its official source ID) — matched rows are added to your real attempt
+          history; anything that doesn't match is reported, never silently dropped.
+        </p>
+        <div className="settings-row">
+          <span className="settings-row-label">CSV file</span>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            disabled={importBusy}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImportFile(file);
+              e.target.value = '';
+            }}
+          />
         </div>
+        {importBusy && <p className="settings-row-label">Importing…</p>}
+        {importError && <p style={{ color: 'var(--red)', fontSize: 12.5 }}>{importError}</p>}
+        {importSummary && (
+          <p className="settings-ai-hint">
+            {importSummary.imported} of {importSummary.totalRows} rows imported
+            {importSummary.unmatched.length > 0 && ` — ${importSummary.unmatched.length} row(s) didn't match a question in this bank`}
+            {importSummary.malformed.length > 0 &&
+              ` — ${importSummary.malformed.length} row(s) skipped (columns looked shifted in the source CSV, so we didn't guess)`}
+            .
+          </p>
+        )}
       </div>
     </AppShell>
   );

@@ -1,46 +1,206 @@
 .help-page {
-  max-width: 720px;
+  max-width: 780px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 32px;
 }
 
 .help-intro {
-  color: var(--ink-dim);
-  font-size: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
   margin: -8px 0 0;
 }
 
-.help-section h2 {
-  font-size: 16px;
-  margin: 0 0 4px;
+/* Table of contents — a row of pill links jumping to each section anchor. */
+.help-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.help-section h3 {
-  font-size: 13.5px;
-  margin: 16px 0 6px;
+.help-toc a {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--navy);
+  text-decoration: none;
+  background: var(--navy-wash);
 }
-.help-section p {
+.help-toc a:hover {
+  border-color: var(--navy);
+}
+
+.help-section {
+  scroll-margin-top: 20px;
+}
+.help-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.help-section-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.help-section h2 {
+  font-size: 17px;
+  margin: 0;
+}
+.help-section > p {
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--ink);
-  margin: 0 0 10px;
+  margin: 0 0 14px;
 }
-.help-section ul {
-  margin: 0 0 10px;
-  padding-left: 20px;
+
+/* Two-up feature cards for the differentiator section — each with an accent
+   bar down the left so "trap coaching" and "Bluebook-match" read as two
+   distinct, equally-weighted pitches, not one long scroll of bullets. */
+.help-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .help-feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.help-feature-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--navy);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: var(--panel);
+}
+.help-feature-card.accent-red {
+  border-left-color: var(--red);
+}
+.help-feature-card h3 {
+  font-size: 13.5px;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-feature-card p,
+.help-feature-card li {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.help-feature-card ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.help-section li {
-  font-size: 13.5px;
+
+/* Colored swatches standing in for "(blue)" / "(red)" prose — matches the
+   real Player highlight colors so this page shows, not just tells. */
+.help-swatch-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+.help-swatch {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.help-swatch-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-top: 3px;
+}
+.help-swatch-dot.governing {
+  background: var(--navy);
+}
+.help-swatch-dot.trap {
+  background: var(--red);
+}
+.help-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--navy-wash);
+  color: var(--navy);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Grid of smaller topic cards for the remaining sections (practice modes,
+   progress, AI, settings) — same visual family as Dashboard's .dash-card. */
+.help-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .help-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.help-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--panel);
+}
+.help-card h3 {
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+.help-card p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+.help-card ul {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.help-card li {
+  font-size: 13px;
   line-height: 1.5;
 }
 
 .help-closing {
   border-top: 1px solid var(--line);
   padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.help-closing h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.help-closing p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
 }
 .help-closing a {
   color: var(--navy);
@@ -49,4 +209,11 @@
 }
 .help-closing a:hover {
   text-decoration: underline;
+}
+
+.help-legal {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin: 8px 0 0;
 }
