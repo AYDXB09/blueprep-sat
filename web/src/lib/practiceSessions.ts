@@ -602,7 +602,12 @@ export async function getQuestionIdsWithCues(questionIds: string[]): Promise<Set
 }
 
 function stripHtmlPreview(markup: string, maxLen = 100): string {
-  const text = markup.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  const withoutTags = markup.replace(/<[^>]+>/g, '');
+  // Decode entities (&ldquo;, &rsquo;, etc.) the same way a browser would —
+  // DOMParser never executes scripts or loads resources for a document it
+  // creates, so this is safe even though the source markup isn't ours.
+  const decoded = new DOMParser().parseFromString(withoutTags, 'text/html').body.textContent ?? '';
+  const text = decoded.replace(/\s+/g, ' ').trim();
   return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
 }
 

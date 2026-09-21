@@ -55,7 +55,7 @@
 }
 .prog-domain-row {
   display: grid;
-  grid-template-columns: 8px 1fr 2fr auto;
+  grid-template-columns: 8px minmax(180px, 1.5fr) minmax(90px, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 6px 4px;
