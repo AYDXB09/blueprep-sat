@@ -4,6 +4,13 @@
    into user_settings.theme ('light' | 'dark' | 'system'). */
 
 :root {
+  /* Site-wide baseline bump — the component CSS throughout this app is
+     fixed px, not rem (see the font-size zoom note below), so a plain
+     "text was too small" fix has to happen here, not per-component. Keep
+     the "Large" font-size setting a further step up from this, not
+     redundant with it. */
+  zoom: 1.1;
+
   --bg: #ffffff;
   --panel: #f6f7f9;
   --ink: #14181f;
@@ -90,9 +97,10 @@
 /* Settings' "Font size: Large" — applied via CSS zoom, not a rem scale,
    because this codebase's component CSS is fixed px throughout. Stamped
    onto <html> by applyAppearance() (lib/appearance.ts), never set directly
-   in markup. */
+   in markup. A further step up from the site-wide 1.1 baseline above, not
+   a replacement for it. */
 :root[data-font-size='large'] {
-  zoom: 1.15;
+  zoom: 1.3;
 }
 
 * {
