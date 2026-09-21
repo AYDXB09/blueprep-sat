@@ -109,6 +109,30 @@ export function Login() {
           >
             {busy ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
           </button>
+
+          {mode === 'signup' && (
+            <p style={{ fontSize: 11.5, color: 'var(--ink-dim)', margin: '12px 0 0', textAlign: 'center', lineHeight: 1.5 }}>
+              By creating an account, you agree to the{' '}
+              <a
+                href="https://github.com/AYDXB09/blueprep-sat/blob/main/docs/TERMS.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--navy)' }}
+              >
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a
+                href="https://github.com/AYDXB09/blueprep-sat/blob/main/docs/PRIVACY.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--navy)' }}
+              >
+                Privacy Policy
+              </a>
+              .
+            </p>
+          )}
         </form>
       )}
 
