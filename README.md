@@ -6,9 +6,6 @@
 ![Hosting](https://img.shields.io/badge/hosted%20on-Vercel-000000)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-> [!NOTE]
-> This started as a hackathon-style single-file prototype (V1). That version has been fully retired and archived privately — everything in this repo now is **V2**: a real Supabase-backed, multi-user rebuild with a from-scratch trap/cue coaching system, live at **[blueprep-sat.vercel.app](https://blueprep-sat.vercel.app)**.
-
 ## Table of contents
 - [What it is](#what-it-is)
 - [Screenshots](#screenshots)
