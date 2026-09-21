@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 
 export function Login() {
@@ -113,23 +113,13 @@ export function Login() {
           {mode === 'signup' && (
             <p style={{ fontSize: 11.5, color: 'var(--ink-dim)', margin: '12px 0 0', textAlign: 'center', lineHeight: 1.5 }}>
               By creating an account, you agree to the{' '}
-              <a
-                href="https://github.com/AYDXB09/blueprep-sat/blob/main/docs/TERMS.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--navy)' }}
-              >
+              <Link to="/terms" style={{ color: 'var(--navy)' }}>
                 Terms of Service
-              </a>{' '}
+              </Link>{' '}
               and{' '}
-              <a
-                href="https://github.com/AYDXB09/blueprep-sat/blob/main/docs/PRIVACY.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--navy)' }}
-              >
+              <Link to="/privacy" style={{ color: 'var(--navy)' }}>
                 Privacy Policy
-              </a>
+              </Link>
               .
             </p>
           )}

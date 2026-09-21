@@ -11,11 +11,15 @@ import { MistakeLog } from './pages/MistakeLog';
 import { Settings } from './pages/Settings';
 import { Contact } from './pages/Contact';
 import { Help } from './pages/Help';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route
         path="/"
         element={
