@@ -106,10 +106,11 @@ The Supabase schema (16 tables, RLS policies included) needed to run your own in
 
 ```bash
 npm install
+npm run download   # populates data/questions.json — not committed to the repo
 npm start
 ```
 
-Open `http://localhost:4173`. Refresh the local question catalog with `npm run download` (pulls from the source's public question-bank API and writes `data/questions.json`).
+Open `http://localhost:4173`. `npm run download` pulls the question catalog fresh from the source's public question-bank API and writes `data/questions.json`; re-run it any time to refresh the catalog.
 
 </details>
 

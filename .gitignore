@@ -1,5 +1,6 @@
 node_modules/
 data/progress.json
+data/questions.json
 data/questions.checkpoint.json
 data/new_questions.json
 data/question_index.json
