@@ -17,6 +17,12 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  /* At the site-wide 1.1x zoom (and more so at the "Large" font-size's 1.3x),
+     nav + account panel can exceed 100vh on shorter viewports — without this,
+     the bottom of the account panel (including Sign Out) is silently clipped
+     with no way to reach it. Scrolling only the sidebar keeps the main
+     content's own scroll position independent. */
+  overflow-y: auto;
 }
 
 .shell-brand {
