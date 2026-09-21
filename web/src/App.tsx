@@ -10,6 +10,7 @@ import { Progress } from './pages/Progress';
 import { MistakeLog } from './pages/MistakeLog';
 import { Settings } from './pages/Settings';
 import { Contact } from './pages/Contact';
+import { Help } from './pages/Help';
 
 function App() {
   return (
@@ -84,6 +85,14 @@ function App() {
         element={
           <RequireAuth>
             <Contact />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/help"
+        element={
+          <RequireAuth>
+            <Help />
           </RequireAuth>
         }
       />

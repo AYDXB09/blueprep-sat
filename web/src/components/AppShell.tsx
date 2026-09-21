@@ -15,6 +15,7 @@ const NAV_ITEMS: { label: string; to: string; match: (path: string) => boolean }
   { label: 'Progress', to: '/progress', match: (p) => p.startsWith('/progress') },
   { label: 'Mistake Log', to: '/mistakes', match: (p) => p.startsWith('/mistakes') },
   { label: 'Settings', to: '/settings', match: (p) => p.startsWith('/settings') },
+  { label: 'Help', to: '/help', match: (p) => p.startsWith('/help') },
 ];
 
 export function AppShell({ title, children }: { title?: string; children: ReactNode }) {

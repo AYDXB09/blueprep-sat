@@ -1,0 +1,52 @@
+.help-page {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.help-intro {
+  color: var(--ink-dim);
+  font-size: 14px;
+  margin: -8px 0 0;
+}
+
+.help-section h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.help-section h3 {
+  font-size: 13.5px;
+  margin: 16px 0 6px;
+  color: var(--navy);
+}
+.help-section p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+.help-section ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.help-section li {
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.help-closing {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.help-closing a {
+  color: var(--navy);
+  font-weight: 700;
+  text-decoration: none;
+}
+.help-closing a:hover {
+  text-decoration: underline;
+}
