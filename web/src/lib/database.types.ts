@@ -985,6 +985,7 @@ export type Database = {
         Args: { anchor: string; occ: number; scope_markup: string }
         Returns: boolean
       }
+      delete_own_account: { Args: never; Returns: undefined }
       disconnect_ai_key: { Args: never; Returns: undefined }
       get_ai_key: { Args: never; Returns: string }
       rendered_text: { Args: { markup: string }; Returns: string }

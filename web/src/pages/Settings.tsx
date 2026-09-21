@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../lib/AuthContext';
 import { getOrCreateUserSettings, updateUserSettings, type UserSettingsRow } from '../lib/userSettings';
+import { supabase } from '../lib/supabase';
 import { applyAppearance } from '../lib/appearance';
 import { getAiSettings, saveAiKey, disconnectAiKey, type AiSettings } from '../lib/aiSettings';
 import { testConnection, OpenRouterError } from '../lib/openrouter';
@@ -41,7 +42,7 @@ function useSavedFlash() {
 }
 
 export function Settings() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { saved, flash } = useSavedFlash();
   const [settings, setSettings] = useState<UserSettingsRow | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,27 @@ export function Settings() {
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteAccount = useCallback(async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      // A SECURITY DEFINER RPC scoped to auth.uid() — deletes contact_messages
+      // and question_notes explicitly (their FKs are NO ACTION by design,
+      // not CASCADE), then the users row, which cascades everywhere else,
+      // then the actual auth.users row so the account is genuinely gone.
+      const { error } = await supabase.rpc('delete_own_account');
+      if (error) throw error;
+      await signOut();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete account.');
+      setDeleting(false);
+    }
+  }, [signOut]);
 
   const handleImportFile = useCallback(
     async (file: File) => {
@@ -406,6 +428,33 @@ export function Settings() {
             .
           </p>
         )}
+      </div>
+
+      <div className="settings-card settings-danger">
+        <p className="settings-label settings-danger-label">Danger zone</p>
+        <p className="settings-ai-hint">
+          Permanently deletes your account and everything tied to it — practice sessions, question
+          attempts, mistake history, notes, and your AI connection. This can't be undone.
+        </p>
+        <div className="settings-row">
+          <span className="settings-row-label">Type DELETE to confirm</span>
+          <input
+            className="settings-select"
+            type="text"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            disabled={deleting}
+            placeholder="DELETE"
+          />
+        </div>
+        {deleteError && <p style={{ color: 'var(--red)', fontSize: 12.5 }}>{deleteError}</p>}
+        <button
+          className="btn danger"
+          disabled={deleteConfirmText !== 'DELETE' || deleting}
+          onClick={() => void handleDeleteAccount()}
+        >
+          {deleting ? 'Deleting…' : 'Delete my account'}
+        </button>
       </div>
     </AppShell>
   );

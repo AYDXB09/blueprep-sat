@@ -26,6 +26,22 @@
   margin-bottom: 14px;
   max-width: 640px;
 }
+
+.settings-danger {
+  border-color: var(--red);
+}
+.settings-danger-label {
+  color: var(--red);
+}
+.btn.danger {
+  border-color: var(--red);
+  background: var(--bg);
+  color: var(--red);
+  margin-top: 4px;
+}
+.btn.danger:hover:not(:disabled) {
+  background: var(--red-wash);
+}
 .settings-label {
   font-size: 11px;
   text-transform: uppercase;
