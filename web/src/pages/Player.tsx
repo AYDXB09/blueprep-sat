@@ -6,7 +6,6 @@ import {
   assembleFullTestModule,
   completeSession,
   decideModuleTier,
-  getCuesForQuestion,
   getQuestionIdsWithCues,
   getQuestionWithChoices,
   getSessionModules,
@@ -558,17 +557,29 @@ export function Player() {
     };
   }, [sessionId]);
 
-  // Load the current question whenever the session or position changes.
+  // Load the current question — with its choices and trap/cue rows — whenever
+  // the session or position changes. Cues come embedded in the same request
+  // (getQuestionWithChoices), so `question` and `cues` are always set together
+  // in the same tick.
+  //
+  // The synchronous clear of BOTH at the top matters: if canRevealFeedback is
+  // already true for the new question (e.g. review mode with an existing
+  // submitted attempt), the cue-highlight pass can otherwise run with the OLD
+  // question's cues against the NEW question's DOM — the anchors don't match,
+  // the pass fails silently, and its "already processed this question" guard
+  // then permanently blocks the real cues once they arrive.
   useEffect(() => {
     if (!session) return;
     if (!Number.isFinite(n) || n < 1 || n > session.question_ids.length) {
       setErrorMsg('No more questions in this session.');
       setQuestion(null);
+      setCues([]);
       return;
     }
     const qid = session.question_ids[n - 1];
     let cancelled = false;
     setQuestion(null);
+    setCues([]);
     getQuestionWithChoices(qid)
       .then((q) => {
         if (cancelled) return;
@@ -577,6 +588,7 @@ export function Player() {
           return;
         }
         setQuestion(q);
+        setCues(q.cues);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -586,35 +598,6 @@ export function Player() {
       cancelled = true;
     };
   }, [session, n]);
-
-  // Load the cues for the current question alongside it. Independent of the
-  // question fetch so a cues failure never blocks rendering the question.
-  useEffect(() => {
-    // Clear immediately (synchronously, before the fetch resolves) rather
-    // than leaving the previous question's cues in state — otherwise, if
-    // canRevealFeedback is already true for the new question (e.g. review
-    // mode with an existing submitted attempt), the DOM-highlight effect
-    // below can fire with the OLD question's cues against the NEW
-    // question's DOM: the anchors don't match, the pass fails silently, and
-    // its "already processed this question" guard then permanently blocks
-    // the real cues from ever being applied once they actually arrive.
-    setCues([]);
-    if (!questionId) return;
-    let cancelled = false;
-    getCuesForQuestion(questionId)
-      .then((rows) => {
-        if (!cancelled) setCues(rows);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          console.warn('getCuesForQuestion failed:', err);
-          setCues([]);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [questionId]);
 
   // ---------------- per-question personal notes ----------------
   // One note per (user, question), independent of session/attempt — see
@@ -930,9 +913,16 @@ export function Player() {
   useEffect(() => {
     scopeHlRef.current = scopeHl;
   }, [scopeHl]);
-  // Last colour the student picked — new highlights use it, so a drag makes a
-  // highlight immediately (like V1) instead of forcing a popover round-trip.
+  // Last colour the student picked. Only actually auto-applied to new
+  // highlights when `autoHighlightMode` is on (see below) — otherwise every
+  // fresh selection still stages and opens the popover for the student to
+  // choose a colour or underline.
   const lastColorRef = useRef<HighlightColor>('yellow');
+  // Bluebook-style "highlighter on" toggle (header button): when true, a
+  // fresh text selection commits as a highlight immediately in `lastColorRef`
+  // instead of staging + opening the popover. Off by default, plain
+  // component state (not persisted) — same pattern as `crossOutMode` below.
+  const [autoHighlightMode, setAutoHighlightMode] = useState(false);
   const [markedForReview, setMarkedForReview] = useState(false);
   // Flagged-for-review state isn't persisted in the schema (no column for it)
   // — kept as in-memory state per session, keyed by question position.
@@ -1431,6 +1421,28 @@ export function Player() {
     dragStartRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
+  // The actual class mutation for "commit this mark as a solid highlight in
+  // `color`" — takes an explicit id rather than reading `hlEditingId` so it
+  // can be called from the auto-highlight path in `onSelectableMouseUp` below
+  // (no popover involved, so `hlEditingId` is never set there) as well as
+  // from the popover-driven `applyHighlightColor` further down.
+  const commitHighlightColor = useCallback(
+    (id: string, color: HighlightColor) => {
+      lastColorRef.current = color;
+      if (pendingHlIdRef.current === id) pendingHlIdRef.current = null; // committed
+      editMark(id, (m) => {
+        const classes = new Set(m.className.split(/\s+/).filter(Boolean));
+        classes.delete('user-hl-pending');
+        HL_COLORS.forEach((c) => classes.delete(`user-hl-${c}`));
+        classes.add('user-hl');
+        classes.add(`user-hl-${color}`);
+        m.className = [...classes].join(' ');
+        return true;
+      });
+    },
+    [editMark],
+  );
+
   const onSelectableMouseUp = useCallback(
     (e: React.MouseEvent) => {
       const sel = window.getSelection();
@@ -1479,10 +1491,20 @@ export function Player() {
 
       setScopeMarkedHtml(scope, editHtml(container.innerHTML, stripCueMarks));
 
+      // Auto-highlight mode: commit immediately in the last-used colour
+      // (default yellow) instead of staging + opening the popover — the
+      // Bluebook-style "turn the highlighter on, just drag" shortcut.
+      // Clicking an already-committed mark still opens the popover regardless
+      // of this mode, so colour/underline/delete stay reachable.
+      if (autoHighlightMode) {
+        commitHighlightColor(id, lastColorRef.current);
+        return;
+      }
+
       const firstSeg = container.querySelector(`mark[data-hl-id="${id}"]`) as HTMLElement | null;
       if (firstSeg) openMarkPopover(firstSeg);
     },
-    [openMarkPopover, discardPending, setScopeMarkedHtml],
+    [openMarkPopover, discardPending, setScopeMarkedHtml, commitHighlightColor, autoHighlightMode],
   );
 
   const editingMarkClasses = useMemo(
@@ -1499,21 +1521,10 @@ export function Player() {
 
   const applyHighlightColor = useCallback(
     (color: HighlightColor) => {
-      const id = hlEditingId;
-      if (!id) return;
-      lastColorRef.current = color;
-      if (pendingHlIdRef.current === id) pendingHlIdRef.current = null; // committed
-      editMark(id, (m) => {
-        const classes = new Set(m.className.split(/\s+/).filter(Boolean));
-        classes.delete('user-hl-pending');
-        HL_COLORS.forEach((c) => classes.delete(`user-hl-${c}`));
-        classes.add('user-hl');
-        classes.add(`user-hl-${color}`);
-        m.className = [...classes].join(' ');
-        return true;
-      });
+      if (!hlEditingId) return;
+      commitHighlightColor(hlEditingId, color);
     },
-    [hlEditingId, editMark],
+    [hlEditingId, commitHighlightColor],
   );
 
   const applyHighlightUnderline = useCallback(
@@ -1851,6 +1862,15 @@ export function Player() {
         </div>
 
         <div className="tb-right">
+          <button
+            className={`iconbtn wide ghost-on-navy hl-auto-btn${autoHighlightMode ? ' on' : ''}`}
+            title={autoHighlightMode ? 'Auto-highlight is on — selecting text highlights it immediately' : 'Turn on auto-highlight'}
+            aria-label="Toggle auto-highlight"
+            aria-pressed={autoHighlightMode}
+            onClick={() => setAutoHighlightMode((v) => !v)}
+          >
+            🖍️ Highlight
+          </button>
           {isMath && (
             <button className="iconbtn wide ghost-on-navy" title="Reference sheet" aria-label="Open reference sheet" onClick={() => setRefOpen(true)}>
               Reference

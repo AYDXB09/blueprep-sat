@@ -496,29 +496,59 @@ export async function getMistakes(userId: string, filters: MistakeFilters = {}):
 }
 
 export type ChoiceRow = Database['public']['Tables']['choices']['Row'];
+export type CueRow = Database['public']['Tables']['cues']['Row'];
+
+export interface CueWithCategory extends CueRow {
+  trap_categories: Pick<Database['public']['Tables']['trap_categories']['Row'], 'label' | 'description'> | null;
+}
 
 export interface QuestionWithChoices extends QuestionRow {
   choices: ChoiceRow[];
+  /**
+   * The trap/cue rows for this question, ordered so 'govern' surfaces first.
+   * Embedded in the same request as the question (see below) rather than
+   * fetched separately — cues are immutable reference content, so bundling
+   * them costs nothing and saves a round trip on every prev/next.
+   */
+  cues: CueWithCategory[];
 }
 
-/** One question plus its choices (ordered by label), for the Player. */
+// Questions + choices + cues are immutable reference content, so the first
+// fetch of a question id is cached for the tab's lifetime; every revisit
+// (prev/next within a session, reopening from Mistake Log) is then instant
+// with zero network. Keyed by question id.
+const questionCache = new Map<string, QuestionWithChoices>();
+
+/**
+ * One question plus its choices (ordered by label) and its trap/cue rows
+ * (ordered 'govern' first, each joined to its trap category's display
+ * label), in a single embedded request. Cached per question id.
+ */
 export async function getQuestionWithChoices(questionId: string): Promise<QuestionWithChoices | null> {
-  const { data: question, error: questionError } = await supabase
+  const cached = questionCache.get(questionId);
+  if (cached) return cached;
+
+  const { data, error } = await supabase
     .from('questions')
-    .select('*')
+    .select('*, choices(*), cues(*, trap_categories(label, description))')
     .eq('id', questionId)
+    .order('label', { referencedTable: 'choices', ascending: true })
+    .order('cue_type', { referencedTable: 'cues', ascending: true })
     .maybeSingle();
-  if (questionError) throw questionError;
-  if (!question) return null;
+  if (error) throw error;
+  if (!data) return null;
 
-  const { data: choices, error: choicesError } = await supabase
-    .from('choices')
-    .select('*')
-    .eq('question_id', questionId)
-    .order('label', { ascending: true });
-  if (choicesError) throw choicesError;
-
-  return { ...question, choices: choices ?? [] };
+  const { choices, cues, ...question } = data as QuestionRow & {
+    choices: ChoiceRow[] | null;
+    cues: CueWithCategory[] | null;
+  };
+  const result: QuestionWithChoices = {
+    ...(question as QuestionRow),
+    choices: choices ?? [],
+    cues: cues ?? [],
+  };
+  questionCache.set(questionId, result);
+  return result;
 }
 
 /**
@@ -548,26 +578,14 @@ export function isSprAnswerCorrect(enteredValue: string, acceptedAnswers: Json |
   });
 }
 
-export type CueRow = Database['public']['Tables']['cues']['Row'];
-
-export interface CueWithCategory extends CueRow {
-  trap_categories: Pick<Database['public']['Tables']['trap_categories']['Row'], 'label' | 'description'> | null;
-}
-
 /**
- * All trap/cue rows for one question, joined to the trap category's real
- * display label (never render `trap_category`'s raw code). Ordered so
- * 'govern' cues surface first in any list UI — the correct-answer rationale
- * before the trap breakdown.
+ * The trap/cue rows for one question (see CueWithCategory / QuestionWithChoices).
+ * Thin wrapper over the cached, embedded `getQuestionWithChoices` fetch so any
+ * caller that only wants the cues still shares the same single request + cache.
  */
 export async function getCuesForQuestion(questionId: string): Promise<CueWithCategory[]> {
-  const { data, error } = await supabase
-    .from('cues')
-    .select('*, trap_categories(label, description)')
-    .eq('question_id', questionId)
-    .order('cue_type', { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as CueWithCategory[];
+  const q = await getQuestionWithChoices(questionId);
+  return q?.cues ?? [];
 }
 
 /**

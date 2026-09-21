@@ -137,6 +137,17 @@
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
+/* Auto-highlight toggle — filled solid yellow when on, echoing the
+   highlighter colour itself so the state reads at a glance. */
+.hl-auto-btn.on {
+  background: #ffd54f;
+  border-color: #ffd54f;
+  color: #1a1a2e;
+}
+.hl-auto-btn.on:hover {
+  background: #ffca28;
+  color: #1a1a2e;
+}
 
 /* ---------- content ---------- */
 .content {
