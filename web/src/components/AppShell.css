@@ -99,6 +99,19 @@
   color: var(--red);
 }
 
+.shell-legal-links {
+  padding: 2px 8px 0;
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+.shell-legal-links a {
+  color: var(--ink-dim);
+  text-decoration: none;
+}
+.shell-legal-links a:hover {
+  text-decoration: underline;
+}
+
 .shell-main {
   flex: 1;
   min-width: 0;

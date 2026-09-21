@@ -148,6 +148,16 @@ export function Login() {
           {mode === 'signin' ? 'Sign up' : 'Sign in'}
         </button>
       </p>
+
+      <p style={{ fontSize: 11, color: 'var(--ink-dim)', marginTop: 32, textAlign: 'center' }}>
+        <Link to="/terms" style={{ color: 'var(--ink-dim)' }}>
+          Terms of Service
+        </Link>
+        {' · '}
+        <Link to="/privacy" style={{ color: 'var(--ink-dim)' }}>
+          Privacy Policy
+        </Link>
+      </p>
     </div>
   );
 }

@@ -49,6 +49,11 @@ export function AppShell({ title, children }: { title?: string; children: ReactN
           <button className="shell-signout" onClick={() => void signOut()}>
             Sign out
           </button>
+          <div className="shell-legal-links">
+            <Link to="/terms">Terms</Link>
+            <span> · </span>
+            <Link to="/privacy">Privacy</Link>
+          </div>
         </div>
       </aside>
       <main className="shell-main">
