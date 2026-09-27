@@ -5,41 +5,42 @@ import './Landing.css';
 // ---------------------------------------------------------------------------
 // Public marketing page for signed-out visitors (mapped to "/" by Home.tsx).
 // The demo question below is real content pulled from the live question bank
-// (id 54eed2e9-47bc-4ec4-a3ea-81d4a8cf0a81, College Board id 8545ccfe, Hard
-// difficulty, Reading & Writing / Information and Ideas) -- a "weaken the
-// hypothesis" question, along with its real trap-cue explanations -- so the
-// pitch is grounded in what the app actually does, not generic marketing
-// copy. Rendered the same way Player.tsx renders stimulus/stem content.
+// (id 758fbc90-f07d-463d-9e8a-30c83122b3ce, College Board id 435809d8, Hard
+// difficulty, Reading & Writing / Standard English Conventions) -- a real
+// comma-splice/run-on punctuation question, along with its real trap-cue
+// explanations -- so the pitch is grounded in what the app actually does,
+// not generic marketing copy. Kept short (3 sentences) rather than a long
+// stimulus paragraph, per feedback that a wall of text isn't inviting.
 // ---------------------------------------------------------------------------
 
 const DEMO_STEM_HTML = `
-<p>Icebergs generally appear to be mostly white or blue, depending on how the ice reflects sunlight. Ice with air bubbles trapped in it looks white because much of the light reflects off the bubbles. Ice without air bubbles usually looks blue because the light travels deep into the ice and only a little of it is reflected. However, some icebergs in the sea around Antarctica appear to be green. One team of scientists hypothesized that this phenomenon is the result of yellow-tinted dissolved organic carbon in Antarctic waters mixing with blue ice to produce the color green.</p>
-<p>Which finding, if true, would most directly weaken the team&rsquo;s hypothesis?</p>
+<p>On March 23, 2021, a gust of wind wreaked havoc on global trade. <em>Ever Given</em>, an international shipping container vessel, became lodged in Egypt&rsquo;s Suez Canal, a major shipping route between Europe and Asia. The vessel took six days to ______ it&rsquo;s as heavy as two thousand blue whales when fully loaded.</p>
+<p>Which choice completes the text so that it conforms to the conventions of Standard English?</p>
 `;
 
 const DEMO_CHOICES = [
   {
     label: 'A',
-    html: 'White ice doesn&rsquo;t change color when mixed with dissolved organic carbon due to the air bubbles in the ice.',
+    html: 'dislodge in part due to its sheer size,',
     correct: false,
-    cue: 'True, but off-target: the hypothesis is about what turns blue ice green, not white ice.',
+    cue: 'This fails to mark the boundary between the main clause and the supplementary element, and creates a comma splice with the final clause.',
   },
   {
     label: 'B',
-    html: 'Dissolved organic carbon has a stronger yellow color in Antarctic waters than it does in other places.',
-    correct: false,
-    cue: "True, but off-target: this is consistent with the hypothesis rather than weakening it, and only concerns Antarctic waters.",
+    html: 'dislodge, in part due to its sheer size:',
+    correct: true,
   },
   {
     label: 'C',
-    html: 'Blue icebergs and green icebergs are rarely found near each other.',
+    html: 'dislodge, in part due to its sheer size,',
     correct: false,
-    cue: 'Reversed direction: if carbon in the water turns blue ice green, nearby blue icebergs would also turn green — this fits the hypothesis rather than weakening it.',
+    cue: 'A comma cannot join the two main clauses here; this creates a comma splice.',
   },
   {
     label: 'D',
-    html: 'Blue icebergs and green icebergs contain similarly small traces of dissolved organic carbon.',
-    correct: true,
+    html: 'dislodge, in part, due to its sheer size',
+    correct: false,
+    cue: 'The two main clauses are fused with no punctuation or conjunction, creating a run-on sentence.',
   },
 ] as const;
 
@@ -133,8 +134,8 @@ export function Landing() {
           <div className={`landing-demo-feedback ${pickedChoice.correct ? 'correct' : 'incorrect'}`}>
             {pickedChoice.correct ? (
               <p className="landing-demo-feedback-body">
-                Correct — if both colors of iceberg have similarly little dissolved carbon, the carbon
-                can't be what's making some icebergs green.
+                Correct — the colon cleanly introduces the explanation of why the ship took six days to
+                dislodge, without creating a comma splice or run-on.
               </p>
             ) : (
               <>
