@@ -381,18 +381,18 @@
 .choices {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 .choice {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 13px 15px;
+  padding: 9px 14px;
   border: 1.5px solid var(--line);
   border-radius: 9px;
   cursor: pointer;
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.4;
   transition: border-color 0.12s ease, background 0.12s ease;
 }
 .choice:hover {
