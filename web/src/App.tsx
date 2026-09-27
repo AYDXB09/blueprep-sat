@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { RequireAuth } from './components/RequireAuth';
 import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
+import { Home } from './pages/Home';
 import { PracticeBuilder } from './pages/PracticeBuilder';
 import { FullTestSetup } from './pages/FullTestSetup';
 import { Player } from './pages/Player';
@@ -20,14 +20,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <Dashboard />
-          </RequireAuth>
-        }
-      />
+      <Route path="/" element={<Home />} />
       <Route
         path="/practice/new"
         element={
