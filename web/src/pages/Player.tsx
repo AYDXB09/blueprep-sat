@@ -2071,15 +2071,20 @@ export function Player() {
                 </div>
               )}
               <div className="stimulus serif" ref={stimulusRef} onMouseDown={onSelectableMouseDown} onMouseUp={onSelectableMouseUp}>
-                {question.stimulus_markup && (
+                {question.stimulus_markup ? (
                   // Trusted first-party content from our own `questions` table, not user
                   // input — stimulusHtml is that content with cue <mark> spans woven in
                   // as a string (see withCueMarks). data-hl-scope tags this block so a
                   // selection inside it anchors as a "stimulus" highlight, not "stem".
                   <div data-hl-scope="stimulus" dangerouslySetInnerHTML={{ __html: stimulusHtml }} />
+                ) : (
+                  // No separate stimulus (the common Math case) — the stem itself is
+                  // the left-pane content, matching real Bluebook. When a stimulus IS
+                  // present (R&W), the stem instead renders in the right pane above
+                  // the choices, just below.
+                  // eslint-disable-next-line react/no-danger
+                  <div data-hl-scope="stem" dangerouslySetInnerHTML={{ __html: stemHtml }} />
                 )}
-                {/* eslint-disable-next-line react/no-danger */}
-                <div data-hl-scope="stem" dangerouslySetInnerHTML={{ __html: stemHtml }} />
               </div>
             </div>
 
@@ -2127,6 +2132,17 @@ export function Player() {
                   </span>
                 )}
               </div>
+
+              {question.stimulus_markup && (
+                // eslint-disable-next-line react/no-danger
+                <div
+                  className="qstem serif"
+                  data-hl-scope="stem"
+                  onMouseDown={onSelectableMouseDown}
+                  onMouseUp={onSelectableMouseUp}
+                  dangerouslySetInnerHTML={{ __html: stemHtml }}
+                />
+              )}
 
               {question.response_type === 'spr' ? (
                 <div className="spr-input-wrap">

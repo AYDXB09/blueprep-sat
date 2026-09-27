@@ -209,8 +209,10 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 .qhead-num {
   flex: none;
@@ -319,6 +321,18 @@
   line-height: 1.75;
 }
 .stimulus p {
+  margin: 0 0 14px;
+}
+
+/* The question stem, shown in the right pane above the choices whenever a
+   question also has a left-pane stimulus (R&W) — see qstemHtml in Player.tsx.
+   Matches .stimulus's serif treatment since it's the same kind of prose. */
+.qstem {
+  font-size: 16.5px;
+  line-height: 1.75;
+  margin-bottom: 20px;
+}
+.qstem p {
   margin: 0 0 14px;
 }
 
