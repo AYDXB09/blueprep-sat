@@ -5,70 +5,41 @@ import './Landing.css';
 // ---------------------------------------------------------------------------
 // Public marketing page for signed-out visitors (mapped to "/" by Home.tsx).
 // The demo question below is real content pulled from the live question bank
-// (id ba1a8be9-37d7-4a8f-80c3-300f4e67565d, College Board id 4fb8a648, Hard
-// difficulty, Advanced Math) -- including its real MathML markup and its real
-// trap-cue explanations -- so the pitch is grounded in what the app actually
-// does, not generic marketing copy. It's rendered the same way Player.tsx
-// renders question content: raw MathML via dangerouslySetInnerHTML, relying
-// on the browser's native <math> support (same as the real Player screen).
+// (id 54eed2e9-47bc-4ec4-a3ea-81d4a8cf0a81, College Board id 8545ccfe, Hard
+// difficulty, Reading & Writing / Information and Ideas) -- a "weaken the
+// hypothesis" question, along with its real trap-cue explanations -- so the
+// pitch is grounded in what the app actually does, not generic marketing
+// copy. Rendered the same way Player.tsx renders stimulus/stem content.
 // ---------------------------------------------------------------------------
 
 const DEMO_STEM_HTML = `
-<p style="text-align: center;"><math alttext="y equals x plus 9"><mrow>
-	<mi>y</mi>
-	<mo>=</mo>
-	<mrow>
-		<mi>x</mi>
-		<mo>+</mo>
-		<mn>9</mn>
-	</mrow>
-</mrow>
-</math></p>
-<p style="text-align: center;"><math alttext="y equals x squared plus 16 x plus 63"><mrow>
-	<mi>y</mi>
-	<mo>=</mo>
-	<mrow>
-		<msup>
-			<mi>x</mi>
-			<mn>2</mn>
-		</msup>
-		<mo>+</mo>
-		<mrow>
-			<mn>16</mn>
-			<mi>x</mi>
-		</mrow>
-		<mo>+</mo>
-		<mn>63</mn>
-	</mrow>
-</mrow>
-</math></p>
-<p style="text-align: left;">A solution to the given system of equations is <math alttext="left parenthesis x comma y right parenthesis"><mfenced><mrow><mi>x</mi><mo>,</mo><mi>y</mi></mrow></mfenced></math>. What is the greatest possible value of <math alttext="x"><mi>x</mi>
-</math>?</p>
+<p>Icebergs generally appear to be mostly white or blue, depending on how the ice reflects sunlight. Ice with air bubbles trapped in it looks white because much of the light reflects off the bubbles. Ice without air bubbles usually looks blue because the light travels deep into the ice and only a little of it is reflected. However, some icebergs in the sea around Antarctica appear to be green. One team of scientists hypothesized that this phenomenon is the result of yellow-tinted dissolved organic carbon in Antarctic waters mixing with blue ice to produce the color green.</p>
+<p>Which finding, if true, would most directly weaken the team&rsquo;s hypothesis?</p>
 `;
 
 const DEMO_CHOICES = [
   {
     label: 'A',
-    html: '<math alttext="negative 6"><mo>-</mo><mn>6</mn></math>',
-    correct: true,
+    html: 'White ice doesn&rsquo;t change color when mixed with dissolved organic carbon due to the air bubbles in the ice.',
+    correct: false,
+    cue: 'True, but off-target: the hypothesis is about what turns blue ice green, not white ice.',
   },
   {
     label: 'B',
-    html: '<math alttext="7"><mn>7</mn></math>',
+    html: 'Dissolved organic carbon has a stronger yellow color in Antarctic waters than it does in other places.',
     correct: false,
-    cue: 'This relates to a root of the second equation, not a solution x of the system.',
+    cue: "True, but off-target: this is consistent with the hypothesis rather than weakening it, and only concerns Antarctic waters.",
   },
   {
     label: 'C',
-    html: '<math alttext="9"><mn>9</mn></math>',
+    html: 'Blue icebergs and green icebergs are rarely found near each other.',
     correct: false,
-    cue: 'This is the y-value of the first equation at x = 0, not a solution x.',
+    cue: 'Reversed direction: if carbon in the water turns blue ice green, nearby blue icebergs would also turn green — this fits the hypothesis rather than weakening it.',
   },
   {
     label: 'D',
-    html: '<math alttext="63"><mn>63</mn></math>',
-    correct: false,
-    cue: 'This is the y-value of the second equation at x = 0, not a solution x.',
+    html: 'Blue icebergs and green icebergs contain similarly small traces of dissolved organic carbon.',
+    correct: true,
   },
 ] as const;
 
@@ -162,7 +133,8 @@ export function Landing() {
           <div className={`landing-demo-feedback ${pickedChoice.correct ? 'correct' : 'incorrect'}`}>
             {pickedChoice.correct ? (
               <p className="landing-demo-feedback-body">
-                Correct — substituting gives x² + 15x + 54 = 0, so x = −6 or x = −9. The greatest is −6.
+                Correct — if both colors of iceberg have similarly little dissolved carbon, the carbon
+                can't be what's making some icebergs green.
               </p>
             ) : (
               <>
@@ -198,8 +170,8 @@ export function Landing() {
           <p className="landing-stat-label">R&amp;W questions</p>
         </div>
         <div>
-          <p className="landing-stat-num">3,252</p>
-          <p className="landing-stat-label">Total questions</p>
+          <p className="landing-stat-num">100%</p>
+          <p className="landing-stat-label">College Board question bank</p>
         </div>
       </section>
 
