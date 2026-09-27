@@ -4,22 +4,72 @@ import './Landing.css';
 
 // ---------------------------------------------------------------------------
 // Public marketing page for signed-out visitors (mapped to "/" by Home.tsx).
-// The demo question below is real content pulled from the live question
-// bank (id e06a745d-b077-48ee-8763-fdfcd713b268, College Board id e9fb7774),
-// including its actual trap-cue explanations, so the pitch is grounded in
-// what the app really does rather than generic marketing copy.
+// The demo question below is real content pulled from the live question bank
+// (id ba1a8be9-37d7-4a8f-80c3-300f4e67565d, College Board id 4fb8a648, Hard
+// difficulty, Advanced Math) -- including its real MathML markup and its real
+// trap-cue explanations -- so the pitch is grounded in what the app actually
+// does, not generic marketing copy. It's rendered the same way Player.tsx
+// renders question content: raw MathML via dangerouslySetInnerHTML, relying
+// on the browser's native <math> support (same as the real Player screen).
 // ---------------------------------------------------------------------------
 
+const DEMO_STEM_HTML = `
+<p style="text-align: center;"><math alttext="y equals x plus 9"><mrow>
+	<mi>y</mi>
+	<mo>=</mo>
+	<mrow>
+		<mi>x</mi>
+		<mo>+</mo>
+		<mn>9</mn>
+	</mrow>
+</mrow>
+</math></p>
+<p style="text-align: center;"><math alttext="y equals x squared plus 16 x plus 63"><mrow>
+	<mi>y</mi>
+	<mo>=</mo>
+	<mrow>
+		<msup>
+			<mi>x</mi>
+			<mn>2</mn>
+		</msup>
+		<mo>+</mo>
+		<mrow>
+			<mn>16</mn>
+			<mi>x</mi>
+		</mrow>
+		<mo>+</mo>
+		<mn>63</mn>
+	</mrow>
+</mrow>
+</math></p>
+<p style="text-align: left;">A solution to the given system of equations is <math alttext="left parenthesis x comma y right parenthesis"><mfenced><mrow><mi>x</mi><mo>,</mo><mi>y</mi></mrow></mfenced></math>. What is the greatest possible value of <math alttext="x"><mi>x</mi>
+</math>?</p>
+`;
+
 const DEMO_CHOICES = [
-  { label: 'A', text: '25%', correct: true },
-  { label: 'B', text: '50%', correct: false, cue: '50% of 300 is 150, not 75.' },
+  {
+    label: 'A',
+    html: '<math alttext="negative 6"><mo>-</mo><mn>6</mn></math>',
+    correct: true,
+  },
+  {
+    label: 'B',
+    html: '<math alttext="7"><mn>7</mn></math>',
+    correct: false,
+    cue: 'This relates to a root of the second equation, not a solution x of the system.',
+  },
   {
     label: 'C',
-    text: '75%',
+    html: '<math alttext="9"><mn>9</mn></math>',
     correct: false,
-    cue: 'This mistakes the given value 75 itself for the percentage; 75% of 300 is actually 225, not 75.',
+    cue: 'This is the y-value of the first equation at x = 0, not a solution x.',
   },
-  { label: 'D', text: '225%', correct: false, cue: '225% of 300 is 675, not 75.' },
+  {
+    label: 'D',
+    html: '<math alttext="63"><mn>63</mn></math>',
+    correct: false,
+    cue: 'This is the y-value of the second equation at x = 0, not a solution x.',
+  },
 ] as const;
 
 const FEATURES = [
@@ -84,9 +134,11 @@ export function Landing() {
       <section id="demo" className="landing-demo">
         <div className="landing-demo-label">
           <span className="landing-demo-dot" aria-hidden="true" />
-          Try one right now — no account needed
+          Try a real Hard-difficulty question — no account needed
         </div>
-        <p className="landing-demo-stem">What percentage of 300 is 75?</p>
+        {/* Real question content (MathML), rendered the same way Player.tsx
+            renders stem_markup: raw HTML via native browser <math> support. */}
+        <div className="landing-demo-stem" dangerouslySetInnerHTML={{ __html: DEMO_STEM_HTML }} />
         <div className="landing-demo-choices">
           {DEMO_CHOICES.map((c) => {
             const isPicked = picked === c.label;
@@ -101,17 +153,26 @@ export function Landing() {
                 disabled={picked !== null}
               >
                 <span className="landing-demo-letter">{c.label}</span>
-                {c.text}
+                <span dangerouslySetInnerHTML={{ __html: c.html }} />
               </button>
             );
           })}
         </div>
         {pickedChoice && (
-          <p className={`landing-demo-feedback ${pickedChoice.correct ? 'correct' : 'incorrect'}`}>
-            {pickedChoice.correct
-              ? 'Correct — 75 / 300 = 25%.'
-              : pickedChoice.cue}
-          </p>
+          <div className={`landing-demo-feedback ${pickedChoice.correct ? 'correct' : 'incorrect'}`}>
+            {pickedChoice.correct ? (
+              <p className="landing-demo-feedback-body">
+                Correct — substituting gives x² + 15x + 54 = 0, so x = −6 or x = −9. The greatest is −6.
+              </p>
+            ) : (
+              <>
+                <p className="landing-demo-feedback-label">
+                  <span aria-hidden="true">🎯</span> Trap-and-cue coaching, in action
+                </p>
+                <p className="landing-demo-feedback-body">{pickedChoice.cue}</p>
+              </>
+            )}
+          </div>
         )}
       </section>
 
@@ -137,8 +198,8 @@ export function Landing() {
           <p className="landing-stat-label">R&amp;W questions</p>
         </div>
         <div>
-          <p className="landing-stat-num">100%</p>
-          <p className="landing-stat-label">Real College Board bank</p>
+          <p className="landing-stat-num">3,252</p>
+          <p className="landing-stat-label">Total questions</p>
         </div>
       </section>
 

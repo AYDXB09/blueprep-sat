@@ -121,6 +121,13 @@
   font-weight: 600;
   margin: 0 0 16px;
 }
+.landing-demo-stem p {
+  margin: 0 0 10px;
+}
+.landing-demo-stem p:last-child {
+  margin-bottom: 0;
+  font-weight: 500;
+}
 .landing-demo-choices {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -190,6 +197,14 @@
 .landing-demo-feedback.incorrect {
   background: var(--red-wash);
   color: var(--red);
+}
+.landing-demo-feedback-label {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+.landing-demo-feedback-body {
+  margin: 0;
 }
 
 .landing-features {
