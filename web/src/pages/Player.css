@@ -253,6 +253,16 @@
   padding: 3px 8px;
   cursor: pointer;
 }
+.qhead-cbid {
+  /* Pushes right whether or not the ABC button also renders (SPR
+     questions, or review mode, both skip it) — a flex item's own
+     margin-left: auto only consumes space not already claimed by an
+     earlier one, so having both is safe either way. */
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  flex: none;
+}
 .qhead-abc.on {
   border-color: var(--navy);
   background: var(--navy-wash);

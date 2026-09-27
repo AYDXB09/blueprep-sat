@@ -673,6 +673,13 @@ async function getLatestAttemptStatusForUser(
 
 /** Count of questions matching the builder's current filter set. */
 export async function countMatchingQuestions(filters: QuestionFilters): Promise<number> {
+  // Same rule as skills below, one level up: an explicitly-empty (but
+  // non-null) domains array means every domain chip for this subject was
+  // deliberately deselected — zero matches, not "no domain filter at all"
+  // (buildFilters used to pass `null` here for this exact case, which meant
+  // "match every domain in the subject" — the opposite of what deselecting
+  // every chip visibly communicates to the student).
+  if (filters.domains && filters.domains.length === 0) return 0;
   // An explicitly-empty (but non-null) skills array means "every sub-topic
   // for the selected domain(s) was deliberately deselected" — that's zero
   // matches by definition, not "no skill filter" (which is what a bare
@@ -750,8 +757,9 @@ type PoolRow = { id: string; domain: string; difficulty: string | null };
  * so a mistake in a huge pool doesn't wait forever.
  */
 export async function selectQuestionIds(filters: QuestionFilters, count: number): Promise<string[]> {
-  // Same "explicit empty skills array = zero matches, not no-filter" rule
-  // as countMatchingQuestions above.
+  // Same "explicit empty domains/skills array = zero matches, not no-filter"
+  // rule as countMatchingQuestions above.
+  if (filters.domains && filters.domains.length === 0) return [];
   if (filters.skills && filters.skills.length === 0) return [];
   let query = supabase.from('questions').select('id, domain, skill, difficulty');
   if (filters.subject) query = query.eq('subject', filters.subject);

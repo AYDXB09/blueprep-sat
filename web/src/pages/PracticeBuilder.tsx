@@ -434,7 +434,15 @@ export function PracticeBuilder() {
     (subj: 'math' | 'rw'): QuestionFilters => {
       const chips = subj === 'math' ? mathChips : rwChips;
       const chipToDomain = subj === 'math' ? MATH_CHIP_TO_DOMAIN : RW_CHIP_TO_DOMAIN;
-      const domains = chips.size > 0 ? Array.from(chips).map((c) => chipToDomain[c]).filter(Boolean) : null;
+      // buildFilters is only ever called for a subject actually included in
+      // the session (see startSession's currentSubj check), so an empty chip
+      // set here always means "every domain chip for this subject was
+      // deliberately deselected" — an explicit empty array (zero matches,
+      // per selectQuestionIds/countMatchingQuestions), never `null` ("no
+      // domain filter at all", i.e. every domain). `null` previously meant
+      // both of those at once, which is exactly the bug: deselecting every
+      // Math domain still silently pulled questions from every Math domain.
+      const domains = Array.from(chips).map((c) => chipToDomain[c]).filter(Boolean);
       const skills = subj === 'math' ? mathSkills : rwSkills;
       // null = "no skill filter at all" (nothing selected in this subject,
       // e.g. no domain chosen yet). Once at least one domain IS selected,

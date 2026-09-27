@@ -2118,6 +2118,14 @@ export function Player() {
                     <span className="abc-strike">ABC</span>
                   </button>
                 )}
+                {question.source_external_id && (
+                  <span
+                    className="qhead-cbid mono"
+                    title="The source's own question ID — useful for finding a walkthrough elsewhere (e.g. YouTube) for this exact question."
+                  >
+                    {question.source_external_id}
+                  </span>
+                )}
               </div>
 
               {question.response_type === 'spr' ? (
