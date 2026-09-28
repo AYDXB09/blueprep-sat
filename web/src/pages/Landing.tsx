@@ -19,6 +19,10 @@ const DEMO_STEM_HTML = `
 `;
 
 const MARK = (s: string) => `<mark class="landing-trap-mark">${s}</mark>`;
+// Marks are only meaningful once the trap's been explained -- stripped out of
+// the choice buttons themselves until an answer is picked, so trying the
+// question isn't spoiled by the punctuation differences being pre-highlighted.
+const stripMarks = (html: string) => html.replace(/<\/?mark[^>]*>/g, '');
 
 const DEMO_CHOICES = [
   {
@@ -135,7 +139,7 @@ export function Landing() {
                 disabled={revealed}
               >
                 <span className="landing-demo-letter">{c.label}</span>
-                <span dangerouslySetInnerHTML={{ __html: c.html }} />
+                <span dangerouslySetInnerHTML={{ __html: revealed ? c.html : stripMarks(c.html) }} />
                 {isPicked && !c.correct && <span className="landing-demo-your-pick">Your pick</span>}
               </button>
             );
