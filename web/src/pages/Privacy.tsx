@@ -47,7 +47,9 @@ export function Privacy() {
       </p>
       <p>
         <b>Contact messages.</b> If you use the in-app Contact support form, we store the email,
-        subject, and message you submit, along with your account ID.
+        subject, and message you submit, along with your account ID. The public{' '}
+        <Link to="/support">Support</Link> page works the same way for people without an account
+        yet (or who can't sign in) — same storage, same notification, just no account ID attached.
       </p>
       <p>
         <b>What we do <i>not</i> collect:</b> We do not use third-party analytics or advertising

@@ -24,7 +24,9 @@ read or logged by BluePrep's servers in the process. If you don't connect a key,
 applies to you.
 
 **Contact messages.** If you use the in-app Contact support form, we store the email, subject, and
-message you submit, along with your account ID.
+message you submit, along with your account ID. The public [Support](https://blueprep-sat.vercel.app/support)
+page works the same way for people without an account yet (or who can't sign in) — same storage,
+same notification, just no account ID attached.
 
 **What we do *not* collect:** We do not use third-party analytics or advertising trackers of any
 kind. We do not place tracking cookies. The only thing stored in your browser is your Supabase

@@ -64,23 +64,27 @@ const FEATURES = [
     icon: '🎯',
     title: 'Trap-and-cue coaching',
     body: 'Explanations name the specific trap each wrong choice sets, not just that it’s incorrect.',
+    color: 'red',
   },
   {
     icon: '💬',
     title: 'Ask AI, mid-question',
     body: 'A live chat tutor grounded in the actual question and passage in front of you.',
+    color: 'navy',
   },
   {
     icon: '🔁',
     title: 'Mistakes resurface',
     body: 'A persistent Mistake Log brings missed questions back until they actually stick.',
+    color: 'math',
   },
   {
     icon: '📡',
     title: 'Skill map across devices',
     body: 'Progress is tied to your account, not a browser tab — pick up on any device.',
+    color: 'rw',
   },
-];
+] as const;
 
 export function Landing() {
   const [picked, setPicked] = useState<string | null>(null);
@@ -99,9 +103,9 @@ export function Landing() {
 
       <section className="landing-hero">
         <div className="landing-badges">
-          <span className="landing-badge accent">3,252 real College Board questions</span>
-          <span className="landing-badge">Math + Reading &amp; Writing</span>
-          <span className="landing-badge">Free</span>
+          <span className="landing-badge accent">3,311 real College Board questions</span>
+          <span className="landing-badge subjects">Math + Reading &amp; Writing</span>
+          <span className="landing-badge free">Free</span>
         </div>
         <h1>Practice the real SAT question bank. Learn from every trap.</h1>
         <p className="landing-subhead">
@@ -177,7 +181,7 @@ export function Landing() {
 
       <section className="landing-features">
         {FEATURES.map((f) => (
-          <div key={f.title} className="landing-feature-card">
+          <div key={f.title} className={`landing-feature-card feature-${f.color}`}>
             <span className="landing-feature-icon" aria-hidden="true">
               {f.icon}
             </span>
@@ -189,20 +193,22 @@ export function Landing() {
 
       <section className="landing-stats">
         <div>
-          <p className="landing-stat-num">1,414</p>
+          <p className="landing-stat-num stat-math">1,463</p>
           <p className="landing-stat-label">Math questions</p>
         </div>
         <div>
-          <p className="landing-stat-num">1,838</p>
+          <p className="landing-stat-num stat-rw">1,848</p>
           <p className="landing-stat-label">R&amp;W questions</p>
         </div>
         <div>
-          <p className="landing-stat-num">100%</p>
+          <p className="landing-stat-num stat-navy">100%</p>
           <p className="landing-stat-label">College Board question bank</p>
         </div>
       </section>
 
       <footer className="landing-footer">
+        <Link to="/support">Support</Link>
+        <span>·</span>
         <Link to="/terms">Terms of Service</Link>
         <span>·</span>
         <Link to="/privacy">Privacy Policy</Link>

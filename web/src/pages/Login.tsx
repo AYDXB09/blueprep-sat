@@ -153,6 +153,10 @@ export function Login() {
       </p>
 
       <p style={{ fontSize: 11, color: 'var(--ink-dim)', marginTop: 32, textAlign: 'center' }}>
+        <Link to="/support" style={{ color: 'var(--ink-dim)' }}>
+          Support
+        </Link>
+        {' · '}
         <Link to="/terms" style={{ color: 'var(--ink-dim)' }}>
           Terms of Service
         </Link>

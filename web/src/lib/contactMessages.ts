@@ -27,6 +27,20 @@ export async function submitContactMessage(
   if (error) throw error;
 }
 
+/** Same table and email-notification trigger as submitContactMessage, but for
+ *  the public /support page — no account needed. `user_id` stays null (see
+ *  the `contact_messages_insert_anonymous` RLS policy); there's no history
+ *  view for these since there's no account to scope a SELECT to. */
+export async function submitPublicSupportMessage(email: string, subject: string, message: string): Promise<void> {
+  const { error } = await supabase.from('contact_messages').insert({
+    user_id: null,
+    email: email.trim(),
+    subject: subject.trim(),
+    message: message.trim(),
+  });
+  if (error) throw error;
+}
+
 /** This user's own report history, newest first — so submitting feels real, not a black hole. */
 export async function getMyContactMessages(userId: string): Promise<ContactMessageRow[]> {
   const { data, error } = await supabase
