@@ -18,29 +18,40 @@ const DEMO_STEM_HTML = `
 <p>Which choice completes the text so that it conforms to the conventions of Standard English?</p>
 `;
 
+const MARK = (s: string) => `<mark class="landing-trap-mark">${s}</mark>`;
+
 const DEMO_CHOICES = [
   {
     label: 'A',
-    html: 'dislodge in part due to its sheer size,',
+    html: `dislodge in part due to its sheer size${MARK(',')}`,
     correct: false,
-    cue: 'This fails to mark the boundary between the main clause and the supplementary element, and creates a comma splice with the final clause.',
+    tempting: 'It reads as one smooth, flowing sentence — nothing about it jars the eye on a fast read.',
+    issue:
+      'There’s no punctuation marking where the aside ends and the next full sentence begins, so "size" runs straight into "it’s as heavy as…" as a comma splice.',
   },
   {
     label: 'B',
-    html: 'dislodge, in part due to its sheer size:',
+    html: `dislodge${MARK(',')} in part due to its sheer size${MARK(':')}`,
     correct: true,
+    right:
+      'The colon cleanly introduces the reason the ship took six days to dislodge — a supplement, not a second full sentence — so nothing splices or runs on.',
   },
   {
     label: 'C',
-    html: 'dislodge, in part due to its sheer size,',
+    html: `dislodge${MARK(',')} in part due to its sheer size${MARK(',')}`,
     correct: false,
-    cue: 'A comma cannot join the two main clauses here; this creates a comma splice.',
+    tempting:
+      'The commas around "in part due to its sheer size" look like a textbook parenthetical aside — confident, grammatically dressed-up punctuation.',
+    issue:
+      'A comma alone still can’t join two independent clauses. What follows ("it’s as heavy as…") is a full sentence on its own, so this is a comma splice too.',
   },
   {
     label: 'D',
-    html: 'dislodge, in part, due to its sheer size',
+    html: `dislodge${MARK(',')} in part${MARK(',')} due to its sheer size`,
     correct: false,
-    cue: 'The two main clauses are fused with no punctuation or conjunction, creating a run-on sentence.',
+    tempting: 'Boxing "in part" in commas looks like careful, deliberate punctuation — the kind a careful writer reaches for.',
+    issue:
+      'It leaves nothing at all — no comma, semicolon, or conjunction — before "it’s as heavy as…", so the two independent clauses fuse into a run-on.',
   },
 ] as const;
 
@@ -69,7 +80,7 @@ const FEATURES = [
 
 export function Landing() {
   const [picked, setPicked] = useState<string | null>(null);
-  const pickedChoice = DEMO_CHOICES.find((c) => c.label === picked);
+  const revealed = picked !== null;
 
   return (
     <div className="landing">
@@ -114,37 +125,48 @@ export function Landing() {
         <div className="landing-demo-choices">
           {DEMO_CHOICES.map((c) => {
             const isPicked = picked === c.label;
-            const showState = picked !== null;
-            const state = !showState ? '' : c.correct ? 'correct' : isPicked ? 'incorrect' : '';
+            const state = !revealed ? '' : c.correct ? 'correct' : isPicked ? 'incorrect' : 'faded';
             return (
               <button
                 key={c.label}
                 type="button"
                 className={`landing-demo-choice ${state}`}
                 onClick={() => setPicked(c.label)}
-                disabled={picked !== null}
+                disabled={revealed}
               >
                 <span className="landing-demo-letter">{c.label}</span>
                 <span dangerouslySetInnerHTML={{ __html: c.html }} />
+                {isPicked && !c.correct && <span className="landing-demo-your-pick">Your pick</span>}
               </button>
             );
           })}
         </div>
-        {pickedChoice && (
-          <div className={`landing-demo-feedback ${pickedChoice.correct ? 'correct' : 'incorrect'}`}>
-            {pickedChoice.correct ? (
-              <p className="landing-demo-feedback-body">
-                Correct — the colon cleanly introduces the explanation of why the ship took six days to
-                dislodge, without creating a comma splice or run-on.
-              </p>
-            ) : (
-              <>
-                <p className="landing-demo-feedback-label">
-                  <span aria-hidden="true">🎯</span> Trap-and-cue coaching, in action
-                </p>
-                <p className="landing-demo-feedback-body">{pickedChoice.cue}</p>
-              </>
-            )}
+        {revealed && (
+          <div className="landing-demo-breakdown">
+            <p className="landing-demo-feedback-label">
+              <span aria-hidden="true">🎯</span> Trap-and-cue coaching, in action — why every wrong choice is
+              tempting
+            </p>
+            {DEMO_CHOICES.map((c) => (
+              <div key={c.label} className={`landing-demo-breakdown-row ${c.correct ? 'correct' : 'incorrect'}`}>
+                <span className="landing-demo-letter">{c.label}</span>
+                <div>
+                  <p className="landing-demo-breakdown-choice" dangerouslySetInnerHTML={{ __html: c.html }} />
+                  {c.correct ? (
+                    <p className="landing-demo-breakdown-body">{c.right}</p>
+                  ) : (
+                    <>
+                      <p className="landing-demo-breakdown-body">
+                        <b>Why it's tempting:</b> {c.tempting}
+                      </p>
+                      <p className="landing-demo-breakdown-body">
+                        <b>Why it's wrong:</b> {c.issue}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

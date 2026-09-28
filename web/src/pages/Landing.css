@@ -169,6 +169,18 @@
   color: var(--red);
   font-weight: 700;
 }
+.landing-demo-choice.faded {
+  opacity: 0.55;
+}
+.landing-demo-your-pick {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--red);
+  flex: none;
+}
 .landing-demo-letter {
   width: 20px;
   height: 20px;
@@ -181,28 +193,60 @@
   font-weight: 700;
   flex: none;
 }
-.landing-demo-feedback {
-  margin: 16px 0 0;
-  font-size: 13.5px;
-  line-height: 1.6;
-  padding: 12px 14px;
-  border-radius: 8px;
+.landing-trap-mark {
+  background: color-mix(in srgb, var(--rw) 35%, transparent);
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 3px;
+  font-weight: 700;
 }
-.landing-demo-feedback.correct {
-  background: color-mix(in srgb, var(--green) 12%, transparent);
-  color: var(--green);
-}
-.landing-demo-feedback.incorrect {
-  background: var(--red-wash);
-  color: var(--red);
-}
+
 .landing-demo-feedback-label {
   margin: 0 0 4px;
   font-weight: 700;
   font-size: 12.5px;
 }
-.landing-demo-feedback-body {
-  margin: 0;
+.landing-demo-breakdown {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.landing-demo-breakdown-row {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.landing-demo-breakdown-row:first-of-type {
+  border-top: none;
+}
+.landing-demo-breakdown-row .landing-demo-letter {
+  margin-top: 2px;
+}
+.landing-demo-breakdown-row.correct .landing-demo-letter {
+  border-color: var(--green);
+  color: var(--green);
+}
+.landing-demo-breakdown-row.incorrect .landing-demo-letter {
+  border-color: var(--red);
+  color: var(--red);
+}
+.landing-demo-breakdown-choice {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.landing-demo-breakdown-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  margin: 0 0 4px;
+}
+.landing-demo-breakdown-body:last-child {
+  margin-bottom: 0;
+}
+.landing-demo-breakdown-body b {
+  color: var(--ink);
 }
 
 .landing-features {
