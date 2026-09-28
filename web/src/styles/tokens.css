@@ -113,3 +113,23 @@ body {
   color: var(--ink);
   font-family: -apple-system, 'Neue Haas Grotesk Text Pro', 'Helvetica Neue', Arial, sans-serif;
 }
+
+/* Standard visually-hidden-but-screen-reader-visible utility. College
+   Board's own question markup (stimulus_markup/stem_markup, ~41% of the
+   bank) uses class="sr-only" for chart long-descriptions and blank-fill
+   labels (e.g. "______" + a "blank" span for screen readers) -- without
+   this class defined anywhere, that content rendered as plain visible
+   text instead of being hidden, both duplicating chart data as an ugly
+   bullet list and appending the literal word "blank" after every
+   fill-in-the-blank underscore run. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
