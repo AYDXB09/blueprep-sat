@@ -1168,23 +1168,7 @@ mark.cue-assumption {
   margin: 0;
 }
 
-/* ---------- calculator ---------- */
-.calc-panel {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  width: 300px;
-  z-index: 45;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
-  display: none;
-  overflow: hidden;
-}
-.calc-panel.open {
-  display: block;
-}
+/* ---------- reference-sheet header (the Desmos window lives in components/DesmosCalculator.css) ---------- */
 .calc-head {
   display: flex;
   align-items: center;
@@ -1199,24 +1183,6 @@ mark.cue-assumption {
   cursor: pointer;
   color: var(--ink-dim);
   font-size: 15px;
-}
-.calc-body {
-  padding: 20px 16px;
-  text-align: center;
-}
-.calc-body .cicon {
-  font-size: 26px;
-  margin-bottom: 6px;
-}
-.calc-body p {
-  font-size: 12px;
-  color: var(--ink-dim);
-  line-height: 1.5;
-  margin: 0 0 14px;
-}
-.calc-body a.btn {
-  display: inline-block;
-  text-decoration: none;
 }
 
 /* ---------- question navigator — Bluebook-style, anchored to the bottombar

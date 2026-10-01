@@ -33,6 +33,7 @@ import { getNote, saveNote } from '../lib/questionNotes';
 import { getSessionOrigin } from '../lib/sessionOrigin';
 import { getAiSettings, type AiSettings } from '../lib/aiSettings';
 import { AskAiPanel } from '../components/AskAiPanel';
+import { DesmosCalculator } from '../components/DesmosCalculator';
 import { AnchoredPortal } from '../components/AnchoredPortal';
 import type { Database } from '../lib/database.types';
 
@@ -898,6 +899,10 @@ export function Player() {
 
   // ---------------- calculator / reference sheet ----------------
   const [calcOpen, setCalcOpen] = useState(false);
+  // The embed mounts on first open and stays mounted (hidden when closed or on
+  // a non-Math question) so graphs survive Next/Back.
+  const [calcMounted, setCalcMounted] = useState(false);
+  const [calcDocked, setCalcDocked] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
 
   // ---------------- choices / strikethrough / highlights / mark for review ----------------
@@ -1824,7 +1829,7 @@ export function Player() {
   }
 
   return (
-    <div className="player-root">
+    <div className={`player-root${isMath && calcOpen && calcDocked ? ' calc-docked' : ''}`}>
       {/* Bluebook-style header: section title left, timers centre, tools right.
           No progress bar / Directions / More / Highlights-and-Notes toggle. */}
       <div className="topbar">
@@ -1877,7 +1882,10 @@ export function Player() {
             </button>
           )}
           {isMath && (
-            <button className="iconbtn wide ghost-on-navy" title="Desmos calculator" aria-label="Open Desmos" onClick={() => setCalcOpen((o) => !o)}>
+            <button className="iconbtn wide ghost-on-navy" title="Desmos calculator" aria-label="Open Desmos" onClick={() => {
+                setCalcMounted(true);
+                setCalcOpen((o) => !o);
+              }}>
               Calculator
             </button>
           )}
@@ -1897,25 +1905,13 @@ export function Player() {
         </div>
       </div>
 
-      {isMath && (
-        <div className={`calc-panel${calcOpen ? ' open' : ''}`}>
-          <div className="calc-head">
-            <span>Desmos</span>
-            <span className="x" onClick={() => setCalcOpen(false)}>
-              ✕
-            </span>
-          </div>
-          <div className="calc-body">
-            <div className="cicon">📐</div>
-            <p>
-              An embedded Desmos calculator renders here in the real app — this preview&apos;s sandbox blocks loading a
-              third-party embed directly, so it opens in a new tab instead.
-            </p>
-            <a className="btn primary" href="https://www.desmos.com/calculator" target="_blank" rel="noopener noreferrer">
-              Open Desmos ↗
-            </a>
-          </div>
-        </div>
+      {calcMounted && (
+        <DesmosCalculator
+          visible={isMath && calcOpen}
+          docked={calcDocked}
+          onClose={() => setCalcOpen(false)}
+          onToggleDock={() => setCalcDocked((d) => !d)}
+        />
       )}
 
       {isMath && (
